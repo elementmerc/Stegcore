@@ -8,5 +8,5 @@ The software has two functions:
 1. Embed: To hide the text data in the image
 2. Extract: To extract the text data from the image
 
-Stegcore is the first steganography software in the world to implement Ascon in the world of Steganography
+Stegcore is the first steganography software in the world to implement Ascon in the world of Steganography.
 Enjoy 🙃
