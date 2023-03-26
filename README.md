@@ -3,7 +3,6 @@ Supported formats are .png and .jpg.
 
 How to use:
 Download all files to the same directory and run the main.py file.
-Alternatively, download the executable and run
 
 The software has two functions:
 1. Embed: To hide the text data in the image
