@@ -7,9 +7,12 @@ from tkinter import filedialog
 import tkinter.messagebox as tkMessageBox
 from pathlib import Path
 from stego_lsb import LSBSteg
-from ascon.ascon import ascon_encrypt, get_random_bytes, ascon_decrypt
+from ascon._ascon import ascon_encrypt, get_random_bytes, ascon_decrypt
 import customtkinter as customtk
 from os import remove
+
+#Considering compressing byte strings during processign
+from zlib import compress
 
 #The encryption module
 def embed_text_in_image(text, image, info_type):
@@ -107,12 +110,6 @@ def extract_text_in_image(image, authentication):
     
     #Instant decoding
     try:
-        output_text_file = filedialog.asksaveasfilename(title="Save the decoded text as", defaultextension=info_type.decode("utf-8"))
-    except:
-        tkMessageBox.showerror('Operation cancelled by user')
-        return False
-
-    try:
         temp_file = './temp.txt'
         parse_text_as_string = LSBSteg.recover_data(image, temp_file, 3)
         image_check = True
@@ -130,9 +127,15 @@ def extract_text_in_image(image, authentication):
             password_check = True
         except:
             tkMessageBox.showerror(message="Invalid Password")
+            password_check = False
 
     #Saving the decoded text
     if password_check == True:
+        try:
+            output_text_file = filedialog.asksaveasfilename(title="Save the decoded text as", defaultextension=info_type.decode("utf-8"))
+        except:
+            tkMessageBox.showerror('Operation cancelled by user')
+
         try:
             Path(output_text_file).write_text(unencrypted_text)
             remove(temp_file)
@@ -155,11 +158,17 @@ def encoding():
         text_file_check = True
 
     if text_file_check == True:
+        image_size = Path(image_file).stat().st_size
+        text_size = Path(text_file).stat().st_size
+        advisable_size = text_size * 3
+
         image_file = filedialog.askopenfilename(title = "Select an image", filetypes=[("Image files", ["*.png", "*.jpg", ".jpeg"])])
         if image_file == '':
             tkMessageBox.showerror(message='No image selected')
         elif Path(image_file).suffix not in [".png", ".jpg", ".jpeg"]:
             tkMessageBox.showerror(message="Invalid image format")
+        elif image_size < advisable_size:
+            tkMessageBox.showerror(message='Image too small')
         else:
             embed_text_in_image(text_file, image_file, info_file_type)
     
