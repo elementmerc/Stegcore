@@ -7,7 +7,7 @@ from tkinter import filedialog
 import tkinter.messagebox as tkMessageBox
 from pathlib import Path
 from stego_lsb import LSBSteg
-from ascon.ascon import ascon_encrypt, get_random_bytes, ascon_decrypt
+from ascon._ascon import ascon_encrypt, get_random_bytes, ascon_decrypt
 import customtkinter as customtk
 from os import remove
 
