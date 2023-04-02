@@ -60,8 +60,7 @@ def embed_text_in_image(text, image, info_type):
 
     #Using stegano to hide the text, and write the unlock codes
     try:
-        processed = LSBSteg.hide_data(image, temp, output_image, 3, 9)
-        remove(temp)
+        processed = LSBSteg.hide_data(image, temp, output_image, 3, 7)
         processing_save = True
     except:
         tkMessageBox.showerror(message="Image is too small. Please select a larger image")
@@ -88,8 +87,8 @@ def extract_text_in_image(image, authentication):
     '''
     Breakdown of the function
     1. Take in the image and authentication file
-    2. Convert the authentication to a text file
-    3. Break down the file to key and  nonce
+    2. Convert the authentication to a text file (decode as you go)
+    3. Break down the file to key and nonce
     4. Extract info from image
     5. Decrypt using the authentication information
     6. Save the file
@@ -107,18 +106,13 @@ def extract_text_in_image(image, authentication):
     
     #Instant decoding
     try:
-        output_text_file = filedialog.asksaveasfilename(title="Save the decoded text as", defaultextension=info_type.decode("utf-8"))
-    except:
-        tkMessageBox.showerror('Operation cancelled by user')
-        return False
-
-    try:
         temp_file = './temp.txt'
-        parse_text_as_string = LSBSteg.recover_data(image, temp_file, 3)
+        LSBSteg.recover_data(image, temp_file, 3)
         image_check = True
     except IndexError:
         image_check = False
         tkMessageBox.showerror(message="No information detected in the image")
+        remove(temp_file)
     
     if image_check == True:
         try:
@@ -130,9 +124,19 @@ def extract_text_in_image(image, authentication):
             password_check = True
         except:
             tkMessageBox.showerror(message="Invalid Password")
+            remove(temp_file)
+    
+    if password_check == True:
+        try:
+            output_text_file = filedialog.asksaveasfilename(title="Save the decoded text as", defaultextension=info_type.decode("utf-8"))
+            save_check = True
+        except:
+            tkMessageBox.showerror('Operation cancelled by user')
+            save_check = False
+            remove(temp_file)
 
     #Saving the decoded text
-    if password_check == True:
+    if save_check == True:
         try:
             Path(output_text_file).write_text(unencrypted_text)
             remove(temp_file)
