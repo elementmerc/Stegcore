@@ -15,7 +15,7 @@ class StegGUI(customtk.CTk):
         super().__init__()
 
         self.title("Stegcore")
-        self.iconbitmap(r"./Stegcore/Stag.ico")
+        self.iconbitmap(r"./Stag.ico")
         frame = customtk.CTkFrame(self)
         frame.pack(pady=20, padx=20, fill='both', expand=True)
 
