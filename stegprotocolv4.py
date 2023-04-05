@@ -60,7 +60,7 @@ def embed_text_in_image(text, image, info_type):
 
     #Using stegano to hide the text, and write the unlock codes
     try:
-        processed = LSBSteg.hide_data(image, temp, output_image, 3, 7)
+        processed = LSBSteg.hide_data(image, temp, output_image, 3, 9)
         processing_save = True
     except:
         tkMessageBox.showerror(message="Image is too small. Please select a larger image")
