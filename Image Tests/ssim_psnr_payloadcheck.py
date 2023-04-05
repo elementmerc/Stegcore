@@ -1,4 +1,18 @@
-#Importing necessary libraries
+#File: ssim_psnr_payloadcheck.py
+#Author: Mercury
+#Description: A script to check the SSIM, PSNR and payload capacity of images
+
+'''
+Terms
+SSIM - Structure Similarity Index measure
+#######
+
+PSNR - Peak-to-Signal...
+########
+Payload Capacity
+#########
+'''
+
 #Importing the necessary libraries
 from SSIM_PIL import compare_ssim
 from PIL import Image
@@ -8,8 +22,8 @@ from stego_lsb import LSBSteg
 
 def main():
     #What to edit
-    original_image = "./Test files/test_image_2.jpg"
-    new_image = "./Test files/output_2.png"
+    original_image = "./Test files/test_image_4.jpg"
+    new_image = "./Test files/output_4.png"
     text_file_path = "./Test files/Large_text.txt"
     lsb = 3
 
