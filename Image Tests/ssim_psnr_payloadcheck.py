@@ -9,6 +9,7 @@ SSIM - Structure Similarity Index measure
 
 PSNR - Peak-to-Signal...
 ########
+
 Payload Capacity
 #########
 '''
@@ -21,11 +22,11 @@ import cv2
 from stego_lsb import LSBSteg
 
 def main():
-    #What to edit
-    original_image = "./Test files/test_image_4.jpg"
-    new_image = "./Test files/output_4.png"
-    text_file_path = "./Test files/Large_text.txt"
-    lsb = 3
+    #What to edit (Still working on it)
+    original_image = ""
+    new_image = ""
+    text_file_path = ""
+    lsb = None
 
     #For SSIM
     #Prepping the images (Insert the image paths)
