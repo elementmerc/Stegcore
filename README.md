@@ -31,7 +31,10 @@ There are
 1. Embed: To hide the text data in the image
 2. Extract: To extract the text data from the image
 
-## Other tools:
+## Other tools
+In the 'Image tests' folder, there is a script that can be used to check the
+SSIM, PSNR and payload capacity of images.
+
 SSIM - Structure Similarity Index measure
 The SSIM index compares the structural information of an original image and a
 modified image, such as an image with steganographic content. It measures the 
