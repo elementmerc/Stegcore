@@ -1,3 +1,5 @@
+<img width="509" alt="image" src="https://user-images.githubusercontent.com/121883945/230636687-20e27227-23be-4a5e-9905-2122f49d1dd7.png">
+
 **Stegcore** is a steganography software that uses Ascon128 and the 3-lsb to hide
 text data behind images.
 
