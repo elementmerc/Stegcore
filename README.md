@@ -17,7 +17,7 @@ In contrast to conventional steganography software, Stegcore uses the the Ascon
 lightweight cryptography algorithm and LSB technique to hide data. The image
 below explains the process.
 
-(Paste image)
+![Proposed Model](https://user-images.githubusercontent.com/121883945/230630515-d4cab07b-2983-4418-a7d0-2ac5b00b19e4.png)
 
 Supported image formats are (*.png) and (*.jpg).
 
