@@ -65,8 +65,8 @@ def main():
     print("Image tests tool")
     while True:
         option_selection()
-        option = eval(input('Selection (1, 2 or 3): '))
-        if option == 1:
+        option = input('Selection (1, 2 or 3): ')
+        if option == '1':
             original_image = filedialog.askopenfilename(
                 title='Select the original image',
                 filetypes=[("Image files", ["*.png", "*.jpg"])])
@@ -74,7 +74,7 @@ def main():
                 title='Select the modified image',
                 filetypes=[("Image files", ["*.png", "*.jpg"])])
             ssim(original_image, new_image)
-        elif option == 2:
+        elif option == '2':
             original_image = filedialog.askopenfilename(
                 title='Select the original image',
                 filetypes=[("Image files", ["*.png", "*.jpg"])])
@@ -82,7 +82,7 @@ def main():
                 title='Select the modified image',
                 filetypes=[("Image files", ["*.png", "*.jpg"])])
             psnr(original_image, new_image)
-        elif option == 3:
+        elif option == '3':
             image = filedialog.askopenfilename(
                 title='Select the Carrier Image',
                 filetypes=[("Image files", ["*.png", "*.jpg"])])
