@@ -10,7 +10,7 @@ text data behind images.
 4. Other tools
 
 ## What is Stegcore?
-Stegore is a crypto-stego application that carries out steganography using text
+Stegcore is a crypto-stego application that carries out steganography using text
 cryptography and the least significant bit method to secure text data such as IP
 addresses, source codes and other critical information.
 
