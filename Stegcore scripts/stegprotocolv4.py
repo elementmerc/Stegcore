@@ -88,6 +88,7 @@ def embed_text_in_image(text, image, info_type):
                 for every_key in keys_list:
                     unlock_info.write(every_key + delimiter)
                 unlock_info.close()
+            remove(temp)
             tkMessageBox.showinfo(message='Embedding complete')
         except:
             tkMessageBox.showerror(message='Unable to save key file')
