@@ -40,11 +40,12 @@ def embed_text_in_image(text, image, info_type):
         title="Passphrase")
 
     associated_data = (dialog.get_input()).encode("utf-8")
-    if  associated_data == '':
+    if  associated_data == b'':
         tkMessageBox.showerror(message='Passphrase required')
         exit()
     
     #Encrypting the text
+    temp = './temp.bin'
     try:
         ciphertext = ascon_encrypt(
             key, 
@@ -52,7 +53,6 @@ def embed_text_in_image(text, image, info_type):
             associated_data, 
             plaintext, 
             variant)
-        temp = './temp.bin'
         Path(temp).write_bytes(ciphertext)
     except:
         tkMessageBox.showerror(message="Unable to encrypt text")
@@ -68,13 +68,13 @@ def embed_text_in_image(text, image, info_type):
         remove(temp)
 
     #Using stegano to hide the text, and write the unlock codes
+    processing_save = False
     try:
         processed = LSBSteg.hide_data(image, temp, output_image, 3, 9)
         processing_save = True
     except:
         tkMessageBox.showerror(
             message="Image is too small. Please select a larger image")
-        processing_save = False
 
     #Writing the keys to the kingdom
     if processing_save == True:
@@ -87,7 +87,6 @@ def embed_text_in_image(text, image, info_type):
             with open(key_file, 'wb') as unlock_info:
                 for every_key in keys_list:
                     unlock_info.write(every_key + delimiter)
-                unlock_info.close()
             remove(temp)
             tkMessageBox.showinfo(message='Embedding complete')
         except:
@@ -110,23 +109,25 @@ def extract_text_in_image(image, authentication):
     delimiter = b'ElementMerc'
     with open(authentication, "rb") as reader:
         data = reader.read()
-        data_list = data.split(delimiter)
-    reader.close
+    data_list = data.split(delimiter)
     key = data_list[0]
     nonce = data_list[1]
     info_type = data_list[2]
     variant = "Ascon-128"
     
     #Instant decoding
+    image_check = False
+    temp_file = './temp.txt'
     try:
-        temp_file = './temp.txt'
         LSBSteg.recover_data(image, temp_file, 3)
         image_check = True
     except IndexError:
-        image_check = False
         tkMessageBox.showerror(message="No information detected in the image")
-        remove(temp_file)
     
+    # Initialising these here to avoid UnboundLocalError if an earlier check fails
+    password_check = False
+    save_check = False
+
     if image_check == True:
         try:
             temp = Path(temp_file).read_bytes()
@@ -140,7 +141,8 @@ def extract_text_in_image(image, authentication):
             password_check = True
         except:
             tkMessageBox.showerror(message="Invalid Password")
-            remove(temp_file)
+            if Path(temp_file).exists():
+                remove(temp_file)
     
     if password_check == True:
         try:
@@ -149,9 +151,9 @@ def extract_text_in_image(image, authentication):
                 defaultextension=info_type.decode("utf-8"))
             save_check = True
         except:
-            tkMessageBox.showerror('Operation cancelled by user')
-            save_check = False
-            remove(temp_file)
+            tkMessageBox.showerror(message='Operation cancelled by user')
+            if Path(temp_file).exists():
+                remove(temp_file)
 
     #Saving the decoded text
     if save_check == True:

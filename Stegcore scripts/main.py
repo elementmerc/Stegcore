@@ -5,6 +5,12 @@
 #Importing necessary libraries
 import stegprotocolv4 as Sv4
 import customtkinter as customtk
+from PIL import Image, ImageTk
+from pathlib import Path
+
+# Base directory of this script— to ensure assets resolve correctly
+# regardless of where Python is invoked from
+BASE_DIR = Path(__file__).parent
 
 #Setting the theme
 customtk.set_appearance_mode("System")
@@ -15,7 +21,13 @@ class StegGUI(customtk.CTk):
         super().__init__()
 
         self.title("Stegcore")
-        self.iconbitmap(r"Stag.ico") #Change to absolute path when converting to exe
+
+        # iconbitmap() only works on Windows with .ico files.
+        # iconphoto() + Pillow works cross-platform and accepts .ico directly.
+        icon_image = Image.open(BASE_DIR / "Stag.ico")
+        self._icon = ImageTk.PhotoImage(icon_image)  # Keep reference to avoid GC
+        self.iconphoto(True, self._icon)
+
         frame = customtk.CTkFrame(self)
         frame.pack(pady=20, padx=20, fill='both', expand=True)
 
@@ -35,14 +47,10 @@ class StegGUI(customtk.CTk):
 
 
     def encoding_event(self):
-        while Sv4.encoding():
-            if Sv4.encoding() == False:
-                break
+        Sv4.encoding()
     
     def decoding_event(self):
-        while Sv4.decoding():
-            if Sv4.decoding() == False:
-                break
+        Sv4.decoding()
 
 if __name__ == "__main__":
     app = StegGUI()
