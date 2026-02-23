@@ -1,5 +1,10 @@
+# Copyright (C) 2026 Daniel Iwugo
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published
+# by the Free Software Foundation, either version 3 of the License.
+# See <https://www.gnu.org/licenses/> for details.
+
 #File: Stegprotocolv4.py
-#Author: Mercury
 #Description: A program to perform steganography and ascon encryption on information
 
 #Importing libraries
