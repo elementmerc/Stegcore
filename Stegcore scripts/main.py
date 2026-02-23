@@ -7,10 +7,11 @@ import stegprotocolv4 as Sv4
 import customtkinter as customtk
 from PIL import Image, ImageTk
 from pathlib import Path
+import sys
 
 # Base directory of this script— to ensure assets resolve correctly
 # regardless of where Python is invoked from
-BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(getattr(sys, '_MEIPASS', Path(__file__).parent))
 
 #Setting the theme
 customtk.set_appearance_mode("System")
