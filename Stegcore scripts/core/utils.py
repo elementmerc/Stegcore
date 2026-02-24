@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Mercury
+# Copyright (C) 2026 Daniel Iwugo
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published
 # by the Free Software Foundation, either version 3 of the License.
@@ -70,3 +70,8 @@ def show_error(message: str) -> None:
 def show_info(message: str) -> None:
     """Display a modal info dialog."""
     tkMessageBox.showinfo(title="Stegcore", message=message)
+
+
+def ask_confirm(message: str) -> bool:
+    """Display a yes/no confirmation dialog. Returns True if user clicked Yes."""
+    return tkMessageBox.askyesno(title="Stegcore", message=message)

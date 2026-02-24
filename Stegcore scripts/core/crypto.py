@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Mercury
+# Copyright (C) 2026 Daniel Iwugo
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published
 # by the Free Software Foundation, either version 3 of the License.
@@ -132,15 +132,15 @@ def decrypt(payload: dict, passphrase: str) -> bytes:
     try:
         compressed = _decrypt_with(cipher, key, nonce, ciphertext)
     except Exception as exc:
-        raise ValueError("Decryption failed — invalid passphrase or corrupted data.") from exc
+        raise ValueError("Decryption failed. Invalid passphrase or corrupted data.") from exc
 
     if compressed is None:
-        raise ValueError("Decryption failed — invalid passphrase or corrupted data.")
+        raise ValueError("Decryption failed. Invalid passphrase or corrupted data.")
 
     try:
         plaintext = pyzstd.decompress(compressed)
     except Exception as exc:
-        raise ValueError(f"Decompression failed — data may be corrupted: {exc}") from exc
+        raise ValueError(f"Decompression failed. Data may be corrupted: {exc}") from exc
 
     return plaintext
 
@@ -198,7 +198,7 @@ def read_key_file(path) -> dict:
     missing  = required - raw.keys()
     if missing:
         raise ValueError(
-            f"Key file is malformed — missing fields: {missing}.\n"
+            f"Key file is malformed. Missing fields: {missing}.\n"
             "This may be a v1 key file. v2 key files are not backwards compatible."
         )
 
