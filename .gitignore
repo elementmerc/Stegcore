@@ -3,3 +3,5 @@
 /build/
 /dist/
 main.spec
+/Image Tests/experiments/
+*__pycache__*
