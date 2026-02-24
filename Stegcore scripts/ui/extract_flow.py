@@ -27,16 +27,21 @@ def run() -> None:
 
     # Step 1 — select stego image
     image_file = filedialog.askopenfilename(
-        title="Select the stego image",
-        filetypes=[("PNG image", "*.png")],
+        title="Select the stego file",
+        filetypes=[
+            ("All supported", "*.png *.jpg *.jpeg *.wav"),
+            ("PNG image",     "*.png"),
+            ("JPEG image",    "*.jpg *.jpeg"),
+            ("WAV audio",     "*.wav"),
+        ],
     )
     if not image_file:
-        utils.show_error("No image selected.")
+        utils.show_error("No stego file selected.")
         return
 
     image_path = Path(image_file)
-    if image_path.suffix.lower() != ".png":
-        utils.show_error("Invalid image format. Only .png stego images are supported.")
+    if image_path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".wav"}:
+        utils.show_error("Unsupported format. Please select a .png, .jpg, or .wav file.")
         return
 
     # Step 2 — select key file
