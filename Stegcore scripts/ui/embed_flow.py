@@ -40,8 +40,8 @@ class _CoverScoreDialog(customtk.CTkToplevel):
         self.title("Cover image analysis")
         self.resizable(False, False)
         self.withdraw()
-        self.deiconify()
         self.update_idletasks()
+        self.deiconify()
         self.grab_set()
 
         self.confirmed = False
@@ -172,9 +172,10 @@ class _EmbedOptionsDialog(customtk.CTkToplevel):
         super().__init__(parent)
         self.title("Embed options")
         self.resizable(False, False)
+        # After
         self.withdraw()
-        self.deiconify()
         self.update_idletasks()
+        self.deiconify()
         self.grab_set()
 
         self.cipher    = None
@@ -287,16 +288,21 @@ def run(parent=None) -> None:
 
     # Step 2 — select cover image
     image_file = filedialog.askopenfilename(
-        title="Select a cover image",
-        filetypes=[("Image files", "*.png *.jpg *.jpeg")],
+        title="Select a cover file",
+        filetypes=[
+            ("All supported", "*.png *.jpg *.jpeg *.bmp *.wav"),
+            ("PNG image",     "*.png"),
+            ("JPEG image",    "*.jpg *.jpeg"),
+            ("WAV audio",     "*.wav"),
+        ],
     )
     if not image_file:
-        utils.show_error("No image selected.")
+        utils.show_error("No cover file selected.")
         return
 
     image_path = Path(image_file)
-    if image_path.suffix.lower() not in {".png", ".jpg", ".jpeg"}:
-        utils.show_error("Invalid image format. Please select a .png or .jpg file.")
+    if image_path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".bmp", ".wav"}:
+        utils.show_error("Unsupported format. Please select a .png, .jpg, .bmp, or .wav file.")
         return
 
     # Step 3 — cover score
@@ -335,19 +341,27 @@ def run(parent=None) -> None:
     with utils.temp_file(".bin") as tmp:
         tmp.write_bytes(result["ciphertext"])
 
+        fmt            = image_path.suffix.lower()
+        out_ext        = ".wav" if fmt == ".wav" else ".png"
+        out_filetypes  = (
+            [("WAV audio", "*.wav")] if fmt == ".wav"
+            else [("PNG image", "*.png")]
+        )
         output_image = filedialog.asksaveasfilename(
-            title="Save stego image as",
-            defaultextension=".png",
-            filetypes=[("PNG image", "*.png")],
+            title="Save stego file as",
+            defaultextension=out_ext,
+            filetypes=out_filetypes,
         )
         if not output_image:
             utils.show_error("Operation cancelled — no output image path chosen.")
             return
 
-        steg_key = result["key"] if steg_mode == "adaptive" else None
+        # Adaptive/sequential mode only applies to PNG — JPEG uses DCT, WAV uses sample LSB
+        effective_mode = steg_mode if fmt in {".png", ".bmp"} else "sequential"
+        steg_key = result["key"] if effective_mode == "adaptive" else None
 
         try:
-            steg.embed(image_path, tmp, output_image, key=steg_key, mode=steg_mode)
+            steg.embed(image_path, tmp, output_image, key=steg_key, mode=effective_mode)
         except (ValueError, RuntimeError) as exc:
             utils.show_error(str(exc))
             return
@@ -368,7 +382,7 @@ def run(parent=None) -> None:
             salt=result["salt"],
             cipher=cipher,
             info_type=info_type,
-            steg_mode=steg_mode,
+            steg_mode=effective_mode,
         )
     except Exception as exc:
         utils.show_error(f"Could not save key file:\n{exc}")
