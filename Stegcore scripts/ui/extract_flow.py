@@ -61,10 +61,19 @@ def run() -> None:
         utils.show_error("A passphrase is required.")
         return
 
+    steg_mode = key_data.get("steg_mode", "sequential")
+
+    # Derive key for spread-spectrum index reconstruction (adaptive mode only)
+    steg_key = (
+        crypto.derive_key(passphrase, key_data["salt"], key_data["cipher"])
+        if steg_mode == "adaptive"
+        else None
+    )
+
     # Step 4 — extract and decrypt
     with utils.temp_file(".bin") as tmp:
         try:
-            steg.extract(image_path, tmp)
+            steg.extract(image_path, tmp, key=steg_key, mode=steg_mode)
         except (ValueError, RuntimeError) as exc:
             utils.show_error(str(exc))
             return

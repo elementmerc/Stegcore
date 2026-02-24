@@ -5,7 +5,8 @@
 # See <https://www.gnu.org/licenses/> for details.
 
 # File: ui/embed_flow.py
-# Description: Embed workflow — file selection, cipher choice, and orchestration.
+# Description: Embed workflow — file selection, cover scoring, cipher/mode
+#              choice, and orchestration.
 
 import tkinter as tk
 from pathlib import Path
@@ -17,65 +18,240 @@ from core import crypto, steg, utils
 
 
 # ---------------------------------------------------------------------------
-# Cipher selection dialog
+# Cover score dialog
 # ---------------------------------------------------------------------------
 
-class _CipherDialog(customtk.CTkToplevel):
+class _CoverScoreDialog(customtk.CTkToplevel):
     """
-    A small modal dialog for choosing a cipher before embedding.
-    Blocks until the user confirms or cancels.
+    Displays cover image analysis results and asks the user to confirm
+    or cancel before proceeding to the options dialog.
     """
 
-    def __init__(self, parent):
+    # Colour per label
+    _LABEL_COLOUR = {
+        "Excellent": "#2ecc71",
+        "Good":      "#3498db",
+        "Fair":      "#e67e22",
+        "Poor":      "#e74c3c",
+    }
+
+    def __init__(self, parent, image_path: Path):
         super().__init__(parent)
-        self.title("Choose cipher")
+        self.title("Cover image analysis")
         self.resizable(False, False)
-        self.grab_set()  # modal
+        self.withdraw()
+        self.deiconify()
+        self.update_idletasks()
+        self.grab_set()
 
-        self.result = None  # set on confirm
+        self.confirmed = False
+
+        try:
+            metrics = steg.score_cover_image(image_path)
+        except Exception as exc:
+            utils.show_error(f"Could not analyse image:\n{exc}")
+            self.destroy()
+            return
+
+        label_colour = self._LABEL_COLOUR.get(metrics["label"], "white")
+
+        # Header
+        customtk.CTkLabel(
+            self,
+            text=f"Cover Score:  {metrics['score']}/100  —  {metrics['label']}",
+            font=("Consolas", 14, "bold"),
+            text_color=label_colour,
+        ).pack(padx=24, pady=(20, 4))
 
         customtk.CTkLabel(
             self,
-            text="Select encryption cipher:",
-            font=("Consolas", 13),
-        ).pack(padx=24, pady=(20, 10))
+            text=f"{metrics['width']} × {metrics['height']} px  "
+                 f"|  Entropy: {metrics['entropy']:.2f} / 8.00  "
+                 f"|  Texture: {metrics['texture_density']*100:.1f}%",
+            font=("Consolas", 11),
+            text_color="gray",
+        ).pack(padx=24, pady=(0, 12))
 
-        self._var = tk.StringVar(value=crypto.SUPPORTED_CIPHERS[0])
+        # Capacity table
+        frame = customtk.CTkFrame(self)
+        frame.pack(padx=24, fill="x")
 
-        for cipher in crypto.SUPPORTED_CIPHERS:
-            customtk.CTkRadioButton(
+        headers = ["Mode", "Max capacity"]
+        rows = [
+            ["Adaptive (spread spectrum)",
+             self._fmt_bytes(metrics["adaptive_capacity"])],
+            ["Sequential (standard LSB)",
+             self._fmt_bytes(metrics["sequential_capacity"])],
+        ]
+
+        for col, header in enumerate(headers):
+            customtk.CTkLabel(
+                frame, text=header,
+                font=("Consolas", 11, "bold"),
+            ).grid(row=0, column=col, padx=12, pady=(8, 4), sticky="w")
+
+        for r, row in enumerate(rows, start=1):
+            for col, val in enumerate(row):
+                customtk.CTkLabel(
+                    frame, text=val,
+                    font=("Consolas", 11),
+                ).grid(row=r, column=col, padx=12, pady=3, sticky="w")
+
+        # Warning if poor
+        if metrics["score"] < 35:
+            customtk.CTkLabel(
                 self,
-                text=cipher,
-                variable=self._var,
-                value=cipher,
-                font=("Consolas", 12),
-            ).pack(anchor="w", padx=32, pady=4)
+                text="⚠  Low cover score. Embedding may be more detectable.\n"
+                     "   Consider using a more textured photograph.",
+                font=("Consolas", 10),
+                text_color="#e67e22",
+                justify="left",
+            ).pack(padx=24, pady=(12, 0))
+
+        # Low adaptive capacity warning
+        if metrics["adaptive_capacity"] < 1024:
+            customtk.CTkLabel(
+                self,
+                text="⚠  Adaptive capacity is very low for this image.\n"
+                     "   Sequential mode is recommended.",
+                font=("Consolas", 10),
+                text_color="#e67e22",
+                justify="left",
+            ).pack(padx=24, pady=(6, 0))
+
+        # Buttons
+        btn_frame = customtk.CTkFrame(self, fg_color="transparent")
+        btn_frame.pack(padx=24, pady=(16, 20), fill="x")
 
         customtk.CTkButton(
-            self,
-            text="Confirm",
+            btn_frame,
+            text="Continue",
             command=self._confirm,
             font=("Consolas", 13),
-        ).pack(pady=(16, 20), padx=24, fill="x")
+        ).pack(side="left", expand=True, fill="x", padx=(0, 6))
 
-       # Centre over parent if one was provided
+        customtk.CTkButton(
+            btn_frame,
+            text="Cancel",
+            command=self.destroy,
+            font=("Consolas", 13),
+            fg_color="gray30",
+            hover_color="gray40",
+        ).pack(side="left", expand=True, fill="x", padx=(6, 0))
+
         if parent is not None:
             self.update_idletasks()
             px = parent.winfo_rootx() + (parent.winfo_width()  - self.winfo_width())  // 2
             py = parent.winfo_rooty() + (parent.winfo_height() - self.winfo_height()) // 2
             self.geometry(f"+{px}+{py}")
 
+        self.update()  # force render before blocking
         self.wait_window()
 
     def _confirm(self):
-        self.result = self._var.get()
+        self.confirmed = True
         self.destroy()
 
+    @staticmethod
+    def _fmt_bytes(n: int) -> str:
+        if n >= 1_048_576:
+            return f"{n / 1_048_576:.2f} MB"
+        if n >= 1024:
+            return f"{n / 1024:.1f} KB"
+        return f"{n} B"
 
-def _pick_cipher(parent) -> str | None:
-    """Show the cipher dialog and return the chosen cipher, or None if cancelled."""
-    dialog = _CipherDialog(parent)
-    return dialog.result
+
+# ---------------------------------------------------------------------------
+# Options dialog  (cipher + steg mode)
+# ---------------------------------------------------------------------------
+
+class _EmbedOptionsDialog(customtk.CTkToplevel):
+    """Modal dialog for choosing cipher and steganography mode."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("Embed options")
+        self.resizable(False, False)
+        self.withdraw()
+        self.deiconify()
+        self.update_idletasks()
+        self.grab_set()
+
+        self.cipher    = None
+        self.steg_mode = None
+
+        customtk.CTkLabel(
+            self,
+            text="Encryption cipher",
+            font=("Consolas", 13, "bold"),
+        ).pack(anchor="w", padx=24, pady=(20, 6))
+
+        self._cipher_var = tk.StringVar(value=crypto.SUPPORTED_CIPHERS[0])
+        for cipher in crypto.SUPPORTED_CIPHERS:
+            customtk.CTkRadioButton(
+                self,
+                text=cipher,
+                variable=self._cipher_var,
+                value=cipher,
+                font=("Consolas", 12),
+            ).pack(anchor="w", padx=36, pady=3)
+
+        customtk.CTkFrame(self, height=1, fg_color="gray30").pack(
+            fill="x", padx=24, pady=(14, 0))
+
+        customtk.CTkLabel(
+            self,
+            text="Steganography mode",
+            font=("Consolas", 13, "bold"),
+        ).pack(anchor="w", padx=24, pady=(14, 2))
+
+        self._mode_var = tk.StringVar(value="adaptive")
+
+        customtk.CTkRadioButton(
+            self,
+            text="Adaptive  (spread spectrum — steganalysis resistant)",
+            variable=self._mode_var,
+            value="adaptive",
+            font=("Consolas", 12),
+        ).pack(anchor="w", padx=36, pady=3)
+
+        customtk.CTkRadioButton(
+            self,
+            text="Sequential  (standard LSB — maximum capacity)",
+            variable=self._mode_var,
+            value="sequential",
+            font=("Consolas", 12),
+        ).pack(anchor="w", padx=36, pady=3)
+
+        customtk.CTkLabel(
+            self,
+            text="Adaptive mode requires a textured cover image.\n"
+                 "Sequential mode works on any image but is detectable.",
+            font=("Consolas", 10),
+            text_color="gray",
+            justify="left",
+        ).pack(anchor="w", padx=36, pady=(2, 10))
+
+        customtk.CTkButton(
+            self,
+            text="Confirm",
+            command=self._confirm,
+            font=("Consolas", 13),
+        ).pack(pady=(6, 20), padx=24, fill="x")
+
+        if parent is not None:
+            self.update_idletasks()
+            px = parent.winfo_rootx() + (parent.winfo_width()  - self.winfo_width())  // 2
+            py = parent.winfo_rooty() + (parent.winfo_height() - self.winfo_height()) // 2
+            self.geometry(f"+{px}+{py}")
+
+        self.update()  # force render before blocking
+        self.wait_window()
+
+    def _confirm(self):
+        self.cipher    = self._cipher_var.get()
+        self.steg_mode = self._mode_var.get()
+        self.destroy()
 
 
 # ---------------------------------------------------------------------------
@@ -87,9 +263,10 @@ def run(parent=None) -> None:
     Drive the full embed flow:
       1. Select text file
       2. Select cover image
-      3. Choose cipher
-      4. Enter passphrase
-      5. Encrypt → embed → save stego image → save key file
+      3. Show cover score — user confirms or cancels
+      4. Choose cipher and steg mode
+      5. Enter passphrase
+      6. Encrypt → embed → save stego image → save key file
     """
 
     # Step 1 — select text file
@@ -122,20 +299,27 @@ def run(parent=None) -> None:
         utils.show_error("Invalid image format. Please select a .png or .jpg file.")
         return
 
-    # Step 3 — choose cipher
-    cipher = _pick_cipher(parent)
-    if not cipher:
-        # User closed the dialog without confirming — default gracefully
-        cipher = "Ascon-128"
+    # Step 3 — cover score
+    score_dialog = _CoverScoreDialog(parent, image_path)
+    if not score_dialog.confirmed:
+        return
 
-    # Step 4 — passphrase
+    # Step 4 — options
+    options = _EmbedOptionsDialog(parent)
+    if options.cipher is None:
+        return
+
+    cipher    = options.cipher
+    steg_mode = options.steg_mode
+
+    # Step 5 — passphrase
     dialog = customtk.CTkInputDialog(text="Enter a passphrase:", title="Passphrase")
     passphrase = dialog.get_input()
     if not passphrase:
         utils.show_error("A passphrase is required.")
         return
 
-    # Step 5 — encrypt, embed, save
+    # Step 6 — encrypt, embed, save
     try:
         plaintext = text_path.read_text(errors="ignore").encode("utf-8")
     except OSError as exc:
@@ -160,8 +344,10 @@ def run(parent=None) -> None:
             utils.show_error("Operation cancelled — no output image path chosen.")
             return
 
+        steg_key = result["key"] if steg_mode == "adaptive" else None
+
         try:
-            steg.embed(image_path, tmp, output_image)
+            steg.embed(image_path, tmp, output_image, key=steg_key, mode=steg_mode)
         except (ValueError, RuntimeError) as exc:
             utils.show_error(str(exc))
             return
@@ -180,14 +366,16 @@ def run(parent=None) -> None:
             key_file,
             nonce=result["nonce"],
             salt=result["salt"],
-            cipher=result["cipher"],
+            cipher=cipher,
             info_type=info_type,
+            steg_mode=steg_mode,
         )
     except Exception as exc:
         utils.show_error(f"Could not save key file:\n{exc}")
         return
 
     utils.show_info(
-        f"Embedding complete.\nCipher used: {cipher}\n\n"
+        f"Embedding complete.\n"
+        f"Cipher: {cipher}  |  Mode: {steg_mode}\n\n"
         "Keep the key file safe — it is required for extraction."
     )
