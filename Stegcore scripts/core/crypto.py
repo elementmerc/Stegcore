@@ -95,7 +95,7 @@ def encrypt(plaintext: bytes, passphrase: str, cipher: str = "Ascon-128") -> dic
     except Exception as exc:
         raise RuntimeError(f"Encryption failed: {exc}") from exc
 
-    return {"ciphertext": ciphertext, "nonce": nonce, "salt": salt, "cipher": cipher}
+    return {"ciphertext": ciphertext, "nonce": nonce, "salt": salt, "cipher": cipher, "key": key}
 
 
 def _encrypt_with(cipher: str, key: bytes, nonce: bytes, plaintext: bytes) -> bytes:
@@ -159,10 +159,11 @@ def _decrypt_with(cipher: str, key: bytes, nonce: bytes, ciphertext: bytes) -> b
 # Key file I/O  (JSON + base64)
 # ---------------------------------------------------------------------------
 
-def write_key_file(path, nonce: bytes, salt: bytes, cipher: str, info_type: str) -> None:
+def write_key_file(path, nonce: bytes, salt: bytes, cipher: str, info_type: str, steg_mode: str = "adaptive") -> None:
     """Write encryption metadata to a JSON key file."""
     data = {
         "cipher":    cipher,
+        "steg_mode": steg_mode,
         "nonce":     base64.b64encode(nonce).decode("ascii"),
         "salt":      base64.b64encode(salt).decode("ascii"),
         "info_type": info_type,
@@ -193,9 +194,31 @@ def read_key_file(path) -> dict:
     try:
         return {
             "cipher":    raw["cipher"],
+            "steg_mode": raw.get("steg_mode", "sequential"),  # default for old key files
             "nonce":     base64.b64decode(raw["nonce"]),
             "salt":      base64.b64decode(raw["salt"]),
             "info_type": raw["info_type"],
         }
     except Exception as exc:
         raise ValueError(f"Key file contains invalid data: {exc}") from exc
+
+
+# ---------------------------------------------------------------------------
+# Public key derivation
+# Used by the extract flow to re-derive the key for spread-spectrum seeding.
+# ---------------------------------------------------------------------------
+
+def derive_key(passphrase: str, salt: bytes, cipher: str) -> bytes:
+    """
+    Re-derive the encryption key from a passphrase and stored salt.
+
+    Args:
+        passphrase: User passphrase.
+        salt:       Salt from the key file.
+        cipher:     Cipher name (determines required key length).
+
+    Returns:
+        Derived key bytes.
+    """
+    key_len = _CIPHER_PARAMS[cipher]["key_len"]
+    return _derive_key(passphrase, salt, key_len)
