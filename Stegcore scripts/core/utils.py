@@ -16,8 +16,6 @@ from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Asset path resolution
-# Resolves correctly both when running as a plain script and as a
-# PyInstaller bundle (_MEIPASS is set by PyInstaller at runtime).
 # ---------------------------------------------------------------------------
 
 BASE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).parent.parent))
@@ -38,14 +36,22 @@ def temp_file(suffix: str = ".bin"):
     Context manager that creates a named temporary file and guarantees
     cleanup on exit, even if an exception is raised.
 
+    Uses mkstemp rather than mktemp — mktemp is deprecated and can cause
+    memory allocation issues on Linux via glibc.
+
     Usage:
         with temp_file(".bin") as tmp:
             tmp.write_bytes(data)
             do_something(tmp)
         # file is deleted here automatically
     """
-    tmp = Path(tempfile.mktemp(suffix=suffix))
+    fd, tmp_str = tempfile.mkstemp(suffix=suffix)
+    tmp = Path(tmp_str)
     try:
+        # Close the file descriptor immediately — we'll use Path.write_bytes
+        # and Path.read_bytes for all I/O, which open/close cleanly each time
+        import os
+        os.close(fd)
         yield tmp
     finally:
         if tmp.exists():

@@ -152,9 +152,9 @@ def _embed_png(cover_path, payload, output_path, key, mode):
                if mode == "adaptive" else "Try a larger cover image.")
         )
 
-    img_flat = img_array.ravel()
+    img_flat = img_array.ravel().copy()
     _write_bits(img_flat, indices, all_bits)
-    Image.fromarray(img_array).save(str(output_path), format="PNG")
+    Image.fromarray(img_flat.reshape(img_array.shape)).save(str(output_path), format="PNG")
 
 
 def _extract_png(stego_path, key, mode):
@@ -498,3 +498,181 @@ def score_cover_image(image_path: str | Path) -> dict:
         "width":               W,
         "height":              H,
     }
+
+
+# ---------------------------------------------------------------------------
+# Deniable dual payload — index partitioning
+# ---------------------------------------------------------------------------
+
+def split_indices(all_indices: np.ndarray,
+                  partition_seed: bytes) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Deterministically split all_indices into two disjoint halves using a
+    partition_seed. The split is reproducible — same seed always produces
+    the same two halves.
+
+    Args:
+        all_indices:    1D array of flat image indices eligible for embedding.
+        partition_seed: 16 random bytes generated at embed time, stored in
+                        both key files.
+
+    Returns:
+        (half_0, half_1) — two disjoint numpy arrays covering all_indices.
+    """
+    rng      = np.random.default_rng(int.from_bytes(partition_seed, "big"))
+    shuffled = all_indices.copy()
+    rng.shuffle(shuffled)
+    mid = len(shuffled) // 2
+    # Return copies — slices are views and downstream shuffling can corrupt memory
+    return shuffled[:mid].copy(), shuffled[mid:].copy()
+
+
+def _get_deniable_indices(img_array: np.ndarray,
+                          pixel_mask: np.ndarray,
+                          key: bytes,
+                          partition_seed: bytes,
+                          partition_half: int) -> np.ndarray:
+    """
+    Get the spread-spectrum index subset assigned to one half of a deniable
+    embed, scattered using the provided key.
+
+    Args:
+        img_array:      Image array.
+        pixel_mask:     Adaptive embedding map.
+        key:            Key bytes for intra-half scattering.
+        partition_seed: Shared seed for the half-split.
+        partition_half: 0 or 1 — which half this key owns.
+
+    Returns:
+        Shuffled 1D index array for this half.
+    """
+    # Reconstruct full adaptive indices (not pre-shuffled — raw eligible positions)
+    H, W, C      = img_array.shape
+    channel_mask = np.stack([pixel_mask] * C, axis=2)
+    flat_indices = np.where(channel_mask.ravel())[0]
+
+    # Partition into two halves
+    half_0, half_1 = split_indices(flat_indices, partition_seed)
+    half = half_0 if partition_half == 0 else half_1
+
+    # Scatter within the half using this key
+    seed = int.from_bytes(key[:8], "big")
+    rng  = np.random.default_rng(seed)
+    rng.shuffle(half)
+
+    return half
+
+
+def embed_deniable(cover_path:    str | Path,
+                   real_payload:   bytes,
+                   decoy_payload:  bytes,
+                   output_path:    str | Path,
+                   real_key:       bytes,
+                   decoy_key:      bytes,
+                   partition_seed: bytes) -> Path:
+    """
+    Embed two independent payloads into disjoint pixel subsets of a PNG.
+
+    The real and decoy payloads are completely independent — extracting
+    with either passphrase reveals only that payload, with no indication
+    that a second payload exists.
+
+    Args:
+        cover_path:     Path to the cover PNG image.
+        real_payload:   Encrypted real payload bytes.
+        decoy_payload:  Encrypted decoy payload bytes.
+        output_path:    Destination path for the stego PNG.
+        real_key:       Derived key for real payload (seeds half-0 scatter).
+        decoy_key:      Derived key for decoy payload (seeds half-1 scatter).
+        partition_seed: Shared 16-byte seed for the index partition.
+
+    Returns:
+        Path to the saved stego image.
+
+    Raises:
+        ValueError: If either half lacks sufficient capacity.
+    """
+    cover_path  = Path(cover_path)
+    output_path = Path(output_path)
+
+    img       = Image.open(cover_path).convert("RGB")
+    img_array = np.array(img, dtype=np.uint8)
+
+    pixel_mask = _compute_embedding_map(img_array)
+
+    real_indices  = _get_deniable_indices(img_array, pixel_mask, real_key,  partition_seed, 0)
+    decoy_indices = _get_deniable_indices(img_array, pixel_mask, decoy_key, partition_seed, 1)
+
+    def _check_capacity(payload, indices, label):
+        header_bits  = _int_to_bits(len(payload), _HEADER_BITS)
+        payload_bits = _bytes_to_bits(payload)
+        all_bits     = np.concatenate([header_bits, payload_bits])
+        if len(all_bits) > len(indices):
+            available = (len(indices) - _HEADER_BITS) // 8
+            raise ValueError(
+                f"Insufficient capacity for {label} payload."
+                f"Available per half: ~{available:,} bytes | "
+                f"Required: ~{len(payload):,} bytes."
+                "Try a larger or more textured cover image, or shorter messages."
+            )
+        return all_bits
+
+    real_bits  = _check_capacity(real_payload,  real_indices,  "real")
+    decoy_bits = _check_capacity(decoy_payload, decoy_indices, "decoy")
+
+    # Use a flat copy — ravel() returns a view and two sequential _write_bits
+    # calls on the same view can trigger glibc memory corruption (munmap_chunk).
+    img_flat = img_array.ravel().copy()
+    _write_bits(img_flat, real_indices,  real_bits)
+    _write_bits(img_flat, decoy_indices, decoy_bits)
+
+    # Reshape back from flat copy to save
+    Image.fromarray(img_flat.reshape(img_array.shape)).save(str(output_path), format="PNG")
+    return output_path
+
+
+def extract_deniable(stego_path:     str | Path,
+                     key:            bytes,
+                     partition_seed: bytes,
+                     partition_half: int) -> bytes:
+    """
+    Extract one payload from a deniably-embedded stego image.
+
+    The passphrase (and therefore key) determines which payload is returned.
+    Neither this function nor the key file reveals whether the other payload
+    exists.
+
+    Args:
+        stego_path:     Path to the stego image.
+        key:            Derived key for this passphrase.
+        partition_seed: From the key file.
+        partition_half: From the key file (0 or 1).
+
+    Returns:
+        Raw payload bytes.
+
+    Raises:
+        ValueError: If no valid payload is detected in the expected half.
+    """
+    stego_path = Path(stego_path)
+
+    img       = Image.open(stego_path).convert("RGB")
+    img_array = np.array(img, dtype=np.uint8)
+
+    pixel_mask = _compute_embedding_map(img_array)
+    indices    = _get_deniable_indices(img_array, pixel_mask, key,
+                                       partition_seed, partition_half)
+
+    img_flat    = img_array.ravel()
+    header_bits = _read_bits(img_flat, indices, _HEADER_BITS)
+    payload_len = _bits_to_int(header_bits)
+    max_pos     = (len(indices) - _HEADER_BITS) // 8
+
+    if payload_len == 0 or payload_len > max_pos:
+        raise ValueError(
+            "No valid payload detected."
+            "Check you are using the correct stego image and key file."
+        )
+
+    payload_bits = _read_bits(img_flat, indices[_HEADER_BITS:], payload_len * 8)
+    return _bits_to_bytes(payload_bits)[:payload_len]
