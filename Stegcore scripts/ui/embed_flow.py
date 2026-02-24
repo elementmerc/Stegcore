@@ -6,8 +6,9 @@
 
 # File: ui/embed_flow.py
 # Description: Embed workflow — file selection, cover scoring, cipher/mode
-#              choice, and orchestration.
+#              choice, deniability, and orchestration.
 
+import os
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog
@@ -23,11 +24,10 @@ from core import crypto, steg, utils
 
 class _CoverScoreDialog(customtk.CTkToplevel):
     """
-    Displays cover image analysis results and asks the user to confirm
-    or cancel before proceeding to the options dialog.
+    Displays cover image analysis and asks the user to confirm or cancel
+    before proceeding.
     """
 
-    # Colour per label
     _LABEL_COLOUR = {
         "Excellent": "#2ecc71",
         "Good":      "#3498db",
@@ -39,11 +39,6 @@ class _CoverScoreDialog(customtk.CTkToplevel):
         super().__init__(parent)
         self.title("Cover image analysis")
         self.resizable(False, False)
-        self.withdraw()
-        self.update_idletasks()
-        self.deiconify()
-        self.grab_set()
-
         self.confirmed = False
 
         try:
@@ -55,7 +50,6 @@ class _CoverScoreDialog(customtk.CTkToplevel):
 
         label_colour = self._LABEL_COLOUR.get(metrics["label"], "white")
 
-        # Header
         customtk.CTkLabel(
             self,
             text=f"Cover Score:  {metrics['score']}/100  —  {metrics['label']}",
@@ -72,32 +66,24 @@ class _CoverScoreDialog(customtk.CTkToplevel):
             text_color="gray",
         ).pack(padx=24, pady=(0, 12))
 
-        # Capacity table
         frame = customtk.CTkFrame(self)
         frame.pack(padx=24, fill="x")
 
-        headers = ["Mode", "Max capacity"]
-        rows = [
-            ["Adaptive (spread spectrum)",
-             self._fmt_bytes(metrics["adaptive_capacity"])],
-            ["Sequential (standard LSB)",
-             self._fmt_bytes(metrics["sequential_capacity"])],
-        ]
-
-        for col, header in enumerate(headers):
+        for col, header in enumerate(["Mode", "Max capacity"]):
             customtk.CTkLabel(
                 frame, text=header,
                 font=("Consolas", 11, "bold"),
             ).grid(row=0, column=col, padx=12, pady=(8, 4), sticky="w")
 
-        for r, row in enumerate(rows, start=1):
-            for col, val in enumerate(row):
-                customtk.CTkLabel(
-                    frame, text=val,
-                    font=("Consolas", 11),
-                ).grid(row=r, column=col, padx=12, pady=3, sticky="w")
+        for r, (mode, cap) in enumerate([
+            ("Adaptive (spread spectrum)", self._fmt_bytes(metrics["adaptive_capacity"])),
+            ("Sequential (standard LSB)",  self._fmt_bytes(metrics["sequential_capacity"])),
+        ], start=1):
+            customtk.CTkLabel(frame, text=mode, font=("Consolas", 11)).grid(
+                row=r, column=0, padx=12, pady=3, sticky="w")
+            customtk.CTkLabel(frame, text=cap, font=("Consolas", 11)).grid(
+                row=r, column=1, padx=12, pady=3, sticky="w")
 
-        # Warning if poor
         if metrics["score"] < 35:
             customtk.CTkLabel(
                 self,
@@ -108,7 +94,6 @@ class _CoverScoreDialog(customtk.CTkToplevel):
                 justify="left",
             ).pack(padx=24, pady=(12, 0))
 
-        # Low adaptive capacity warning
         if metrics["adaptive_capacity"] < 1024:
             customtk.CTkLabel(
                 self,
@@ -119,33 +104,29 @@ class _CoverScoreDialog(customtk.CTkToplevel):
                 justify="left",
             ).pack(padx=24, pady=(6, 0))
 
-        # Buttons
         btn_frame = customtk.CTkFrame(self, fg_color="transparent")
         btn_frame.pack(padx=24, pady=(16, 20), fill="x")
 
         customtk.CTkButton(
-            btn_frame,
-            text="Continue",
-            command=self._confirm,
+            btn_frame, text="Continue", command=self._confirm,
             font=("Consolas", 13),
         ).pack(side="left", expand=True, fill="x", padx=(0, 6))
 
         customtk.CTkButton(
-            btn_frame,
-            text="Cancel",
-            command=self.destroy,
-            font=("Consolas", 13),
-            fg_color="gray30",
-            hover_color="gray40",
+            btn_frame, text="Cancel", command=self.destroy,
+            font=("Consolas", 13), fg_color="gray30", hover_color="gray40",
         ).pack(side="left", expand=True, fill="x", padx=(6, 0))
 
         if parent is not None:
+            self.withdraw()
             self.update_idletasks()
+            self.deiconify()
+            self.grab_set()
             px = parent.winfo_rootx() + (parent.winfo_width()  - self.winfo_width())  // 2
             py = parent.winfo_rooty() + (parent.winfo_height() - self.winfo_height()) // 2
             self.geometry(f"+{px}+{py}")
 
-        self.update()  # force render before blocking
+        self.update()
         self.wait_window()
 
     def _confirm(self):
@@ -162,47 +143,41 @@ class _CoverScoreDialog(customtk.CTkToplevel):
 
 
 # ---------------------------------------------------------------------------
-# Options dialog  (cipher + steg mode)
+# Options dialog  (cipher + steg mode + deniability)
 # ---------------------------------------------------------------------------
 
 class _EmbedOptionsDialog(customtk.CTkToplevel):
-    """Modal dialog for choosing cipher and steganography mode."""
+    """Modal dialog for choosing cipher, steganography mode, and deniability."""
 
     def __init__(self, parent):
         super().__init__(parent)
         self.title("Embed options")
         self.resizable(False, False)
-        # After
-        self.withdraw()
-        self.update_idletasks()
-        self.deiconify()
-        self.grab_set()
 
         self.cipher    = None
         self.steg_mode = None
+        self.deniable  = False
 
+        # Cipher
         customtk.CTkLabel(
-            self,
-            text="Encryption cipher",
+            self, text="Encryption cipher",
             font=("Consolas", 13, "bold"),
         ).pack(anchor="w", padx=24, pady=(20, 6))
 
         self._cipher_var = tk.StringVar(value=crypto.SUPPORTED_CIPHERS[0])
         for cipher in crypto.SUPPORTED_CIPHERS:
             customtk.CTkRadioButton(
-                self,
-                text=cipher,
-                variable=self._cipher_var,
-                value=cipher,
+                self, text=cipher,
+                variable=self._cipher_var, value=cipher,
                 font=("Consolas", 12),
             ).pack(anchor="w", padx=36, pady=3)
 
         customtk.CTkFrame(self, height=1, fg_color="gray30").pack(
             fill="x", padx=24, pady=(14, 0))
 
+        # Steg mode
         customtk.CTkLabel(
-            self,
-            text="Steganography mode",
+            self, text="Steganography mode",
             font=("Consolas", 13, "bold"),
         ).pack(anchor="w", padx=24, pady=(14, 2))
 
@@ -211,16 +186,14 @@ class _EmbedOptionsDialog(customtk.CTkToplevel):
         customtk.CTkRadioButton(
             self,
             text="Adaptive  (spread spectrum — steganalysis resistant)",
-            variable=self._mode_var,
-            value="adaptive",
+            variable=self._mode_var, value="adaptive",
             font=("Consolas", 12),
         ).pack(anchor="w", padx=36, pady=3)
 
         customtk.CTkRadioButton(
             self,
             text="Sequential  (standard LSB — maximum capacity)",
-            variable=self._mode_var,
-            value="sequential",
+            variable=self._mode_var, value="sequential",
             font=("Consolas", 12),
         ).pack(anchor="w", padx=36, pady=3)
 
@@ -228,30 +201,54 @@ class _EmbedOptionsDialog(customtk.CTkToplevel):
             self,
             text="Adaptive mode requires a textured cover image.\n"
                  "Sequential mode works on any image but is detectable.",
-            font=("Consolas", 10),
-            text_color="gray",
-            justify="left",
+            font=("Consolas", 10), text_color="gray", justify="left",
+        ).pack(anchor="w", padx=36, pady=(2, 10))
+
+        customtk.CTkFrame(self, height=1, fg_color="gray30").pack(
+            fill="x", padx=24, pady=(6, 0))
+
+        # Deniability
+        customtk.CTkLabel(
+            self, text="Deniability",
+            font=("Consolas", 13, "bold"),
+        ).pack(anchor="w", padx=24, pady=(14, 2))
+
+        self._deniable_var = tk.BooleanVar(value=False)
+        customtk.CTkCheckBox(
+            self,
+            text="Enable deniable dual payload",
+            variable=self._deniable_var,
+            font=("Consolas", 12),
+        ).pack(anchor="w", padx=36, pady=3)
+
+        customtk.CTkLabel(
+            self,
+            text="Embeds a decoy message unlocked by a second passphrase.\n"
+                 "Only available with adaptive PNG mode.",
+            font=("Consolas", 10), text_color="gray", justify="left",
         ).pack(anchor="w", padx=36, pady=(2, 10))
 
         customtk.CTkButton(
-            self,
-            text="Confirm",
-            command=self._confirm,
+            self, text="Confirm", command=self._confirm,
             font=("Consolas", 13),
         ).pack(pady=(6, 20), padx=24, fill="x")
 
         if parent is not None:
+            self.withdraw()
             self.update_idletasks()
+            self.deiconify()
+            self.grab_set()
             px = parent.winfo_rootx() + (parent.winfo_width()  - self.winfo_width())  // 2
             py = parent.winfo_rooty() + (parent.winfo_height() - self.winfo_height()) // 2
             self.geometry(f"+{px}+{py}")
 
-        self.update()  # force render before blocking
+        self.update()
         self.wait_window()
 
     def _confirm(self):
         self.cipher    = self._cipher_var.get()
         self.steg_mode = self._mode_var.get()
+        self.deniable  = self._deniable_var.get()
         self.destroy()
 
 
@@ -262,12 +259,16 @@ class _EmbedOptionsDialog(customtk.CTkToplevel):
 def run(parent=None) -> None:
     """
     Drive the full embed flow:
-      1. Select text file
-      2. Select cover image
-      3. Show cover score — user confirms or cancels
-      4. Choose cipher and steg mode
-      5. Enter passphrase
-      6. Encrypt → embed → save stego image → save key file
+      1.  Select text file
+      2.  Select cover file
+      3.  Show cover score — confirm or cancel
+      4.  Choose cipher, steg mode, and deniability
+      5.  Enter real passphrase
+      6.  Encrypt real payload
+      7.  If deniable: collect decoy file + passphrase, encrypt decoy
+      8.  Choose output path and embed
+      9.  Save real key file
+      10. If deniable: save decoy key file
     """
 
     # Step 1 — select text file
@@ -286,7 +287,7 @@ def run(parent=None) -> None:
 
     info_type = text_path.suffix
 
-    # Step 2 — select cover image
+    # Step 2 — select cover file
     image_file = filedialog.askopenfilename(
         title="Select a cover file",
         filetypes=[
@@ -305,10 +306,11 @@ def run(parent=None) -> None:
         utils.show_error("Unsupported format. Please select a .png, .jpg, .bmp, or .wav file.")
         return
 
-    # Step 3 — cover score
-    score_dialog = _CoverScoreDialog(parent, image_path)
-    if not score_dialog.confirmed:
-        return
+    # Step 3 — cover score (images only, skip for WAV)
+    if image_path.suffix.lower() != ".wav":
+        score_dialog = _CoverScoreDialog(parent, image_path)
+        if not score_dialog.confirmed:
+            return
 
     # Step 4 — options
     options = _EmbedOptionsDialog(parent)
@@ -318,14 +320,20 @@ def run(parent=None) -> None:
     cipher    = options.cipher
     steg_mode = options.steg_mode
 
-    # Step 5 — passphrase
+    fmt            = image_path.suffix.lower()
+    # Adaptive/sequential only applies to PNG — JPEG uses DCT, WAV uses sample LSB
+    effective_mode = steg_mode if fmt in {".png", ".bmp"} else "sequential"
+    # Deniability only works with adaptive PNG
+    deniable       = options.deniable and effective_mode == "adaptive"
+
+    # Step 5 — real passphrase
     dialog = customtk.CTkInputDialog(text="Enter a passphrase:", title="Passphrase")
     passphrase = dialog.get_input()
     if not passphrase:
         utils.show_error("A passphrase is required.")
         return
 
-    # Step 6 — encrypt, embed, save
+    # Step 6 — encrypt real payload
     try:
         plaintext = text_path.read_text(errors="ignore").encode("utf-8")
     except OSError as exc:
@@ -338,34 +346,83 @@ def run(parent=None) -> None:
         utils.show_error(str(exc))
         return
 
-    with utils.temp_file(".bin") as tmp:
-        tmp.write_bytes(result["ciphertext"])
+    steg_key = result["key"] if effective_mode == "adaptive" else None
 
-        fmt            = image_path.suffix.lower()
-        out_ext        = ".wav" if fmt == ".wav" else ".png"
-        out_filetypes  = (
-            [("WAV audio", "*.wav")] if fmt == ".wav"
-            else [("PNG image", "*.png")]
+    # Step 7 — if deniable, collect and encrypt decoy
+    decoy_result   = None
+    decoy_key      = None
+    partition_seed = None
+
+    if deniable:
+        decoy_file = filedialog.askopenfilename(
+            title="Select decoy text file",
+            filetypes=[("Text files", "*.txt")],
         )
-        output_image = filedialog.asksaveasfilename(
-            title="Save stego file as",
-            defaultextension=out_ext,
-            filetypes=out_filetypes,
-        )
-        if not output_image:
-            utils.show_error("Operation cancelled — no output image path chosen.")
+        if not decoy_file:
+            utils.show_error("No decoy file selected. Deniability requires a decoy message.")
             return
 
-        # Adaptive/sequential mode only applies to PNG — JPEG uses DCT, WAV uses sample LSB
-        effective_mode = steg_mode if fmt in {".png", ".bmp"} else "sequential"
-        steg_key = result["key"] if effective_mode == "adaptive" else None
+        decoy_dialog = customtk.CTkInputDialog(
+            text="Enter the DECOY passphrase\n(must differ from the real passphrase):",
+            title="Decoy Passphrase",
+        )
+        decoy_passphrase = decoy_dialog.get_input()
+        if not decoy_passphrase:
+            utils.show_error("A decoy passphrase is required.")
+            return
+        if decoy_passphrase == passphrase:
+            utils.show_error("Decoy passphrase must differ from the real passphrase.")
+            return
 
         try:
-            steg.embed(image_path, tmp, output_image, key=steg_key, mode=effective_mode)
+            decoy_text   = Path(decoy_file).read_text(errors="ignore").encode("utf-8")
+            decoy_result = crypto.encrypt(decoy_text, decoy_passphrase, cipher)
+            decoy_key    = decoy_result["key"]
+            partition_seed = os.urandom(16)
+        except (ValueError, RuntimeError, OSError) as exc:
+            utils.show_error(f"Could not encrypt decoy payload:\n{exc}")
+            return
+
+    # Step 8 — choose output path and embed
+    out_ext       = ".wav" if fmt == ".wav" else ".png"
+    out_filetypes = (
+        [("WAV audio", "*.wav")] if fmt == ".wav"
+        else [("PNG image", "*.png")]
+    )
+    output_image = filedialog.asksaveasfilename(
+        title="Save stego file as",
+        defaultextension=out_ext,
+        filetypes=out_filetypes,
+    )
+    if not output_image:
+        utils.show_error("Operation cancelled — no output file path chosen.")
+        return
+
+    if deniable:
+        # Pass ciphertext bytes directly — no temp files needed
+        try:
+            steg.embed_deniable(
+                cover_path=image_path,
+                real_payload=result["ciphertext"],
+                decoy_payload=decoy_result["ciphertext"],
+                output_path=output_image,
+                real_key=steg_key,
+                decoy_key=decoy_key,
+                partition_seed=partition_seed,
+            )
         except (ValueError, RuntimeError) as exc:
             utils.show_error(str(exc))
             return
+    else:
+        with utils.temp_file(".bin") as tmp:
+            tmp.write_bytes(result["ciphertext"])
+            try:
+                steg.embed(image_path, tmp, output_image, key=steg_key, mode=effective_mode)
+            except (ValueError, RuntimeError) as exc:
+                utils.show_error(str(exc))
+                return
 
+    # Step 9 — save real key file
     key_file = filedialog.asksaveasfilename(
         title="Save key file as",
         defaultextension=".json",
@@ -383,13 +440,48 @@ def run(parent=None) -> None:
             cipher=cipher,
             info_type=info_type,
             steg_mode=effective_mode,
+            deniable=deniable,
+            partition_seed=partition_seed if deniable else None,
+            partition_half=0 if deniable else None,
         )
     except Exception as exc:
         utils.show_error(f"Could not save key file:\n{exc}")
         return
 
+    # Step 10 — if deniable, save decoy key file
+    if deniable:
+        utils.show_info(
+            "Real key file saved.\n\n"
+            "Now save the DECOY key file.\n"
+            "Keep both — each unlocks a different message."
+        )
+        decoy_key_file = filedialog.asksaveasfilename(
+            title="Save DECOY key file as",
+            defaultextension=".json",
+            filetypes=[("Key file", "*.json")],
+        )
+        if not decoy_key_file:
+            utils.show_error("Operation cancelled — decoy key file not saved.")
+            return
+        try:
+            crypto.write_key_file(
+                decoy_key_file,
+                nonce=decoy_result["nonce"],
+                salt=decoy_result["salt"],
+                cipher=cipher,
+                info_type=info_type,
+                steg_mode=effective_mode,
+                deniable=deniable,
+                partition_seed=partition_seed,
+                partition_half=1,
+            )
+        except Exception as exc:
+            utils.show_error(f"Could not save decoy key file:\n{exc}")
+            return
+
     utils.show_info(
         f"Embedding complete.\n"
-        f"Cipher: {cipher}  |  Mode: {steg_mode}\n\n"
-        "Keep the key file safe — it is required for extraction."
+        f"Cipher: {cipher}  |  Mode: {effective_mode}"
+        + ("  |  Deniable: yes" if deniable else "") +
+        "\n\nKeep the key file(s) safe — they are required for extraction."
     )

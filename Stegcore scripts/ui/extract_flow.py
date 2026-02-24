@@ -76,24 +76,34 @@ def run() -> None:
     )
 
     # Step 4 — extract and decrypt
-    with utils.temp_file(".bin") as tmp:
-        try:
-            steg.extract(image_path, tmp, key=steg_key, mode=steg_mode)
-        except (ValueError, RuntimeError) as exc:
-            utils.show_error(str(exc))
-            return
+    deniable = key_data.get("deniable", False)
 
-        try:
-            ciphertext = tmp.read_bytes()
-            payload    = {**key_data, "ciphertext": ciphertext}
-            plaintext  = crypto.decrypt(payload, passphrase)
-            recovered  = plaintext.decode("utf-8")
-        except ValueError as exc:
-            utils.show_error(str(exc))
-            return
-        except Exception as exc:
-            utils.show_error(f"Unexpected error during decryption:\n{exc}")
-            return
+    try:
+        if deniable:
+            partition_seed = key_data["partition_seed"]
+            partition_half = key_data["partition_half"]
+            raw_payload = steg.extract_deniable(
+                image_path,
+                key=steg_key,
+                partition_seed=partition_seed,
+                partition_half=partition_half,
+            )
+            payload  = {**key_data, "ciphertext": raw_payload}
+            plaintext = crypto.decrypt(payload, passphrase)
+            recovered = plaintext.decode("utf-8")
+        else:
+            with utils.temp_file(".bin") as tmp:
+                steg.extract(image_path, tmp, key=steg_key, mode=steg_mode)
+                ciphertext = tmp.read_bytes()
+                payload    = {**key_data, "ciphertext": ciphertext}
+                plaintext  = crypto.decrypt(payload, passphrase)
+                recovered  = plaintext.decode("utf-8")
+    except ValueError as exc:
+        utils.show_error(str(exc))
+        return
+    except Exception as exc:
+        utils.show_error(f"Unexpected error during extraction:\n{exc}")
+        return
 
     # Save recovered text
     info_type   = key_data.get("info_type", ".txt")

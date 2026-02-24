@@ -159,15 +159,26 @@ def _decrypt_with(cipher: str, key: bytes, nonce: bytes, ciphertext: bytes) -> b
 # Key file I/O  (JSON + base64)
 # ---------------------------------------------------------------------------
 
-def write_key_file(path, nonce: bytes, salt: bytes, cipher: str, info_type: str, steg_mode: str = "adaptive") -> None:
-    """Write encryption metadata to a JSON key file."""
+def write_key_file(path, nonce: bytes, salt: bytes, cipher: str, info_type: str,
+                   steg_mode: str = "adaptive", deniable: bool = False,
+                   partition_seed: bytes = None, partition_half: int = None) -> None:
+    """
+    Write encryption metadata to a JSON key file.
+
+    For deniable embeds, both real and decoy key files are structurally
+    identical — neither can be identified as "real" from the file alone.
+    """
     data = {
         "cipher":    cipher,
         "steg_mode": steg_mode,
+        "deniable":  deniable,
         "nonce":     base64.b64encode(nonce).decode("ascii"),
         "salt":      base64.b64encode(salt).decode("ascii"),
         "info_type": info_type,
     }
+    if deniable and partition_seed is not None and partition_half is not None:
+        data["partition_seed"] = base64.b64encode(partition_seed).decode("ascii")
+        data["partition_half"] = partition_half
     Path(path).write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
@@ -192,13 +203,22 @@ def read_key_file(path) -> dict:
         )
 
     try:
-        return {
+        result = {
             "cipher":    raw["cipher"],
-            "steg_mode": raw.get("steg_mode", "sequential"),  # default for old key files
+            "steg_mode": raw.get("steg_mode", "sequential"),
+            "deniable":  raw.get("deniable", False),
             "nonce":     base64.b64decode(raw["nonce"]),
             "salt":      base64.b64decode(raw["salt"]),
             "info_type": raw["info_type"],
         }
+        if result["deniable"]:
+            if "partition_seed" not in raw or "partition_half" not in raw:
+                raise ValueError("Deniable key file is missing partition fields.")
+            result["partition_seed"] = base64.b64decode(raw["partition_seed"])
+            result["partition_half"] = int(raw["partition_half"])
+        return result
+    except (ValueError, KeyError):
+        raise
     except Exception as exc:
         raise ValueError(f"Key file contains invalid data: {exc}") from exc
 
