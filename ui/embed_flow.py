@@ -56,7 +56,7 @@ def _file_row(parent, label: str, path_var, pick_fn) -> None:
 
 LABEL_COLOUR_KEY = {
     "Excellent": "GOOD", "Good": "ACCENT",
-    "Fair": "WARN",      "Poor": "WARN",
+    "Fair": "WARN",      "Poor": "DANGER",
 }
 
 

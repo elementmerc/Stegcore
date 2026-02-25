@@ -166,7 +166,7 @@ def write_key_file(path, nonce: bytes, salt: bytes, cipher: str, info_type: str,
     Write encryption metadata to a JSON key file.
 
     For deniable embeds, both real and decoy key files are structurally
-    identical — neither can be identified as "real" from the file alone.
+    identical. Neither can be identified as "real" from the file alone.
     """
     data = {
         "cipher":    cipher,

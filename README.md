@@ -1,127 +1,197 @@
-# Stegcore
+# Stegcore v2
 
-<img width="509" alt="Stegcore" src="https://user-images.githubusercontent.com/121883945/230636687-20e27227-23be-4a5e-9905-2122f49d1dd7.png">
+**Crypto-steganography toolkit. Hide encrypted messages inside ordinary files.**
 
-A steganography tool that hides encrypted text inside images using Ascon-128 authenticated encryption and least significant bit (LSB) embedding.
-
-![Python](https://img.shields.io/badge/Python-3.12+-blue?style=flat-square)
-![License](https://img.shields.io/badge/License-AGPL--3.0-green?style=flat-square)
+![Python](https://img.shields.io/badge/Python-3.11+-blue?style=flat-square)
+![License](https://img.shields.io/badge/Licence-AGPL--3.0-green?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=flat-square)
+![Version](https://img.shields.io/badge/Version-2.0.0-orange?style=flat-square)
 
 ---
 
 ## What is Stegcore?
 
-Stegcore is a crypto-steganography application. It combines cryptography and steganography to conceal sensitive text data inside ordinary image files. The hidden data is both encrypted and invisible to casual inspection, making it suitable for protecting IP addresses, credentials, source code, and other critical information.
+Stegcore combines **cryptography** and **steganography**. It encrypts your payload and hides the ciphertext inside an ordinary image or audio file. The result looks and sounds completely normal. Only someone with the correct passphrase and key file can recover what's inside.
 
-Unlike conventional steganography tools that embed data without encryption, Stegcore encrypts your payload with Ascon-128 (the NIST lightweight cryptography standard) before hiding it. An attacker who extracts the embedded data still cannot read it without the correct passphrase.
+Unlike basic steganography tools that hide data without encrypting it, Stegcore ensures the payload is unreadable even if someone extracts it. Unlike basic encryption tools, Stegcore ensures the payload isn't even visible.
+
+---
+
+## Key features
+
+**Three ciphers**: Ascon-128 (NIST lightweight standard), ChaCha20-Poly1305, and AES-256-GCM. All use Argon2id key derivation.
+
+**Adaptive LSB steganography**: Payload bits are scattered across high-entropy, high-texture regions of the cover image using spread spectrum techniques, making detection significantly harder than standard LSB.
+
+**Deniable dual payload**: Embed two separately encrypted payloads into one cover image. One passphrase reveals the real message; another reveals a plausible decoy. Neither key file identifies itself.
+
+**Multiple formats**: PNG and BMP via adaptive or sequential LSB, JPEG via DCT-domain embedding, WAV via audio sample LSB.
+
+**Cover image scoring**: Before embedding, Stegcore scores the cover on entropy, texture density, and resolution. Poor covers are flagged before you commit.
+
+**Zstandard compression**: Payloads are compressed before encryption, improving both capacity efficiency and entropy uniformity.
+
+**Desktop GUI**: A step-by-step interface with dark and light modes.
+
+**Full CLI with two modes:**
+- **Wizard mode**: Guided step-by-step prompts, ideal if you're new to the terminal. Run `stegcore wizard`.
+- **Power mode**: Single-line commands with flags for scripting and experienced users.
+
+---
+
+## Installation
+
+**From source:**
+```bash
+git clone https://github.com/elementmerc/stegcore.git
+cd stegcore
+pip install -e .
+```
+
+**Dependencies only:**
+```bash
+pip install customtkinter Pillow numpy ascon cryptography argon2-cffi pyzstd jpegio typer rich
+```
+
+**Pre-built binaries** are available on the [releases page](https://github.com/elementmerc/stegcore/releases) for Windows, Linux, and macOS. No Python required.
+
+---
+
+## Quick start
+
+**New to the terminal? Use the wizard:**
+```bash
+stegcore wizard
+```
+The wizard walks you through everything step by step from cover selection, scoring, cipher choice, passphrase, and embedding. No flags needed.
+
+**GUI:**
+```bash
+python main.py
+# or after pip install:
+stegcore-gui
+```
+
+**Power-user CLI:**
+```bash
+# Score a cover image
+stegcore score photo.png
+
+# Embed
+stegcore embed photo.png secret.txt stego.png
+
+# Extract
+stegcore extract stego.png stego.key.json recovered.txt
+
+# Inspect a key file
+stegcore info stego.key.json
+
+# List ciphers
+stegcore ciphers
+
+# Full help
+stegcore --help
+stegcore embed --help
+```
+
+See [USAGE.md](USAGE.md) for the complete CLI reference.
 
 ---
 
 ## How it works
 
-![Proposed Model](https://user-images.githubusercontent.com/121883945/230630515-d4cab07b-2983-4418-a7d0-2ac5b00b19e4.png)
-
-1. Your text file is encrypted using **Ascon-128** with a passphrase you provide
-2. The ciphertext is embedded into the cover image using **3-bit LSB** steganography
-3. A key file is exported containing the nonce and metadata needed for extraction
-4. To recover the data, you supply the stego image, the key file, and the original passphrase
-
-The cover image appears visually identical to the original — changes to the least significant bits of pixel values are imperceptible to the human eye.
-
----
-
-## Requirements
-
 ```
-Python 3.12+
-customtkinter
-Pillow
-stego-lsb
-ascon
-```
-
-Install dependencies:
-
-```bash
-pip install customtkinter Pillow stego-lsb ascon
+secret.txt
+    │
+    ▼
+[ Argon2id key derivation (passphrase + random salt) ]
+    │
+    ▼
+[ Encrypt: Ascon-128 / ChaCha20-Poly1305 / AES-256-GCM ]
+    │
+    ▼
+[ Zstandard compress ciphertext ]
+    │
+    ▼
+[ Score cover image — entropy, texture, capacity ]
+    │
+    ▼
+[ Adaptive LSB / DCT / WAV sample embedding ]
+    │
+    ▼
+stego.png  +  stego.key.json
 ```
 
----
-
-## Getting started
-
-Clone the repository and run the main script from the `Stegcore scripts` directory:
-
-```bash
-git clone https://github.com/elementmerc/stegcore.git
-cd stegcore/Stegcore\ scripts
-python main.py
-```
-
-On Windows, a pre-built executable is available — download it from the [releases page](https://github.com/elementmerc/stegcore/releases) and run directly, no Python required.
-
----
-
-## Usage
-
-### Embed
-
-Hides encrypted text inside a cover image.
-
-1. Click **Embed**
-2. Select a `.txt` file containing the text to hide
-3. Select a cover image (`.png` or `.jpg`)
-4. Enter a passphrase when prompted
-5. Choose where to save the output stego image
-6. Choose where to save the key file — **keep this safe**, it is required for extraction
-
-### Extract
-
-Recovers hidden text from a stego image.
-
-1. Click **Extract**
-2. Select the stego image
-3. Select the key file
-4. Enter the original passphrase
-5. Choose where to save the recovered text file
+The key file contains only the nonce, salt, cipher name, and steg metadata. **Never** change the passphrase or derived key. Without both the key file **and** the correct passphrase, extraction isn't possible.
 
 ---
 
 ## Supported formats
 
-| Format | Embed | Extract |
-|--------|-------|---------|
-| PNG | ✓ | ✓ |
-| JPG / JPEG | ✓ | ✓ |
+| Format | Algorithm | Notes |
+|--------|-----------|-------|
+| PNG | Adaptive LSB + spread spectrum | Best capacity and concealment |
+| BMP | Adaptive LSB + spread spectrum | Lossless, same as PNG |
+| JPEG | DCT-domain coefficient embedding | Survives JPEG recompression |
+| WAV | Audio sample LSB | PCM audio only |
 
 ---
 
-## Image analysis tools
+## Deniable mode
 
-The `Image Tests` directory contains a standalone script for evaluating image quality and capacity metrics before embedding.
+Two payloads, one cover file. Two key files produced that are structurally identical, neither self-identifying as real or fake.
 
-**SSIM** (Structural Similarity Index) compares structural information between the original and stego image across luminance, contrast, and structure. Target range: `0.95 – 1.00`
+```bash
+stegcore embed cover.png real_message.txt stego.png --deniable
+# Wizard mode will ask you about this interactively.
+```
 
-**PSNR** (Peak Signal-to-Noise Ratio) measures signal quality relative to noise introduced by embedding. Higher is better. Target range: `≥ 35 dB`
-
-**Payload capacity** calculates the maximum amount of data that can be embedded in a given image without significant visual degradation.
-
----
-
-## Security notes
-
-- Ascon-128 is an authenticated encryption scheme. The integrity of the ciphertext is verified on decryption, so tampered or corrupted stego images will be rejected
-- The key file does not contain your passphrase; it stores only the nonce and metadata. Losing the key file means the data cannot be recovered
-- LSB steganography is detectable by dedicated steganalysis tools on carefully chosen images. Use high-entropy images with natural textures (photographs rather than flat illustrations) for best concealment
+Under coercion you hand over the decoy key file and decoy passphrase. The real message remains inaccessible and undetectable.
 
 ---
 
-## Roadmap
+## Project structure
 
-Stegcore v2 is in active development. Planned features include steganalysis-resistant adaptive LSB, spread spectrum embedding, deniable dual payloads, additional ciphers (ChaCha20-Poly1305, AES-256-GCM), JPEG DCT embedding, WAV support, a redesigned GUI, and a full CLI for scripting and automation.
+```
+stegcore/
+├── main.py              # GUI entry point
+├── cli.py               # CLI entry point (wizard + power commands)
+├── pyproject.toml
+├── core/
+│   ├── crypto.py        # Encryption, key derivation, key file I/O
+│   ├── steg.py          # Steganographic embed/extract, cover scoring
+│   └── utils.py         # Shared helpers
+├── ui/
+│   ├── theme.py         # Theme definitions and switcher
+│   ├── app.py           # Main window and navigation
+│   ├── embed_flow.py    # 4-step embed wizard
+│   └── extract_flow.py  # 3-step extract wizard
+└── assets/
+    └── Stag.ico
+```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for a full technical breakdown.
 
 ---
 
-## License
-[GNU Affero General Public License v3.0](LICENSE)
+## Security
+
+Stegcore is a defensive privacy tool. See [SECURITY.md](SECURITY.md) for the full threat model, honest limitations, and responsible use guidance.
+
+---
+
+## Pro version
+
+Stegcore Pro is a work in progress, and extends the free version with:
+
+- **Built-in steganalysis self-test**
+- **PDF and DOCX cover format support**
+- **Batch processing and scripting API**
+
+---
+
+## Licence
+
+[GNU Affero General Public Licence v3.0](LICENSE)
+
+Free to use, study, modify, and distribute under the terms of the AGPL-3.0. If you deploy a modified version as a network service, you must make the modified source available.

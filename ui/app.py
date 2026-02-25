@@ -73,14 +73,19 @@ class StegApp(customtk.CTk):
             fg_color=t["ACCENT"])
         badge.pack(side="left")
         badge.pack_propagate(False)
-        customtk.CTkLabel(
-            badge, text="◈", font=("Consolas", 12, "bold"),
-            text_color="white",
-        ).pack(expand=True)
+        try:
+            _ico = Image.open(asset("Stag.ico")).convert("RGBA").resize((20, 20), Image.LANCZOS)
+            _ctk_ico = customtk.CTkImage(light_image=_ico, dark_image=_ico, size=(20, 20))
+            customtk.CTkLabel(badge, image=_ctk_ico, text="").pack(expand=True)
+        except Exception:
+            customtk.CTkLabel(
+                badge, text="◈", font=("Consolas", 12, "bold"), text_color="white",
+            ).pack(expand=True)
 
         customtk.CTkLabel(
             logo, text="stegcore",
-            font=("Consolas", 15, "bold"), text_color=t["TEXT"],
+            font=("Consolas", 15, "bold"),
+            text_color="#000000" if t["mode"] == "light" else t["TEXT"],
         ).pack(side="left", padx=(8, 0))
 
         # Theme toggle

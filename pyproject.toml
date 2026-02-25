@@ -1,0 +1,38 @@
+[build-system]
+requires      = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name            = "stegcore"
+version         = "2.0.0"
+description     = "Crypto-steganography toolkit with deniable payloads"
+readme          = "README.md"
+license         = { text = "AGPL-3.0-or-later" }
+requires-python = ">=3.11"
+
+dependencies = [
+    "customtkinter>=5.2",
+    "Pillow>=10.0",
+    "numpy>=1.26",
+    "ascon>=0.1",
+    "cryptography>=41.0",
+    "argon2-cffi>=23.1",
+    "pyzstd>=0.15",
+    "jpegio>=0.1",
+    "typer>=0.12",
+    "rich>=13.0",
+]
+
+[project.scripts]
+# CLI:  stegcore embed / extract / score / info / ciphers
+stegcore = "cli:app"
+
+[project.gui-scripts]
+# GUI: double-click or run stegcore-gui
+stegcore-gui = "main:_launch"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+"*" = ["*.ico", "*.png"]

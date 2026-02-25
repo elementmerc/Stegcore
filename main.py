@@ -9,6 +9,11 @@
 
 from ui.app import StegApp
 
-if __name__ == "__main__":
+def _launch() -> None:
+    """Entry point for the stegcore-gui console script."""
     app = StegApp()
     app.mainloop()
+
+
+if __name__ == "__main__":
+    _launch()
