@@ -23,7 +23,7 @@ BASE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).parent.parent))
 
 def asset(filename: str) -> Path:
     """Return the absolute path to a bundled asset file."""
-    return BASE_DIR / filename
+    return Path(__file__).parent.parent / "assets" / filename
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +36,7 @@ def temp_file(suffix: str = ".bin"):
     Context manager that creates a named temporary file and guarantees
     cleanup on exit, even if an exception is raised.
 
-    Uses mkstemp rather than mktemp — mktemp is deprecated and can cause
+    Uses mkstemp rather than mktemp. mktemp is deprecated and can cause
     memory allocation issues on Linux via glibc.
 
     Usage:
@@ -48,7 +48,7 @@ def temp_file(suffix: str = ".bin"):
     fd, tmp_str = tempfile.mkstemp(suffix=suffix)
     tmp = Path(tmp_str)
     try:
-        # Close the file descriptor immediately — we'll use Path.write_bytes
+        # Close the file descriptor immediately. Using Path.write_bytes
         # and Path.read_bytes for all I/O, which open/close cleanly each time
         import os
         os.close(fd)

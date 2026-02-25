@@ -26,6 +26,7 @@ THEMES = {
         "DIM":     "#1a2a3a",
         "WARN":    "#e67e22",
         "GOOD":    "#2ecc71",
+        "DANGER":  "#e03030",
         "mode":    "dark",
     },
     "light": {
@@ -42,6 +43,7 @@ THEMES = {
         "DIM":     "#e2e8f0",
         "WARN":    "#d97706",
         "GOOD":    "#059669",
+        "DANGER":  "#cc0000",
         "mode":    "light",
     },
 }

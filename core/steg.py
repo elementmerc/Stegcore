@@ -5,7 +5,7 @@
 # See <https://www.gnu.org/licenses/> for details.
 
 # File: core/steg.py
-# Description: Multi-format steganography — PNG/BMP via LSB, JPEG via DCT,
+# Description: Multi-format steganography. PNG/BMP via LSB, JPEG via DCT,
 #              WAV via sample LSB. Format is detected automatically from the
 #              file extension and routed to the correct algorithm.
 #
@@ -54,6 +54,47 @@ def _get_format(path: Path) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Safe PIL → numpy loader
+# ---------------------------------------------------------------------------
+
+def _load_img_array(path: Path) -> np.ndarray:
+    """
+    Load an image as a writable (H, W, 3) uint8 numpy array with NO shared
+    pointer to the PIL ImagingCore C struct.
+
+    The unsafe pattern is:
+        img       = Image.open(path).convert("RGB")
+        img_array = np.array(img, dtype=np.uint8)   # looks like a copy
+
+    In modern Pillow, Image.__array_interface__ returns
+        {"data": (self.im.unsafe_ptrs["image32"], False), ...}
+    — a raw C pointer into PIL's ImagingCore heap allocation.  When the
+    source data is already contiguous uint8, numpy skips the copy and creates
+    a VIEW of that allocation.  The PIL Image object and the numpy array then
+    share the same malloc() block.  glibc detects the double-free and aborts
+    with "munmap_chunk(): invalid pointer" at some later, apparently unrelated
+    point (often during .save() or the next GC cycle).
+
+    Safe pattern:
+        1. img.tobytes() — copies all pixel data into a Python-owned bytes obj
+        2. img.close() / del img — PIL's ImagingCore is freed HERE, cleanly,
+           while only Python's bytes object still exists.  No more shared ptr.
+        3. np.frombuffer(...).copy() — builds a writable array from the bytes.
+           frombuffer alone gives a read-only view of the bytes object, so the
+           .copy() makes it writable and gives numpy its own allocation.
+
+    After this call, numpy and PIL own entirely separate heap allocations.
+    """
+    pil_img = Image.open(path).convert("RGB")
+    w, h    = pil_img.size
+    raw     = pil_img.tobytes()
+    pil_img.close()           
+    del pil_img
+    # frombuffer → read-only view of `raw`; .copy() → writable, owned array
+    return np.frombuffer(raw, dtype=np.uint8).reshape(h, w, 3).copy()
+
+
+# ---------------------------------------------------------------------------
 # Bit helpers
 # ---------------------------------------------------------------------------
 
@@ -83,12 +124,29 @@ def _bits_to_int(bits: np.ndarray) -> int:
 
 
 # ---------------------------------------------------------------------------
-# PNG/BMP — bit-level read/write via unravel_index
+# PNG/BMP — bit-level read/write via unravel_index + frombytes save
 #
-# Using np.unravel_index keeps img_array as a proper (H,W,C) array
-# throughout. PIL always receives the original, never a reshaped copy.
-# This eliminates the ravel/reshape double-buffer that was causing
-# munmap_chunk() crashes on Linux.
+# Two memory-safety rules are enforced throughout:
+#
+# 1. INDEX ARITHMETIC — np.unravel_index is used for all pixel access.
+#    Earlier versions called img_array.ravel() to get a flat view, wrote
+#    bits into it, then reshaped back to (H,W,C). On Linux glibc, numpy's
+#    ravel() can return a view sharing the same allocation as img_array.
+#    When PIL later received the reshaped array via fromarray(), two
+#    independent Python objects referenced the same malloc() block. The
+#    second free() triggered munmap_chunk(). unravel_index converts flat
+#    indices to (row,col,channel) tuples and writes directly into the
+#    original 3-D array — no second reference to the allocation ever exists.
+#
+# 2. PIL SAVE — Image.frombytes() is used instead of Image.fromarray().
+#    fromarray() exposes numpy's raw data pointer to PIL's ImagingCore via
+#    the buffer protocol. PIL's C encoder (ImagingEncoder / ImagingCopy)
+#    can internally reallocate or free that pointer independently of
+#    Python's reference counting. When numpy's own refcount later hits 0
+#    and it calls free(), glibc detects the invalid pointer and aborts with
+#    munmap_chunk(). frombytes() is given an explicit bytes object produced
+#    by img_array.tobytes(), which copies the pixels into a fresh allocation
+#    owned solely by PIL. numpy and PIL never share a pointer.
 # ---------------------------------------------------------------------------
 
 def _write_bits_img(img_array: np.ndarray,
@@ -155,8 +213,7 @@ def _get_indices_sequential(img_array: np.ndarray) -> np.ndarray:
 
 def _embed_png(cover_path: Path, payload: bytes, output_path: Path,
                key: bytes, mode: str) -> None:
-    img       = Image.open(cover_path).convert("RGB")
-    img_array = np.array(img, dtype=np.uint8)   # owned copy
+    img_array = _load_img_array(cover_path)
 
     indices = (
         _get_indices_adaptive(img_array, _compute_embedding_map(img_array), key)
@@ -179,12 +236,21 @@ def _embed_png(cover_path: Path, payload: bytes, output_path: Path,
         )
 
     _write_bits_img(img_array, indices, all_bits)
-    Image.fromarray(img_array).save(str(output_path), format="PNG")
+
+    # .tobytes() creates an explicit copy of the pixel data, severing the
+    # shared-memory relationship between the numpy array and PIL's ImagingCore.
+    # Image.fromarray() exposes numpy's raw pointer via the buffer protocol;
+    # PIL's C encoder can then reallocate that pointer independently of Python's
+    # refcount, causing glibc to detect a double-free (munmap_chunk: invalid
+    # pointer) on .save(). frombytes() owns its own allocation. No shared ptr.
+    h, w = img_array.shape[:2]
+    Image.frombytes("RGB", (w, h), img_array.tobytes()).save(
+        str(output_path), format="PNG"
+    )
 
 
 def _extract_png(stego_path: Path, key: bytes, mode: str) -> bytes:
-    img       = Image.open(stego_path).convert("RGB")
-    img_array = np.array(img, dtype=np.uint8)
+    img_array = _load_img_array(stego_path)
 
     indices = (
         _get_indices_adaptive(img_array, _compute_embedding_map(img_array), key)
@@ -210,6 +276,11 @@ def _extract_png(stego_path: Path, key: bytes, mode: str) -> bytes:
 # JPEG — DCT-domain embedding
 # ---------------------------------------------------------------------------
 
+def _jpeg_usable_positions(component: np.ndarray) -> np.ndarray:
+    mask = (component != 0) & (component != 1) & (component != -1) & (component != -2)
+    return np.argwhere(mask)   # shape (N, 2), dtype int64
+
+
 def _embed_jpeg(cover_path: Path, payload: bytes, output_path: Path) -> None:
     if not _JPEGIO_AVAILABLE:
         raise RuntimeError("jpegio is not installed. Run: pip install jpegio")
@@ -219,30 +290,40 @@ def _embed_jpeg(cover_path: Path, payload: bytes, output_path: Path) -> None:
         _int_to_bits(len(payload), _HEADER_BITS),
         _bytes_to_bits(payload),
     ])
+    n_bits   = len(all_bits)
     bit_idx  = 0
-    capacity = sum(
-        int(np.sum((c.ravel() != 0) & (c.ravel() != 1) & (c.ravel() != -1)))
-        for c in jpeg.coef_arrays
-    )
 
-    if len(all_bits) > capacity:
+    # Capacity check using the same position-selection logic as the write loop.
+    capacity = sum(len(_jpeg_usable_positions(c)) for c in jpeg.coef_arrays)
+    if n_bits > capacity:
         raise ValueError(
             f"JPEG has insufficient DCT capacity.\n"
             f"Available: ~{capacity // 8:,} bytes | Required: ~{len(payload):,} bytes.\n"
             "Try a larger or higher-quality JPEG."
         )
 
+    # Write loop — direct 2D indexing, never ravel().
+    #
+    # The root-cause of the previous silent round-trip failure:
+    # jpegio stores DCT coefficient arrays in Fortran (column-major) order.
+    # numpy's ravel() on a Fortran-order array returns a copy, not a view.
+    # Every write to that copy was silently discarded; jpegio.write then saved
+    # the original unmodified coefficients.  On extract, the header read back
+    # as garbage and the length check failed.
+    #
+    # Direct indexing — comp[r, c] = x — always writes into the live array
+    # regardless of its memory layout, because it goes through numpy's item
+    # setter which resolves the actual address from strides + offsets.
     for component in jpeg.coef_arrays:
-        if bit_idx >= len(all_bits):
+        if bit_idx >= n_bits:
             break
-        flat = component.ravel()
-        for i in range(len(flat)):
-            if bit_idx >= len(all_bits):
+        positions = _jpeg_usable_positions(component)
+        for r, c in positions:
+            if bit_idx >= n_bits:
                 break
-            coef = flat[i]
-            if coef != 0 and coef != 1 and coef != -1:
-                flat[i] = (coef & ~1) | int(all_bits[bit_idx])
-                bit_idx += 1
+            coef = int(component[r, c])
+            component[r, c] = np.int16((coef & ~1) | int(all_bits[bit_idx]))
+            bit_idx += 1
 
     jpegio.write(jpeg, str(output_path))
 
@@ -253,10 +334,10 @@ def _extract_jpeg(stego_path: Path) -> bytes:
 
     jpeg = jpegio.read(str(stego_path))
     bits = []
+
     for component in jpeg.coef_arrays:
-        for coef in component.ravel():
-            if coef != 0 and coef != 1 and coef != -1:
-                bits.append(int(coef) & 1)
+        for r, c in _jpeg_usable_positions(component):
+            bits.append(int(component[r, c]) & 1)
 
     if len(bits) < _HEADER_BITS:
         raise ValueError("No valid payload detected in this JPEG.")
@@ -334,7 +415,7 @@ def split_indices(all_indices: np.ndarray,
                   partition_seed: bytes) -> tuple[np.ndarray, np.ndarray]:
     """
     Deterministically split indices into two disjoint halves.
-    Returns copies so each half owns its memory.
+    Returns copies — not views — so each half owns its memory.
     """
     rng      = np.random.default_rng(int.from_bytes(partition_seed, "big"))
     shuffled = all_indices.copy()
@@ -367,8 +448,7 @@ def embed_deniable(cover_path:    str | Path,
     cover_path  = Path(cover_path)
     output_path = Path(output_path)
 
-    img        = Image.open(cover_path).convert("RGB")
-    img_array  = np.array(img, dtype=np.uint8)
+    img_array  = _load_img_array(cover_path)
     pixel_mask = _compute_embedding_map(img_array)
 
     real_indices  = _get_deniable_indices(img_array, pixel_mask, real_key,  partition_seed, 0)
@@ -392,11 +472,14 @@ def embed_deniable(cover_path:    str | Path,
     real_bits  = _make_bits(real_payload,  real_indices,  "real")
     decoy_bits = _make_bits(decoy_payload, decoy_indices, "decoy")
 
-    # Both write passes on the same img_array — unravel_index is safe
+    # Both write passes on the same img_array. unravel_index is safe.
     _write_bits_img(img_array, real_indices,  real_bits)
     _write_bits_img(img_array, decoy_indices, decoy_bits)
 
-    Image.fromarray(img_array).save(str(output_path), format="PNG")
+    h, w = img_array.shape[:2]
+    Image.frombytes("RGB", (w, h), img_array.tobytes()).save(
+        str(output_path), format="PNG"
+    )
     return output_path
 
 
@@ -405,8 +488,7 @@ def extract_deniable(stego_path:     str | Path,
                      partition_seed: bytes,
                      partition_half: int) -> bytes:
     stego_path = Path(stego_path)
-    img        = Image.open(stego_path).convert("RGB")
-    img_array  = np.array(img, dtype=np.uint8)
+    img_array  = _load_img_array(stego_path)
     pixel_mask = _compute_embedding_map(img_array)
     indices    = _get_deniable_indices(img_array, pixel_mask, key,
                                        partition_seed, partition_half)
@@ -454,6 +536,16 @@ def embed(cover_path:   str | Path,
                 raise ValueError("Adaptive mode requires a key.")
             _embed_png(cover_path, payload, output_path, key, mode)
         elif fmt == "jpeg":
+            # JPEG DCT embedding rewrites the DCT coefficient tables.
+            # The output file MUST be saved as JPEG to preserve those
+            # tables. Saving as PNG would discard them entirely, making
+            # extraction impossible. Catching the mistake early.
+            if output_path.suffix.lower() not in {".jpg", ".jpeg"}:
+                raise ValueError(
+                    f"JPEG cover requires a JPEG output file.\n"
+                    f"Output path '{output_path.name}' has extension "
+                    f"'{output_path.suffix}' — change it to '.jpg'."
+                )
             _embed_jpeg(cover_path, payload, output_path)
         elif fmt == "wav":
             _embed_wav(cover_path, payload, output_path)
@@ -495,7 +587,7 @@ def get_capacity(image_path: str | Path, mode: str = "adaptive") -> dict:
     fmt  = _get_format(path)
 
     if fmt == "png":
-        img_array = np.array(Image.open(path).convert("RGB"), dtype=np.uint8)
+        img_array = _load_img_array(path)
         if mode == "adaptive":
             n_indices = int(_compute_embedding_map(img_array).sum()) * 3
         else:
@@ -506,10 +598,7 @@ def get_capacity(image_path: str | Path, mode: str = "adaptive") -> dict:
         if not _JPEGIO_AVAILABLE:
             return {"available_bytes": 0, "mode": "dct"}
         jpeg      = jpegio.read(str(path))
-        capacity  = sum(
-            int(np.sum((c.ravel() != 0) & (c.ravel() != 1) & (c.ravel() != -1)))
-            for c in jpeg.coef_arrays
-        )
+        capacity  = sum(len(_jpeg_usable_positions(c)) for c in jpeg.coef_arrays)
         available = max(0, (capacity - _HEADER_BITS) // 8)
         mode = "dct"
 
@@ -520,7 +609,7 @@ def get_capacity(image_path: str | Path, mode: str = "adaptive") -> dict:
 
 
 def score_cover_image(image_path: str | Path) -> dict:
-    img_array = np.array(Image.open(Path(image_path)).convert("RGB"), dtype=np.uint8)
+    img_array = _load_img_array(Path(image_path))
     H, W, C   = img_array.shape
 
     flat          = img_array.ravel()
