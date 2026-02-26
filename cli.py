@@ -23,6 +23,17 @@ import traceback
 from pathlib import Path
 from typing import Optional
 
+# Windows cmd/PowerShell defaults to cp1252 which can't encode the Unicode
+# characters used in the banner (◈ etc.).  Force UTF-8 before Rich initialises.
+if sys.platform == "win32":
+    os.environ.setdefault("PYTHONUTF8", "1")
+    for _stream in (sys.stdout, sys.stderr):
+        if _stream and hasattr(_stream, "reconfigure"):
+            try:
+                _stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
 import typer
 from rich import box
 from rich.console import Console
@@ -79,7 +90,7 @@ def _banner() -> None:
             Text.assemble(
                 ("◈ ", ACCENT + " bold"),
                 ("stegcore", "bold white"),
-                ("  v2.0.0", MUTED),
+                ("  v2.0.3", MUTED),
                 ("  |  ", MUTED),
                 ("AGPL-3.0", MUTED),
             ),

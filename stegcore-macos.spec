@@ -52,7 +52,7 @@ HIDDEN_IMPORTS = [
     "tkinter",
     "tkinter.filedialog",
     "tkinter.messagebox",
-    "jpegio",
+    # jpegio not used — JPEG uses pixel-domain LSB via PIL/numpy
     # macOS Tk backend
     "PIL._tkinter_finder",
 ]
@@ -168,9 +168,6 @@ app = BUNDLE(
         "com.apple.security.files.user-selected.read-write": True,
         # Suppress the "App is not optimised for your Mac" warning on Apple Silicon
         "NSHighResolutionCapable":    True,
-        # Suppress the microphone/camera permission dialogs (not needed)
-        "NSMicrophoneUsageDescription": None,
-        "NSCameraUsageDescription":     None,
     },
 )
 

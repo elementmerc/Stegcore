@@ -47,8 +47,8 @@ HIDDEN_IMPORTS = [
     "tkinter",
     "tkinter.filedialog",
     "tkinter.messagebox",
-    # jpegio — optional; include it if present so JPEG support works
-    "jpegio",
+    # jpegio is not used — JPEG support uses pixel-domain LSB via PIL/numpy
+    # "jpegio",
 ]
 
 # Data files — non-Python assets that need to be bundled.
