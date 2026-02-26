@@ -39,7 +39,7 @@ HIDDEN_IMPORTS = [
     "tkinter",
     "tkinter.filedialog",
     "tkinter.messagebox",
-    "jpegio",
+    # jpegio not used — JPEG uses pixel-domain LSB via PIL/numpy
     # Windows-specific: ensure the correct DLL search path hook runs
     "win32api",
     "win32con",

@@ -79,7 +79,7 @@ class StegApp(customtk.CTk):
             customtk.CTkLabel(badge, image=_ctk_ico, text="").pack(expand=True)
         except Exception:
             customtk.CTkLabel(
-                badge, text="◈", font=("Consolas", 12, "bold"), text_color="white",
+                badge, text="S", font=("Consolas", 12, "bold"), text_color="white",
             ).pack(expand=True)
 
         customtk.CTkLabel(
@@ -322,7 +322,7 @@ class StegApp(customtk.CTk):
         # Bottom items packed FIRST so expand=True content doesn't displace them
         #  when window is resized
         customtk.CTkLabel(
-            frame, text="v2.0.1",
+            frame, text="v2.0.3",
             font=("Consolas", 10), text_color=t["DIM"],
         ).pack(side="bottom", pady=(0, 6))
 

@@ -40,7 +40,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install \
-            customtkinter Pillow numpy ascon cryptography \
+            customtkinter Pillow "numpy<2" ascon cryptography \
             argon2-cffi pyzstd typer rich \
             pyinstaller
 
@@ -97,8 +97,11 @@ jobs:
         shell: pwsh
 
       - name: Build binaries
+        working-directory: ${{ github.workspace }}
         run: pyinstaller $env:GITHUB_WORKSPACE\stegcore-windows.spec
         shell: pwsh
+        env:
+          PYTHONUTF8: "1"
 
       - name: Smoke-test CLI binary
         run: |
