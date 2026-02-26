@@ -77,6 +77,7 @@ def _banner() -> None:
     console.print(
         Panel(
             Text.assemble(
+                ("◈ ", ACCENT + " bold"),
                 ("stegcore", "bold white"),
                 ("  v2.0.0", MUTED),
                 ("  |  ", MUTED),
@@ -513,7 +514,7 @@ def wizard() -> None:
         _section("Score a cover file")
         img = _ask_file(
             "Path to the image file",
-            hint="Enter the full or relative path to a PNG, JPG, or BMP file.",
+            hint="Enter the full or relative path to a PNG, BMP, or JPEG file.",
             extensions=[".png", ".bmp", ".jpg", ".jpeg"],
         )
         score(image=img)
@@ -535,7 +536,7 @@ def _wizard_embed() -> None:
     # ── Cover file ────────────────────────────────────────────────────────
     console.print(f"[{ACCENT} bold]Step 1 of 5 — Cover file[/{ACCENT} bold]")
     _hint("This is the file your message will be hidden inside.")
-    _hint("Supported: PNG, BMP (best), JPEG, WAV")
+    _hint("Supported: PNG, BMP, JPEG, WAV")
     cover = _ask_file(
         "Path to cover file",
         extensions=[".png", ".bmp", ".jpg", ".jpeg", ".wav"],
@@ -583,6 +584,8 @@ def _wizard_embed() -> None:
     console.print(f"[{ACCENT} bold]Step 3 of 5 — Output file[/{ACCENT} bold]")
     _hint("Where to save the stego file (the cover with the hidden message).")
     out_ext = ".wav" if fmt == ".wav" else ".png"
+    if fmt in {".jpg", ".jpeg"}:
+        _hint("JPEG covers are embedded into a PNG — JPEG recompression would destroy the hidden data.")
     _hint(f"Output will be saved as {out_ext.upper()}. Example: stego.png")
 
     for attempt in range(1, 4):
@@ -675,7 +678,7 @@ def _wizard_extract() -> None:
     _hint("This is the file containing the hidden message.")
     stego = _ask_file(
         "Path to the stego file",
-        extensions=[".png", ".bmp", ".jpg", ".jpeg", ".wav"],
+        extensions=[".png", ".bmp", ".wav"],
     )
     console.print()
 
@@ -772,12 +775,22 @@ def _do_embed(
     if cipher not in crypto.SUPPORTED_CIPHERS:
         _err(f"Unknown cipher '{cipher}'. Choose from: {', '.join(crypto.SUPPORTED_CIPHERS)}")
 
-    effective_mode = mode if fmt in {".png", ".bmp"} else "sequential"
+    effective_mode = mode if fmt in {".png", ".bmp", ".jpg", ".jpeg"} else "sequential"
     if mode != effective_mode:
         _warn(f"{fmt} does not support mode '{mode}' — using sequential.")
 
     if deniable and effective_mode != "adaptive":
-        _err("Deniable mode requires adaptive PNG or BMP cover.")
+        _err("Deniable mode requires adaptive PNG, BMP, or JPEG cover.")
+
+    # JPEG covers produce a PNG stego file — JPEG recompression destroys LSBs.
+    # Auto-correct the output extension and warn the user.
+    if fmt in {".jpg", ".jpeg"} and output.suffix.lower() in {".jpg", ".jpeg"}:
+        corrected = output.with_suffix(".png")
+        _warn(
+            f"JPEG covers are embedded into PNG (JPEG recompression destroys LSBs). "
+            f"Saving as '{corrected.name}' instead of '{output.name}'."
+        )
+        output = corrected
 
     if output.exists() and not force:
         if not Confirm.ask(f"[{WARN}]'{output.name}' already exists. Overwrite?[/{WARN}]"):

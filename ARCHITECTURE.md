@@ -71,9 +71,9 @@ All steganographic embedding, extraction, and analysis. Format is auto-detected 
 
 **Format routing:**
 ```
-.png / .bmp  →  _embed_png  /  _extract_png
-.jpg / .jpeg →  _embed_jpeg /  _extract_jpeg
-.wav         →  _embed_wav  /  _extract_wav
+.png / .bmp          →  _embed_png  /  _extract_png
+.jpg / .jpeg         →  _embed_png  /  _extract_png  (pixel-domain; output is PNG)
+.wav                 →  _embed_wav  /  _extract_wav
 ```
 
 **PNG/BMP — Adaptive LSB with spread spectrum:**
@@ -85,15 +85,11 @@ All steganographic embedding, extraction, and analysis. Format is auto-detected 
 
 In sequential mode (no key), bits are written in raster order with no permutation. Less secure, but simpler and handy for debugging.
 
-**JPEG — DCT-domain:**
+**JPEG — Pixel-domain LSB:**
 
-Uses `jpegio` to access raw DCT coefficient arrays. Payload bits are embedded in the LSBs of usable AC coefficients. A coefficient is considered usable if its value is not in `{0, 1, −1, −2}`:
+JPEG covers use the same pixel-domain LSB pipeline as PNG and BMP. PIL loads the JPEG as RGB pixels; bits are embedded using adaptive or sequential LSB; the result is saved as **PNG** (not JPEG). This is intentional. JPEG recompression is lossy and would destroy the embedded LSBs on every save. The output filename is auto-corrected to `.png` if the user specifies `.jpg`.
 
-- `0` — skipping avoids creating energy in dead coefficients
-- `±1` — skipping prevents underflow/overflow that would produce `0` or sign-flip to `∓1`
-- `−2` — critical exclusion: `(−2 & ~1) | 1 == −1` in two's-complement. Writing bit `1` to coefficient `−2` produces `−1`, which is in the skip list. The extractor would then miss that position, desyncing the bit streams from that point onwards and silently corrupting the extracted ciphertext. Excluding `−2` at both ends makes the position sets provably identical.
-
-`np.argwhere` is used to find usable positions. It returns row-major `[row, col]` pairs regardless of the array's own memory order, guaranteeing identical traversal on both sides. Direct 2D indexing (`component[r, c] = x`) handles all writes, avoiding `ravel()` which returns a copy on Fortran-order arrays and silently discards everything you write into it.
+No additional dependencies are required. `jpegio` is not used.
 
 **WAV — Audio sample LSB:**
 
@@ -228,8 +224,7 @@ crypto.encrypt(plaintext, passphrase, cipher)
     │
     ▼
 steg.embed(cover, ciphertext_file, output, key=steg_key, mode=mode)
-    │  PNG:  adaptive LSB via np.unravel_index
-    │  JPEG: DCT coefficient LSB via np.argwhere direct indexing
+    │  PNG/BMP/JPEG: adaptive LSB via np.unravel_index (output always PNG)
     │  WAV:  audio sample LSB
     ▼
 crypto.write_key_file(key_path, nonce, salt, cipher, ...)

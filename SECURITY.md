@@ -56,10 +56,6 @@ The key file contains the nonce, salt, and cipher metadata. Without the passphra
 
 Argon2id makes brute-forcing expensive, but a short or common passphrase can still be cracked with sufficient motivation and computing power. Use a strong, unique passphrase of at least 14 characters.
 
-**JPEG recompression**
-
-JPEG DCT-domain embedding survives one re-save at similar quality settings. Re-saving at significantly lower quality, or converting to PNG and back, will likely destroy the payload. That's a property of lossy formats, not a bug in Stegcore.
-
 **WAV transcoding**
 
 WAV sample LSB embedding won't survive conversion to MP3, AAC, or any other lossy audio format. Only use WAV covers when you control the file from embed to extract with no transcoding in between.

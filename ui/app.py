@@ -322,7 +322,7 @@ class StegApp(customtk.CTk):
         # Bottom items packed FIRST so expand=True content doesn't displace them
         #  when window is resized
         customtk.CTkLabel(
-            frame, text="v2.0.0-dev",
+            frame, text="v2.0.1",
             font=("Consolas", 10), text_color=t["DIM"],
         ).pack(side="bottom", pady=(0, 6))
 

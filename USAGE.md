@@ -144,8 +144,8 @@ stegcore embed photo.png secret.txt stego.png \
 # WAV cover
 stegcore embed recording.wav secret.txt stego.wav
 
-# JPEG cover (output must also be .jpg)
-stegcore embed photo.jpg secret.txt stego.jpg
+# JPEG cover — output is auto-saved as PNG (JPEG recompression destroys LSBs)
+stegcore embed photo.jpg secret.txt stego.png
 
 # Deniable mode
 stegcore embed photo.png real.txt stego.png --deniable
@@ -229,7 +229,7 @@ All three ciphers are AEAD with Argon2id key derivation. The choice has no effec
 | `adaptive` | Bits scattered via spread spectrum in high-texture regions | Always — default, much harder to detect |
 | `sequential` | Bits written from top-left in raster order | Debugging only — detectable by basic tools |
 
-JPEG and WAV ignore `--mode` — they always use their own format-appropriate algorithm.
+ JPEG covers use the same pixel-domain LSB pipeline as PNG/BMP and support both `adaptive` and `sequential` modes. WAV always uses sample LSB regardless of `--mode`.
 
 ---
 

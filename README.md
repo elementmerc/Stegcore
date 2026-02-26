@@ -50,7 +50,7 @@ pip install -e .
 
 **Dependencies only:**
 ```bash
-pip install customtkinter Pillow numpy ascon cryptography argon2-cffi pyzstd jpegio typer rich
+pip install customtkinter Pillow numpy ascon cryptography argon2-cffi pyzstd typer rich
 ```
 
 **Pre-built binaries** are available on the [releases page](https://github.com/elementmerc/stegcore/releases) for Windows, Linux, and macOS. No Python required.
@@ -116,7 +116,7 @@ secret.txt
 [ Score cover image — entropy, texture, capacity ]
     │
     ▼
-[ Adaptive LSB / DCT / WAV sample embedding ]
+[ Adaptive LSB / WAV sample embedding ]
     │
     ▼
 stego.png  +  stego.key.json
@@ -132,7 +132,7 @@ The key file contains only the nonce, salt, cipher name, and steg metadata. **Ne
 |--------|-----------|-------|
 | PNG | Adaptive LSB + spread spectrum | Best capacity and concealment |
 | BMP | Adaptive LSB + spread spectrum | Lossless, same as PNG |
-| JPEG | DCT-domain coefficient embedding | Survives JPEG recompression |
+| JPEG | Pixel-domain LSB (output saved as PNG) | Use your .jpg photos directly. No conversion needed |
 | WAV | Audio sample LSB | PCM audio only |
 
 ---
