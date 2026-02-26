@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/Python-3.11+-blue?style=flat-square)
 ![License](https://img.shields.io/badge/Licence-AGPL--3.0-green?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=flat-square)
-![Version](https://img.shields.io/badge/Version-2.0.0-orange?style=flat-square)
+![Version](https://img.shields.io/badge/Version-2.0.6-orange?style=flat-square)
 
 ---
 
