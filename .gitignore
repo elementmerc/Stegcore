@@ -4,4 +4,4 @@
 main.spec
 *__pycache__*
 /tests/
-*spec*
+*Zone.Identifier*
