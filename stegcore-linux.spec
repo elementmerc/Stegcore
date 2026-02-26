@@ -46,7 +46,7 @@ HIDDEN_IMPORTS = [
     # Tkinter backend (needed by customtkinter even in headless builds)
     "tkinter",
     "tkinter.filedialog",
-    "rich._unicode_data",
+    "rich._unicode_data.unicode17-0-0",
     "tkinter.messagebox",
     # jpegio is not used — JPEG support uses pixel-domain LSB via PIL/numpy
     # "jpegio",
