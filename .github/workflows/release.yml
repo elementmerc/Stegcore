@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version tag to build (e.g. v2.0.0)"
+        description: "Version tag to build (e.g. v2.1.0)"
         required: true
 
 # One job per platform. All three run in parallel.
@@ -45,7 +45,7 @@ jobs:
             pyinstaller
 
       - name: Build binaries
-        run: pyinstaller stegcore-linux.spec
+        run: pyinstaller $GITHUB_WORKSPACE/stegcore-linux.spec
 
       - name: Smoke-test CLI binary
         run: |
@@ -97,7 +97,7 @@ jobs:
         shell: pwsh
 
       - name: Build binaries
-        run: pyinstaller stegcore-windows.spec
+        run: pyinstaller $env:GITHUB_WORKSPACE\stegcore-windows.spec
         shell: pwsh
 
       - name: Smoke-test CLI binary
@@ -143,7 +143,7 @@ jobs:
             pyinstaller
 
       - name: Build binaries
-        run: pyinstaller stegcore-macos.spec
+        run: pyinstaller $GITHUB_WORKSPACE/stegcore-macos.spec
 
       - name: Smoke-test CLI binary
         run: |
