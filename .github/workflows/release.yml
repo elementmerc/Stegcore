@@ -1,0 +1,255 @@
+name: Build & Release
+
+# Triggers on a pushed version tag: v2.0.0, v2.1.3, etc.
+# Run manually via Actions → "Run workflow" by setting a version input.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag to build (e.g. v2.0.0)"
+        required: true
+
+# One job per platform. All three run in parallel.
+jobs:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Linux — single-file binary
+  # ──────────────────────────────────────────────────────────────────────────
+  build-linux:
+    name: Build (Linux)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y upx-ucl
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install \
+            customtkinter Pillow numpy ascon cryptography \
+            argon2-cffi pyzstd typer rich \
+            pyinstaller
+
+      - name: Build binaries
+        run: pyinstaller stegcore-linux.spec
+
+      - name: Smoke-test CLI binary
+        run: |
+          ./dist/stegcore --help
+          ./dist/stegcore ciphers
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-binaries
+          path: |
+            dist/stegcore
+            dist/stegcore-gui
+          retention-days: 7
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Windows — .exe with icon
+  # ──────────────────────────────────────────────────────────────────────────
+  build-windows:
+    name: Build (Windows)
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install UPX
+        run: |
+          # Download UPX and add to PATH so PyInstaller can find it
+          $upxUrl = "https://github.com/upx/upx/releases/download/v4.2.4/upx-4.2.4-win64.zip"
+          Invoke-WebRequest $upxUrl -OutFile upx.zip
+          Expand-Archive upx.zip -DestinationPath upx_dir
+          $upxPath = (Get-ChildItem upx_dir -Recurse -Filter "upx.exe").DirectoryName
+          echo $upxPath | Out-File -Append -FilePath $env:GITHUB_PATH
+        shell: pwsh
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install `
+            customtkinter Pillow numpy ascon cryptography `
+            argon2-cffi pyzstd typer rich `
+            pyinstaller
+        shell: pwsh
+
+      - name: Build binaries
+        run: pyinstaller stegcore-windows.spec
+        shell: pwsh
+
+      - name: Smoke-test CLI binary
+        run: |
+          .\dist\stegcore.exe --help
+          .\dist\stegcore.exe ciphers
+        shell: pwsh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-binaries
+          path: |
+            dist\stegcore.exe
+            dist\stegcore-gui.exe
+          retention-days: 7
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # macOS — .app bundle + CLI binary
+  # ──────────────────────────────────────────────────────────────────────────
+  build-macos:
+    name: Build (macOS)
+    runs-on: macos-14        # Apple Silicon (arm64); change to macos-13 for Intel
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install UPX
+        run: brew install upx
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install \
+            customtkinter Pillow numpy ascon cryptography \
+            argon2-cffi pyzstd typer rich \
+            pyinstaller
+
+      - name: Build binaries
+        run: pyinstaller stegcore-macos.spec
+
+      - name: Smoke-test CLI binary
+        run: |
+          ./dist/stegcore --help
+          ./dist/stegcore ciphers
+
+      - name: Zip the .app bundle
+        # GitHub artifacts don't preserve macOS extended attributes or
+        # symlinks inside .app bundles unless you zip first.
+        run: |
+          cd dist
+          zip -r --symlinks Stegcore.app.zip Stegcore.app
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-binaries
+          path: |
+            dist/stegcore
+            dist/Stegcore.app.zip
+          retention-days: 7
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Release — download all three platform artifacts and publish to GitHub
+  # ──────────────────────────────────────────────────────────────────────────
+  release:
+    name: Publish Release
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-22.04
+    # Needs write permission to create the release and upload assets
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          # Works for both tag pushes and manual workflow_dispatch
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-binaries
+          path: release-assets/linux
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-binaries
+          path: release-assets/windows
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-binaries
+          path: release-assets/macos
+
+      - name: Rename and stage assets
+        run: |
+          VERSION=${{ steps.version.outputs.tag }}
+
+          # Linux — mark executable, rename with version + platform
+          chmod +x release-assets/linux/stegcore
+          chmod +x release-assets/linux/stegcore-gui
+          mv release-assets/linux/stegcore     release-assets/stegcore-${VERSION}-linux-x86_64
+          mv release-assets/linux/stegcore-gui release-assets/stegcore-gui-${VERSION}-linux-x86_64
+
+          # Windows
+          mv release-assets/windows/stegcore.exe     release-assets/stegcore-${VERSION}-windows-x86_64.exe
+          mv release-assets/windows/stegcore-gui.exe release-assets/stegcore-gui-${VERSION}-windows-x86_64.exe
+
+          # macOS
+          chmod +x release-assets/macos/stegcore
+          mv release-assets/macos/stegcore         release-assets/stegcore-${VERSION}-macos-arm64
+          mv release-assets/macos/Stegcore.app.zip release-assets/Stegcore-${VERSION}-macos-arm64.app.zip
+
+      - name: Extract changelog entry for this version
+        id: changelog
+        run: |
+          # Pull the section for this tag out of CHANGELOG.md to use as
+          # the release body. Extracts everything between the first and
+          # second "## [" headings.
+          VERSION=${{ steps.version.outputs.tag }}
+          # Strip leading 'v' for matching against CHANGELOG headings
+          VER=${VERSION#v}
+          awk "/^## \[${VER}\]/{found=1; next} found && /^## \[/{exit} found{print}" \
+            CHANGELOG.md > release_body.md
+          # Fall back to a generic message if the section wasn't found
+          if [ ! -s release_body.md ]; then
+            echo "Release ${VERSION}" > release_body.md
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "Stegcore ${{ steps.version.outputs.tag }}"
+          body_path: release_body.md
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.tag, '-') }}
+          files: release-assets/stegcore-*

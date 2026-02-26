@@ -7,6 +7,18 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.0.1] — 2026-02
+
+### Changed
+
+- **JPEG support restored without `jpegio`** — JPEG covers now use the same pixel-domain LSB pipeline as PNG and BMP. No additional dependencies required. The stego output is saved as PNG (JPEG recompression destroys LSBs); the output filename is auto-corrected to `.png` if needed. Users can use their `.jpg` photos directly without any prior conversion.
+
+### Removed
+
+- DCT-domain JPEG embedding (`jpegio`) dropped. `jpegio` does not install reliably on Windows and required native build tools. The pixel-domain approach is simpler, dependency-free, and produces lossless output.
+
+---
+
 ## [2.0.0] — 2026-02
 
 Complete rewrite of Stegcore. Everything from the core cryptography to the
@@ -27,7 +39,7 @@ by v1 cannot be extracted with v2.
 - Zstandard compression of payloads before encryption
 - Adaptive LSB steganography with spread spectrum (PNG/BMP)
 - Sequential LSB steganography (PNG/BMP, debugging/scripting)
-- DCT-domain coefficient embedding (JPEG)
+- Pixel-domain LSB embedding for JPEG covers (PNG/BMP pipeline reused; output is PNG)
 - Audio sample LSB embedding (WAV/PCM)
 - Deniable dual-payload mode — two independent encrypted payloads in one cover image, two structurally identical key files
 - Cover image scoring — entropy, texture density, resolution, 0–100 score with Excellent/Good/Fair/Poor label
@@ -54,7 +66,6 @@ by v1 cannot be extracted with v2.
 - `_read_secret()` — uses `Prompt.ask(password=True)` on a real terminal; falls back to `sys.stdin.readline()` when stdin is a pipe or redirect, preventing the `/dev/tty` hang in automated test harnesses
 - `--force` flag to suppress all confirmation prompts for scripting
 - `--no-score` flag to skip cover scoring
-- JPEG cover with non-`.jpg` output path is auto-corrected with a warning rather than failing silently
 
 **Documentation**
 - `README.md` — project overview, quick start, format table, deniable mode, project structure

@@ -1,16 +1,18 @@
-# Copyright (C) 2026 Daniel Iwugo
+# Copyright (C) 2025 Mercury
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published
 # by the Free Software Foundation, either version 3 of the License.
 # See <https://www.gnu.org/licenses/> for details.
 
 # File: core/steg.py
-# Description: Multi-format steganography. PNG/BMP via LSB, JPEG via DCT,
+# Description: Multi-format steganography — PNG/BMP/JPEG via pixel-domain LSB,
 #              WAV via sample LSB. Format is detected automatically from the
 #              file extension and routed to the correct algorithm.
 #
 #   PNG/BMP  — Adaptive or sequential LSB (lossless, LSB survives)
-#   JPEG     — DCT-domain embedding (survives JPEG recompression)
+#   JPEG     — Pixel-domain LSB, same pipeline as PNG/BMP. Output is always
+#              saved as PNG because JPEG recompression destroys LSB data.
+#              Users can use their .jpg photos as covers without any conversion.
 #   WAV      — Audio sample LSB
 
 import wave
@@ -18,12 +20,6 @@ import numpy as np
 from pathlib import Path
 from PIL import Image
 from numpy.lib.stride_tricks import sliding_window_view
-
-try:
-    import jpegio
-    _JPEGIO_AVAILABLE = True
-except ImportError:
-    _JPEGIO_AVAILABLE = False
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +40,7 @@ def _get_format(path: Path) -> str:
     if ext in {".png", ".bmp"}:
         return "png"
     if ext in {".jpg", ".jpeg"}:
-        return "jpeg"
+        return "jpeg"   # pixel-domain LSB; stego output is always PNG
     if ext == ".wav":
         return "wav"
     raise ValueError(
@@ -87,8 +83,8 @@ def _load_img_array(path: Path) -> np.ndarray:
     """
     pil_img = Image.open(path).convert("RGB")
     w, h    = pil_img.size
-    raw     = pil_img.tobytes()
-    pil_img.close()           
+    raw     = pil_img.tobytes()   # explicit copy → Python bytes (no C pointer)
+    pil_img.close()               # release ImagingCore now
     del pil_img
     # frombuffer → read-only view of `raw`; .copy() → writable, owned array
     return np.frombuffer(raw, dtype=np.uint8).reshape(h, w, 3).copy()
@@ -242,7 +238,7 @@ def _embed_png(cover_path: Path, payload: bytes, output_path: Path,
     # Image.fromarray() exposes numpy's raw pointer via the buffer protocol;
     # PIL's C encoder can then reallocate that pointer independently of Python's
     # refcount, causing glibc to detect a double-free (munmap_chunk: invalid
-    # pointer) on .save(). frombytes() owns its own allocation. No shared ptr.
+    # pointer) on .save(). frombytes() owns its own allocation — no shared ptr.
     h, w = img_array.shape[:2]
     Image.frombytes("RGB", (w, h), img_array.tobytes()).save(
         str(output_path), format="PNG"
@@ -270,89 +266,6 @@ def _extract_png(stego_path: Path, key: bytes, mode: str) -> bytes:
 
     payload_bits = _read_bits_img(img_array, indices[_HEADER_BITS:], payload_len * 8)
     return _bits_to_bytes(payload_bits)[:payload_len]
-
-
-# ---------------------------------------------------------------------------
-# JPEG — DCT-domain embedding
-# ---------------------------------------------------------------------------
-
-def _jpeg_usable_positions(component: np.ndarray) -> np.ndarray:
-    mask = (component != 0) & (component != 1) & (component != -1) & (component != -2)
-    return np.argwhere(mask)   # shape (N, 2), dtype int64
-
-
-def _embed_jpeg(cover_path: Path, payload: bytes, output_path: Path) -> None:
-    if not _JPEGIO_AVAILABLE:
-        raise RuntimeError("jpegio is not installed. Run: pip install jpegio")
-
-    jpeg     = jpegio.read(str(cover_path))
-    all_bits = np.concatenate([
-        _int_to_bits(len(payload), _HEADER_BITS),
-        _bytes_to_bits(payload),
-    ])
-    n_bits   = len(all_bits)
-    bit_idx  = 0
-
-    # Capacity check using the same position-selection logic as the write loop.
-    capacity = sum(len(_jpeg_usable_positions(c)) for c in jpeg.coef_arrays)
-    if n_bits > capacity:
-        raise ValueError(
-            f"JPEG has insufficient DCT capacity.\n"
-            f"Available: ~{capacity // 8:,} bytes | Required: ~{len(payload):,} bytes.\n"
-            "Try a larger or higher-quality JPEG."
-        )
-
-    # Write loop — direct 2D indexing, never ravel().
-    #
-    # The root-cause of the previous silent round-trip failure:
-    # jpegio stores DCT coefficient arrays in Fortran (column-major) order.
-    # numpy's ravel() on a Fortran-order array returns a copy, not a view.
-    # Every write to that copy was silently discarded; jpegio.write then saved
-    # the original unmodified coefficients.  On extract, the header read back
-    # as garbage and the length check failed.
-    #
-    # Direct indexing — comp[r, c] = x — always writes into the live array
-    # regardless of its memory layout, because it goes through numpy's item
-    # setter which resolves the actual address from strides + offsets.
-    for component in jpeg.coef_arrays:
-        if bit_idx >= n_bits:
-            break
-        positions = _jpeg_usable_positions(component)
-        for r, c in positions:
-            if bit_idx >= n_bits:
-                break
-            coef = int(component[r, c])
-            component[r, c] = np.int16((coef & ~1) | int(all_bits[bit_idx]))
-            bit_idx += 1
-
-    jpegio.write(jpeg, str(output_path))
-
-
-def _extract_jpeg(stego_path: Path) -> bytes:
-    if not _JPEGIO_AVAILABLE:
-        raise RuntimeError("jpegio is not installed. Run: pip install jpegio")
-
-    jpeg = jpegio.read(str(stego_path))
-    bits = []
-
-    for component in jpeg.coef_arrays:
-        for r, c in _jpeg_usable_positions(component):
-            bits.append(int(component[r, c]) & 1)
-
-    if len(bits) < _HEADER_BITS:
-        raise ValueError("No valid payload detected in this JPEG.")
-
-    bits_arr    = np.array(bits, dtype=np.uint8)
-    payload_len = _bits_to_int(bits_arr[:_HEADER_BITS])
-    max_pos     = (len(bits) - _HEADER_BITS) // 8
-
-    if payload_len == 0 or payload_len > max_pos:
-        raise ValueError(
-            "No valid payload detected in this JPEG.\n"
-            "Check you are using the correct stego image and key file."
-        )
-
-    return _bits_to_bytes(bits_arr[_HEADER_BITS: _HEADER_BITS + payload_len * 8])[:payload_len]
 
 
 # ---------------------------------------------------------------------------
@@ -472,10 +385,11 @@ def embed_deniable(cover_path:    str | Path,
     real_bits  = _make_bits(real_payload,  real_indices,  "real")
     decoy_bits = _make_bits(decoy_payload, decoy_indices, "decoy")
 
-    # Both write passes on the same img_array. unravel_index is safe.
+    # Both write passes on the same img_array — unravel_index is safe.
     _write_bits_img(img_array, real_indices,  real_bits)
     _write_bits_img(img_array, decoy_indices, decoy_bits)
 
+    # Same frombytes() fix as _embed_png — see comment there.
     h, w = img_array.shape[:2]
     Image.frombytes("RGB", (w, h), img_array.tobytes()).save(
         str(output_path), format="PNG"
@@ -518,9 +432,14 @@ def embed(cover_path:   str | Path,
           mode: str   = "adaptive") -> Path:
     """
     Embed payload_path into cover_path. Format auto-detected from extension.
-    PNG/BMP → adaptive or sequential LSB.
-    JPEG    → DCT-domain.
-    WAV     → sample LSB.
+    PNG/BMP/JPEG → adaptive or sequential pixel-domain LSB.
+    WAV           → sample LSB.
+
+    JPEG covers use the same pixel-domain LSB pipeline as PNG/BMP.
+    Because JPEG recompression would destroy the embedded bits, the stego
+    output is always written as PNG regardless of the cover's extension.
+    output_path is adjusted to .png automatically if needed — the caller
+    (cli.py) is responsible for warning the user about this.
     """
     cover_path   = Path(cover_path)
     payload_path = Path(payload_path)
@@ -528,25 +447,18 @@ def embed(cover_path:   str | Path,
     fmt          = _get_format(cover_path)
     payload      = payload_path.read_bytes()
 
+    # JPEG covers must produce a lossless (PNG) output — JPEG recompression
+    # destroys LSB data.  Silently correct the extension here; cli.py warns.
+    if fmt == "jpeg" and output_path.suffix.lower() in {".jpg", ".jpeg"}:
+        output_path = output_path.with_suffix(".png")
+
     try:
-        if fmt == "png":
+        if fmt in {"png", "jpeg"}:
             if mode not in SUPPORTED_MODES:
                 raise ValueError(f"Unsupported mode '{mode}'.")
             if mode == "adaptive" and key is None:
                 raise ValueError("Adaptive mode requires a key.")
             _embed_png(cover_path, payload, output_path, key, mode)
-        elif fmt == "jpeg":
-            # JPEG DCT embedding rewrites the DCT coefficient tables.
-            # The output file MUST be saved as JPEG to preserve those
-            # tables. Saving as PNG would discard them entirely, making
-            # extraction impossible. Catching the mistake early.
-            if output_path.suffix.lower() not in {".jpg", ".jpeg"}:
-                raise ValueError(
-                    f"JPEG cover requires a JPEG output file.\n"
-                    f"Output path '{output_path.name}' has extension "
-                    f"'{output_path.suffix}' — change it to '.jpg'."
-                )
-            _embed_jpeg(cover_path, payload, output_path)
         elif fmt == "wav":
             _embed_wav(cover_path, payload, output_path)
     except (ValueError, RuntimeError):
@@ -561,16 +473,16 @@ def extract(stego_path:  str | Path,
             output_path: str | Path,
             key:  bytes = None,
             mode: str   = "adaptive") -> Path:
-    """Extract payload from stego_path. Format auto-detected from extension."""
+    """Extract payload from stego_path. Format auto-detected from extension.
+    Stego files produced from JPEG covers are saved as PNG, so extraction
+    is identical to the PNG path."""
     stego_path  = Path(stego_path)
     output_path = Path(output_path)
     fmt         = _get_format(stego_path)
 
     try:
-        if fmt == "png":
+        if fmt in {"png", "jpeg"}:
             payload = _extract_png(stego_path, key, mode)
-        elif fmt == "jpeg":
-            payload = _extract_jpeg(stego_path)
         elif fmt == "wav":
             payload = _extract_wav(stego_path)
     except (ValueError, RuntimeError):
@@ -586,21 +498,13 @@ def get_capacity(image_path: str | Path, mode: str = "adaptive") -> dict:
     path = Path(image_path)
     fmt  = _get_format(path)
 
-    if fmt == "png":
+    if fmt in {"png", "jpeg"}:
         img_array = _load_img_array(path)
         if mode == "adaptive":
             n_indices = int(_compute_embedding_map(img_array).sum()) * 3
         else:
             n_indices = img_array.size
         available = max(0, (n_indices - _HEADER_BITS) // 8)
-
-    elif fmt == "jpeg":
-        if not _JPEGIO_AVAILABLE:
-            return {"available_bytes": 0, "mode": "dct"}
-        jpeg      = jpegio.read(str(path))
-        capacity  = sum(len(_jpeg_usable_positions(c)) for c in jpeg.coef_arrays)
-        available = max(0, (capacity - _HEADER_BITS) // 8)
-        mode = "dct"
 
     else:
         available = 0
