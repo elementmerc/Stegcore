@@ -1,19 +1,18 @@
 # stegcore-linux.spec
 #
-# PyInstaller spec file — Linux, single-file binary
+# PyInstaller spec file — Linux, onedir binary
 #
 # Usage (run from the project root):
 #   pip install pyinstaller
 #   pyinstaller stegcore-linux.spec
 #
 # Output:
-#   dist/stegcore          — standalone CLI binary, no Python required
-#   dist/stegcore-gui      — standalone GUI binary
+#   dist/stegcore/          — CLI binary directory (run dist/stegcore/stegcore)
+#   dist/stegcore-gui/      — GUI binary directory
 #
-# Both binaries are single files (--onefile). The first launch after a cold
-# boot may take 2–3 seconds while the embedded archive is unpacked into a
-# temporary directory; subsequent launches on the same boot are fast because
-# the OS caches the unpacked files.
+# Both outputs are directories (--onedir). This avoids the per-launch extraction
+# overhead of --onefile, giving significantly faster startup times. Zip the
+# directory for distribution (the workflow does this automatically).
 #
 # Tested on: Ubuntu 22.04 LTS, Debian 12, Fedora 38 (x86_64)
 # Requires:  PyInstaller 6.x, Python 3.11+
@@ -22,44 +21,47 @@ import sys
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
-ROOT = Path(SPECPATH)   # directory containing this .spec file
+ROOT = Path(SPECPATH)
 
 # ---------------------------------------------------------------------------
 # Shared configuration
 # ---------------------------------------------------------------------------
 
-# Hidden imports — modules that PyInstaller's static analyser misses because
-# they are loaded dynamically (e.g. via importlib, __import__, or C extensions).
 HIDDEN_IMPORTS = [
-    # argon2-cffi loads its C backend at runtime
     "argon2",
     "argon2._utils",
     "argon2.low_level",
-    # ascon is a pure-Python package but its __init__ imports conditionally
     "ascon",
-    # cryptography uses a Rust/C backend loaded via cffi
     "cryptography",
     "cryptography.hazmat.primitives.ciphers.aead",
     "cryptography.hazmat.backends.openssl",
-    # pyzstd C extension
     "pyzstd",
-    # Tkinter backend (needed by customtkinter even in headless builds)
     "tkinter",
     "tkinter.filedialog",
     "rich._unicode_data.unicode17-0-0",
     "tkinter.messagebox",
     # jpegio is not used — JPEG support uses pixel-domain LSB via PIL/numpy
-    # "jpegio",
 ]
 
-# Data files — non-Python assets that need to be bundled.
-# Syntax: (source_glob_or_path, destination_dir_inside_bundle)
-DATAS = [
-    (str(ROOT / "assets"), "assets"),
+EXCLUDES_COMMON = [
+    # Test infrastructure
+    "pytest", "hypothesis", "_pytest",
+    # Plotting
+    "matplotlib", "matplotlib.backends",
+    # Database
+    "sqlite3", "_sqlite3",
+    # Network/mail
+    "xmlrpc", "ftplib", "imaplib", "poplib",
+    "smtplib", "telnetlib", "nntplib", "http.server",
+    # Docs/interactive tooling
+    "pydoc", "doctest",
+    # Easter eggs & unused stdlib
+    "antigravity", "turtle", "this",
+    "xml.etree", "xml.dom", "xml.sax",
+    "curses", "difflib", "zipimport",
 ]
 
-# Collect all data files from packages that ship resources (e.g. customtkinter
-# ships its own theme JSON files and icon assets that must be present at runtime).
+DATAS = [(str(ROOT / "assets"), "assets")]
 DATAS += collect_data_files("customtkinter")
 
 # ---------------------------------------------------------------------------
@@ -75,12 +77,7 @@ cli_analysis = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[
-        # Exclude test infrastructure — not needed in the distributed binary
-        "pytest",
-        "hypothesis",
-        "_pytest",
-    ],
+    excludes=EXCLUDES_COMMON,
     noarchive=False,
 )
 
@@ -89,23 +86,31 @@ cli_pyz = PYZ(cli_analysis.pure, cli_analysis.zipped_data)
 cli_exe = EXE(
     cli_pyz,
     cli_analysis.scripts,
-    cli_analysis.binaries,
-    cli_analysis.datas,
+    [],
     [],
     name="stegcore",
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,         # strip debug symbols — reduces binary size by ~20%
-    upx=True,           # compress with UPX if available (apt install upx-ucl)
+    strip=True,
+    upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,       # CLI binary — keep the terminal
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    onefile=True,
+)
+
+cli_dir = COLLECT(
+    cli_exe,
+    cli_analysis.binaries,
+    cli_analysis.datas,
+    strip=True,
+    upx=True,
+    upx_exclude=[],
+    name="stegcore",
 )
 
 # ---------------------------------------------------------------------------
@@ -117,14 +122,11 @@ gui_analysis = Analysis(
     pathex=[str(ROOT)],
     binaries=[],
     datas=DATAS,
-    hiddenimports=HIDDEN_IMPORTS + [
-        # Additional GUI-only hidden imports
-        "PIL._tkinter_finder",
-    ],
+    hiddenimports=HIDDEN_IMPORTS + ["PIL._tkinter_finder"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["pytest", "hypothesis", "_pytest"],
+    excludes=EXCLUDES_COMMON,
     noarchive=False,
 )
 
@@ -133,8 +135,7 @@ gui_pyz = PYZ(gui_analysis.pure, gui_analysis.zipped_data)
 gui_exe = EXE(
     gui_pyz,
     gui_analysis.scripts,
-    gui_analysis.binaries,
-    gui_analysis.datas,
+    [],
     [],
     name="stegcore-gui",
     debug=False,
@@ -143,11 +144,20 @@ gui_exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,      # suppress the terminal window for the GUI
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    onefile=True,
+)
+
+gui_dir = COLLECT(
+    gui_exe,
+    gui_analysis.binaries,
+    gui_analysis.datas,
+    strip=True,
+    upx=True,
+    upx_exclude=[],
+    name="stegcore-gui",
 )

@@ -12,11 +12,10 @@ on:
         description: "Version tag to build (e.g. v2.1.0)"
         required: true
 
-# One job per platform. All three run in parallel.
 jobs:
 
   # ──────────────────────────────────────────────────────────────────────────
-  # Linux — single-file binary
+  # Linux — onedir binary, zipped for distribution
   # ──────────────────────────────────────────────────────────────────────────
   build-linux:
     name: Build (Linux)
@@ -49,20 +48,26 @@ jobs:
 
       - name: Smoke-test CLI binary
         run: |
-          ./dist/stegcore --help
-          ./dist/stegcore ciphers
+          ./dist/stegcore/stegcore --help
+          ./dist/stegcore/stegcore ciphers
+
+      - name: Zip onedir outputs
+        run: |
+          cd dist
+          zip -r stegcore-linux.zip stegcore/
+          zip -r stegcore-gui-linux.zip stegcore-gui/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-binaries
           path: |
-            dist/stegcore
-            dist/stegcore-gui
+            dist/stegcore-linux.zip
+            dist/stegcore-gui-linux.zip
           retention-days: 7
 
   # ──────────────────────────────────────────────────────────────────────────
-  # Windows — .exe with icon
+  # Windows — onedir .exe, zipped for distribution
   # ──────────────────────────────────────────────────────────────────────────
   build-windows:
     name: Build (Windows)
@@ -79,7 +84,6 @@ jobs:
 
       - name: Install UPX
         run: |
-          # Download UPX and add to PATH so PyInstaller can find it
           $upxUrl = "https://github.com/upx/upx/releases/download/v4.2.4/upx-4.2.4-win64.zip"
           Invoke-WebRequest $upxUrl -OutFile upx.zip
           Expand-Archive upx.zip -DestinationPath upx_dir
@@ -105,8 +109,14 @@ jobs:
 
       - name: Smoke-test CLI binary
         run: |
-          .\dist\stegcore.exe --help
-          .\dist\stegcore.exe ciphers
+          .\dist\stegcore\stegcore.exe --help
+          .\dist\stegcore\stegcore.exe ciphers
+        shell: pwsh
+
+      - name: Zip onedir outputs
+        run: |
+          Compress-Archive -Path dist\stegcore\*     -DestinationPath dist\stegcore-windows.zip
+          Compress-Archive -Path dist\stegcore-gui\* -DestinationPath dist\stegcore-gui-windows.zip
         shell: pwsh
 
       - name: Upload artifacts
@@ -114,12 +124,12 @@ jobs:
         with:
           name: windows-binaries
           path: |
-            dist\stegcore.exe
-            dist\stegcore-gui.exe
+            dist\stegcore-windows.zip
+            dist\stegcore-gui-windows.zip
           retention-days: 7
 
   # ──────────────────────────────────────────────────────────────────────────
-  # macOS — .app bundle + CLI binary
+  # macOS — onedir CLI + .app bundle
   # ──────────────────────────────────────────────────────────────────────────
   build-macos:
     name: Build (macOS)
@@ -150,12 +160,16 @@ jobs:
 
       - name: Smoke-test CLI binary
         run: |
-          ./dist/stegcore --help
-          ./dist/stegcore ciphers
+          ./dist/stegcore/stegcore --help
+          ./dist/stegcore/stegcore ciphers
+
+      - name: Zip CLI onedir output
+        run: |
+          cd dist
+          zip -r stegcore-macos.zip stegcore/
 
       - name: Zip the .app bundle
-        # GitHub artifacts don't preserve macOS extended attributes or
-        # symlinks inside .app bundles unless you zip first.
+        # Preserves macOS extended attributes and symlinks inside .app bundles
         run: |
           cd dist
           zip -r --symlinks Stegcore.app.zip Stegcore.app
@@ -165,18 +179,17 @@ jobs:
         with:
           name: macos-binaries
           path: |
-            dist/stegcore
+            dist/stegcore-macos.zip
             dist/Stegcore.app.zip
           retention-days: 7
 
   # ──────────────────────────────────────────────────────────────────────────
-  # Release — download all three platform artifacts and publish to GitHub
+  # Release — download all platform artifacts and publish to GitHub
   # ──────────────────────────────────────────────────────────────────────────
   release:
     name: Publish Release
     needs: [build-linux, build-windows, build-macos]
     runs-on: ubuntu-22.04
-    # Needs write permission to create the release and upload assets
     permissions:
       contents: write
 
@@ -187,7 +200,6 @@ jobs:
       - name: Determine version
         id: version
         run: |
-          # Works for both tag pushes and manual workflow_dispatch
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "tag=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
           else
@@ -216,33 +228,25 @@ jobs:
         run: |
           VERSION=${{ steps.version.outputs.tag }}
 
-          # Linux — mark executable, rename with version + platform
-          chmod +x release-assets/linux/stegcore
-          chmod +x release-assets/linux/stegcore-gui
-          mv release-assets/linux/stegcore     release-assets/stegcore-${VERSION}-linux-x86_64
-          mv release-assets/linux/stegcore-gui release-assets/stegcore-gui-${VERSION}-linux-x86_64
+          # Linux
+          mv release-assets/linux/stegcore-linux.zip         release-assets/stegcore-${VERSION}-linux-x86_64.zip
+          mv release-assets/linux/stegcore-gui-linux.zip     release-assets/stegcore-gui-${VERSION}-linux-x86_64.zip
 
           # Windows
-          mv release-assets/windows/stegcore.exe     release-assets/stegcore-${VERSION}-windows-x86_64.exe
-          mv release-assets/windows/stegcore-gui.exe release-assets/stegcore-gui-${VERSION}-windows-x86_64.exe
+          mv release-assets/windows/stegcore-windows.zip     release-assets/stegcore-${VERSION}-windows-x86_64.zip
+          mv release-assets/windows/stegcore-gui-windows.zip release-assets/stegcore-gui-${VERSION}-windows-x86_64.zip
 
           # macOS
-          chmod +x release-assets/macos/stegcore
-          mv release-assets/macos/stegcore         release-assets/stegcore-${VERSION}-macos-arm64
-          mv release-assets/macos/Stegcore.app.zip release-assets/Stegcore-${VERSION}-macos-arm64.app.zip
+          mv release-assets/macos/stegcore-macos.zip         release-assets/stegcore-${VERSION}-macos-arm64.zip
+          mv release-assets/macos/Stegcore.app.zip           release-assets/Stegcore-${VERSION}-macos-arm64.app.zip
 
       - name: Extract changelog entry for this version
         id: changelog
         run: |
-          # Pull the section for this tag out of CHANGELOG.md to use as
-          # the release body. Extracts everything between the first and
-          # second "## [" headings.
           VERSION=${{ steps.version.outputs.tag }}
-          # Strip leading 'v' for matching against CHANGELOG headings
           VER=${VERSION#v}
           awk "/^## \[${VER}\]/{found=1; next} found && /^## \[/{exit} found{print}" \
             CHANGELOG.md > release_body.md
-          # Fall back to a generic message if the section wasn't found
           if [ ! -s release_body.md ]; then
             echo "Release ${VERSION}" > release_body.md
           fi
