@@ -53,7 +53,9 @@ jobs:
           ./dist/stegcore/stegcore ciphers
 
       - name: Smoke-test GUI mode (symlink name detection)
-        run: ./dist/stegcore/stegcore-gui --help
+        run: |
+          test -L dist/stegcore/stegcore-gui          
+          ./dist/stegcore/stegcore-gui --help
 
       - name: Zip output
         run: cd dist && zip -r stegcore-linux.zip stegcore/
@@ -120,7 +122,9 @@ jobs:
         shell: pwsh
 
       - name: Smoke-test GUI mode (copy name detection)
-        run: .\dist\stegcore\stegcore-gui.exe --help
+        run: |
+          Test-Path dist\stegcore\stegcore-gui.exe     # confirm the copy exists
+          .\dist\stegcore\stegcore-gui.exe --help      # now exits cleanly with the fix above
         shell: pwsh
 
       - name: Zip output

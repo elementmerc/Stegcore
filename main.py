@@ -53,11 +53,13 @@ def _launch_cli() -> None:
 
 def main() -> None:
     if _is_gui_invocation():
+        if "--help" in sys.argv or "-h" in sys.argv:
+            print("Usage: stegcore-gui\nLaunches the Stegcore graphical interface.")
+            sys.exit(0)
         _suppress_console()
         _launch_gui()
     else:
         _launch_cli()
-
 
 if __name__ == "__main__":
     main()
