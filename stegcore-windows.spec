@@ -1,17 +1,18 @@
 # stegcore-windows.spec
 #
-# PyInstaller spec file — Windows, .exe with bundled icon
+# PyInstaller spec file — Windows, onedir .exe
 #
-# Usage (run from the project root in a Windows terminal or PowerShell):
+# Usage (run from the project root in PowerShell):
 #   pip install pyinstaller
 #   pyinstaller stegcore-windows.spec
 #
 # Output:
-#   dist\stegcore.exe          — standalone CLI executable
-#   dist\stegcore-gui.exe      — standalone GUI executable with icon
+#   dist\stegcore\          — CLI directory (run dist\stegcore\stegcore.exe)
+#   dist\stegcore-gui\      — GUI directory
 #
-# Both outputs are single-file executables. Windows Defender or SmartScreen
-# may flag unsigned executables — see the code signing note at the bottom.
+# Both outputs are directories (--onedir). This avoids the per-launch extraction
+# overhead of --onefile, giving significantly faster startup times. The workflow
+# zips each directory into a single archive for distribution.
 #
 # Tested on: Windows 10 22H2, Windows 11 23H2 (x86_64)
 # Requires:  PyInstaller 6.x, Python 3.11+
@@ -20,8 +21,8 @@ import sys
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
-ROOT    = Path(SPECPATH)
-ICON    = str(ROOT / "assets" / "Stag.ico")
+ROOT = Path(SPECPATH)
+ICON = str(ROOT / "assets" / "Stag.ico")
 
 # ---------------------------------------------------------------------------
 # Shared configuration
@@ -46,18 +47,33 @@ HIDDEN_IMPORTS = [
     "win32con",
 ]
 
-DATAS = [
-    (str(ROOT / "assets"), "assets"),
+EXCLUDES_COMMON = [
+    # Test infrastructure
+    "pytest", "hypothesis", "_pytest",
+    # Plotting
+    "matplotlib", "matplotlib.backends",
+    # Database
+    "sqlite3", "_sqlite3",
+    # Network/mail
+    "xmlrpc", "ftplib", "imaplib", "poplib",
+    "smtplib", "telnetlib", "nntplib", "http.server",
+    # Docs/interactive tooling
+    "pydoc", "doctest",
+    # Easter eggs & unused stdlib
+    "antigravity", "turtle", "this",
+    "xml.etree", "xml.dom", "xml.sax",
+    "difflib", "zipimport",
 ]
-DATAS += collect_data_files("customtkinter")
 
-# Version info block embedded into the .exe properties (visible in Explorer
-# → Right click → Properties → Details).
-# Requires pyinstaller-versionfile or a manually crafted version_info string.
-# To generate: pip install pyinstaller-versionfile
-#   create-version-file version_info.yml --outfile version_info.txt
-# Then pass version="version_info.txt" to EXE() below.
-# For now, version info is omitted — add it before a public release.
+# Windows UPX exclusions — these DLLs are corrupted by UPX compression
+UPX_EXCLUDE = [
+    "vcruntime140.dll",
+    "python3*.dll",
+    "api-ms-win-*.dll",
+]
+
+DATAS = [(str(ROOT / "assets"), "assets")]
+DATAS += collect_data_files("customtkinter")
 
 # ---------------------------------------------------------------------------
 # CLI binary — stegcore.exe
@@ -72,7 +88,7 @@ cli_analysis = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["pytest", "hypothesis", "_pytest"],
+    excludes=EXCLUDES_COMMON,
     noarchive=False,
 )
 
@@ -81,20 +97,14 @@ cli_pyz = PYZ(cli_analysis.pure, cli_analysis.zipped_data)
 cli_exe = EXE(
     cli_pyz,
     cli_analysis.scripts,
-    cli_analysis.binaries,
-    cli_analysis.datas,
+    [],
     [],
     name="stegcore",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,        # strip=True is unsupported on Windows
-    upx=True,           # requires UPX in PATH: https://upx.github.io/
-    upx_exclude=[
-        # These DLLs must not be compressed — UPX corrupts them on Windows
-        "vcruntime140.dll",
-        "python3*.dll",
-        "api-ms-win-*.dll",
-    ],
+    upx=True,
+    upx_exclude=UPX_EXCLUDE,
     runtime_tmpdir=None,
     console=True,
     icon=ICON,
@@ -103,7 +113,16 @@ cli_exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    onefile=True,
+)
+
+cli_dir = COLLECT(
+    cli_exe,
+    cli_analysis.binaries,
+    cli_analysis.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=UPX_EXCLUDE,
+    name="stegcore",
 )
 
 # ---------------------------------------------------------------------------
@@ -115,13 +134,11 @@ gui_analysis = Analysis(
     pathex=[str(ROOT)],
     binaries=[],
     datas=DATAS,
-    hiddenimports=HIDDEN_IMPORTS + [
-        "PIL._tkinter_finder",
-    ],
+    hiddenimports=HIDDEN_IMPORTS + ["PIL._tkinter_finder"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["pytest", "hypothesis", "_pytest"],
+    excludes=EXCLUDES_COMMON,
     noarchive=False,
 )
 
@@ -130,28 +147,32 @@ gui_pyz = PYZ(gui_analysis.pure, gui_analysis.zipped_data)
 gui_exe = EXE(
     gui_pyz,
     gui_analysis.scripts,
-    gui_analysis.binaries,
-    gui_analysis.datas,
+    [],
     [],
     name="stegcore-gui",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    upx_exclude=[
-        "vcruntime140.dll",
-        "python3*.dll",
-        "api-ms-win-*.dll",
-    ],
+    upx_exclude=UPX_EXCLUDE,
     runtime_tmpdir=None,
-    console=False,      # no console window — pure GUI application
+    console=False,
     icon=ICON,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    onefile=True,
+)
+
+gui_dir = COLLECT(
+    gui_exe,
+    gui_analysis.binaries,
+    gui_analysis.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=UPX_EXCLUDE,
+    name="stegcore-gui",
 )
 
 # ---------------------------------------------------------------------------
@@ -159,15 +180,9 @@ gui_exe = EXE(
 # ---------------------------------------------------------------------------
 #
 # Unsigned Windows executables will trigger SmartScreen on first launch.
-# To sign (requires an Authenticode certificate from a CA, or a self-signed
-# cert for internal distribution):
+# To sign (requires an Authenticode certificate):
 #
 #   signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 ^
-#     /f YourCert.pfx /p YourPassword dist\stegcore-gui.exe
+#     /f YourCert.pfx /p YourPassword dist\stegcore\stegcore.exe
 #
-# For open-source projects, Certum and Sectigo offer affordable OV
-# certificates. A self-signed cert removes the SmartScreen warning only for
-# machines that have explicitly trusted the certificate.
-#
-# Alternatively, submit the unsigned binary to Microsoft's MAPS service for
-# reputation building after it has been downloaded enough times.
+# Sign both the .exe inside the directory and any .dll files that need it.
