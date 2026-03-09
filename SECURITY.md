@@ -38,7 +38,7 @@ Let me be real with you about relying on this software for anything high-stakes
 
 Tools like StegExpose, zsteg, and ML-based detectors (SRM, SPAM, GFR) analyse the statistical properties of pixel distributions rather than looking for visible changes. Standard LSB steganography is reliably detected by these tools. Stegcore's adaptive mode with spread spectrum significantly raises the detection threshold, but doesn't make detection impossible - particularly at high payload density on low-quality covers. If your adversary is running automated ML-based steganalysis across a large corpus of files, Stegcore provides meaningful but not absolute resistance.
 
-*Stegcore Pro (currently in the works) will include a built-in self-test that runs detectors against your own output and reports a detection risk score before you share anything.*
+*Stegcore v3 (currently in the works) will include a built-in self-test that runs detectors against your own output and reports a detection risk score before you share anything.*
 
 **Traffic analysis and metadata**
 
@@ -113,6 +113,6 @@ If you discover a security vulnerability in Stegcore, please report it privately
 
 ---
 
-## What the Pro version adds
+## What's in v3
 
-Stegcore Pro will include a **built-in steganalysis self-test, batch processing, and a scripting API among other things**. These directly address some of the limitations described above and are the most significant security improvements over the free version.
+Stegcore v3 will include a **built-in steganalysis self-test, batch processing, and a scripting API among other things**. These directly address some of the limitations described above and are the most significant security improvements over v2.

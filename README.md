@@ -215,9 +215,9 @@ Stegcore is a defensive privacy tool. See [SECURITY.md](SECURITY.md) for the ful
 
 ---
 
-## Pro version
+## Version 3
 
-Stegcore Pro is a work in progress, and extends the free version with:
+Stegcore v3 is a work in progress, and extends the free version with:
 
 - **Built-in steganalysis self-test**
 - **PDF and DOCX cover format support**
