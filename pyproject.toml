@@ -25,7 +25,8 @@ dependencies = [
 
 [project.scripts]
 # CLI:  stegcore embed / extract / score / info / ciphers
-stegcore = "cli:app"
+stegcore     = "main:main"
+stegcore-gui = "main:main"
 
 [project.gui-scripts]
 # GUI: double-click or run stegcore-gui

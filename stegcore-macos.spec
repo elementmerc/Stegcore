@@ -63,7 +63,7 @@ EXCLUDES_COMMON = [
     # Easter eggs & unused stdlib
     "antigravity", "turtle", "this",
     "xml.etree", "xml.dom", "xml.sax",
-    "curses", "difflib", "zipimport",
+    "curses", "zipimport",
 ]
 
 DATAS = [(str(ROOT / "assets"), "assets")]
@@ -93,6 +93,7 @@ cli_exe = EXE(
     cli_analysis.scripts,
     [],
     [],
+    exclude_binaries=True,
     name="stegcore",
     debug=False,
     bootloader_ignore_signals=False,
@@ -143,6 +144,7 @@ gui_exe = EXE(
     gui_analysis.scripts,
     [],
     [],
+    exclude_binaries=True,
     name="stegcore-gui",
     debug=False,
     bootloader_ignore_signals=False,
