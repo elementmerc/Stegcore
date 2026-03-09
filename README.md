@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/Python-3.11+-blue?style=flat-square)
 ![License](https://img.shields.io/badge/Licence-AGPL--3.0-green?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=flat-square)
-![Version](https://img.shields.io/badge/Version-2.0.6-orange?style=flat-square)
+![Version](https://img.shields.io/badge/Version-2.0.10-orange?style=flat-square)
 
 ---
 
@@ -67,9 +67,9 @@ The wizard walks you through everything step by step from cover selection, scori
 
 **GUI:**
 ```bash
-python main.py
-# or after pip install:
 stegcore-gui
+# or directly:
+python main.py
 ```
 
 **Power-user CLI:**
@@ -154,8 +154,8 @@ Under coercion you hand over the decoy key file and decoy passphrase. The real m
 
 ```
 stegcore/
-├── main.py              # GUI entry point
-├── cli.py               # CLI entry point (wizard + power commands)
+├── main.py              # Unified entrypoint — CLI or GUI based on argv[0]
+├── cli.py               # CLI commands (wizard + power mode)
 ├── pyproject.toml
 ├── core/
 │   ├── crypto.py        # Encryption, key derivation, key file I/O

@@ -27,6 +27,14 @@ Stegcore is split into three strictly separated layers. Nothing in a lower layer
 
 ## Module responsibilities
 
+### `main.py`
+
+Unified entrypoint for both CLI and GUI. Inspects `argv[0]` (or the `--gui` flag) to determine which mode to launch, then delegates to either `cli.app()` or `ui.app.StegApp`. Heavy dependencies (`core/`, `ui/`) are imported lazily inside `_launch_cli()` and `_launch_gui()` so the routing logic itself is near-instant.
+
+On Windows, `FreeConsole()` is called before the GUI launches to detach the console window. On Linux and macOS, `os.setsid()` detaches from the controlling terminal so the shell prompt returns immediately.
+
+---
+
 ### `core/crypto.py`
 
 Handles all encryption, decryption, and key material management.
@@ -207,6 +215,8 @@ Typer application wrapping the same `core/` functions as the GUI. No UI imports.
 
 Passphrases are read via `_read_secret()`, which uses `rich.prompt.Prompt.ask(password=True)` when stdin is a real terminal, and falls back to `sys.stdin.readline()` when stdin is a pipe or redirect. This is what makes the CLI work correctly in automated test harnesses without hanging on `/dev/tty`.
 
+`core/crypto`, `core/steg`, and `core/utils` are imported lazily inside the functions that use them. This means numpy, Pillow, and cryptography are never loaded for lightweight invocations like `--help`, `ciphers`, or early wizard steps, keeping CLI startup near-instant.
+
 The `--force` flag suppresses all confirmation prompts for scripting.
 
 ---
@@ -259,16 +269,21 @@ recovered plaintext → output file
 ## Dependency graph
 
 ```
-cli.py  ─────────────────────────────────┐
-main.py  →  ui/app.py                    │
-                │                        │
-                ├─→  ui/theme.py         │  (no core imports)
-                ├─→  ui/embed_flow.py   ─┤
-                └─→  ui/extract_flow.py ─┤
-                          │              │
-                          └─────────────┴──→  core/crypto.py
-                                              core/steg.py
-                                              core/utils.py
+main.py  ──────────────────────────────────────┐
+    │  (argv[0] == "stegcore-gui" → GUI mode)  │
+    │  (argv[0] == "stegcore"    → CLI mode)   │
+    │                                           │
+    ├─→  cli.py  ───────────────────────────────┤
+    │                                           │
+    └─→  ui/app.py                              │
+              │                                 │
+              ├─→  ui/theme.py                  │  (no core imports)
+              ├─→  ui/embed_flow.py   ──────────┤
+              └─→  ui/extract_flow.py ──────────┤
+                          │                     │
+                          └─────────────────────┴──→  core/crypto.py
+                                                      core/steg.py
+                                                      core/utils.py
 ```
 
 No cycles. `core/` has no knowledge of `ui/` or `cli.py`.
