@@ -68,7 +68,7 @@ analysis = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=EXCLUDES,
-    noarchive=False,
+    noarchive=True,
 )
 
 pyz = PYZ(analysis.pure, analysis.zipped_data)

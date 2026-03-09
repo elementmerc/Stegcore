@@ -52,7 +52,8 @@ _HERE = Path(__file__).parent.resolve()
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from core import crypto, steg, utils  # noqa: E402
+# core modules are imported lazily inside each command to avoid loading
+# numpy / Pillow / cryptography at startup — keeps CLI startup near-instant.
 
 # ---------------------------------------------------------------------------
 # App + console
@@ -296,6 +297,8 @@ def score(
     """
     _banner()
 
+    from core import steg
+
     if not image.exists():
         _err(f"File not found: {image}")
     if not image.is_file():
@@ -422,6 +425,8 @@ def info(
     [dim]Does not require the stego file or passphrase.[/dim]
     """
     _banner()
+
+    from core import crypto
 
     if not key_file.exists():
         _err(f"Key file not found: {key_file}")
@@ -555,6 +560,7 @@ def _wizard_embed() -> None:
     # Show score inline
     fmt = cover.suffix.lower()
     if fmt in {".png", ".bmp", ".jpg", ".jpeg"}:
+        from core import steg
         _hint("Checking cover quality…")
         try:
             s = _run_with_spinner("Scoring cover image…", steg.score_cover_image, cover)
@@ -702,6 +708,7 @@ def _wizard_extract() -> None:
 
     # Show info about the key file so user can confirm it looks right
     try:
+        from core import crypto
         d = crypto.read_key_file(key_file)
         t = Table(box=box.SIMPLE, show_header=False, padding=(0, 2))
         t.add_column("k", style=MUTED)
@@ -765,6 +772,8 @@ def _do_embed(
 ) -> None:
 
     # ── Validate all inputs upfront ───────────────────────────────────────
+    from core import crypto, steg, utils
+
     if not cover.exists():
         _err(f"Cover file not found: {cover}")
     if not cover.is_file():
@@ -983,6 +992,8 @@ def _do_extract(
 ) -> None:
 
     # ── Validate inputs ───────────────────────────────────────────────────
+    from core import crypto, steg, utils
+
     if not stego.exists():
         _err(f"Stego file not found: {stego}")
     if not stego.is_file():
