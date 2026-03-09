@@ -61,8 +61,7 @@ EXCLUDES_COMMON = [
     "pydoc", "doctest",
     # Easter eggs & unused stdlib
     "antigravity", "turtle", "this",
-    "xml.etree", "xml.dom", "xml.sax",
-    "difflib", "zipimport",
+    "xml.etree", "xml.dom", "xml.sax", "zipimport",
 ]
 
 # Windows UPX exclusions — these DLLs are corrupted by UPX compression
