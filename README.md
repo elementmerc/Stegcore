@@ -39,6 +39,41 @@ Unlike basic steganography tools that hide data without encrypting it, Stegcore 
 
 ---
 
+## How does Stegcore compare?
+
+| Feature | Stegcore | Steghide | OpenPuff | Invisible Secrets |
+|---|---|---|---|---|
+| **Licence** | AGPL-3.0 (free) | GPL (free) | Freeware | Commercial (paid) |
+| **Platform** | Windows, Linux, macOS | Linux, Windows | Windows only | Windows only |
+| **Encryption** | Ascon-128, ChaCha20-Poly1305, AES-256-GCM | Rijndael (AES-128) | 16 algorithms incl. AES, Serpent, Twofish | AES, Blowfish, Twofish, RC4 |
+| **Key derivation** | Argon2id (memory-hard, OWASP recommended) | MD5-based | KDF4 (proprietary) | None documented |
+| **Authenticated encryption (AEAD)** | ✅ All ciphers | ❌ | ❌ | ❌ |
+| **Deniable dual payload** | ✅ | ❌ | ✅ | ❌ |
+| **Cover scoring** | ✅ | ❌ | ❌ | ❌ |
+| **Adaptive LSB (spread spectrum)** | ✅ | ❌ | ✅ (non-linear encoding) | ❌ |
+| **Image formats** | PNG, BMP, JPEG | JPEG, BMP | BMP, PNG, JPG, TGA | BMP, PNG, JPG |
+| **Audio formats** | WAV | WAV, AU | MP3, WAV | WAV |
+| **Video formats** | ❌ | ❌ | MP4, AVI, VOB, FLV | ❌ |
+| **Multi-carrier chaining** | ❌ | ❌ | ✅ | ❌ |
+| **Digital watermarking** | ❌ | ❌ | ✅ | ❌ |
+| **GUI** | ✅ Dark + light, cross-platform | ❌ | ✅ Windows | ✅ Windows |
+| **CLI / scripting support** | ✅ Full, with `--force` flag | ✅ | ❌ | ❌ |
+| **Wizard / guided mode** | ✅ | ❌ | ❌ | ❌ |
+| **Native binary (no runtime)** | ✅ | ✅ | ✅ | ✅ |
+| **Password manager** | ❌ | ❌ | ❌ | ✅ |
+| **Self-decrypting packages** | ❌ | ❌ | ❌ | ✅ |
+| **Detectable by stegdetect** | Adaptive: hard. Sequential: yes | ✅ Known signatures | Partially (video fingerprint known) | ✅ Known signatures |
+| **Active development** | ✅ 2026 | ❌ Last updated 2003 | ⚠️ Last updated 2018 | ⚠️ Sporadic |
+| **Kali Linux included** | Targeting | ✅ Default | ❌ | ❌ |
+
+**Steghide** has been the default steganography tool on Kali for over a decade purely on inertia. Its encryption uses MD5-derived keys with no authentication, and a wrong passphrase produces garbled output rather than a clean error. It has no adaptive embedding, no cover scoring, no GUI, and hasn't been updated since 2003. Its one genuine technical advantage is native DCT-domain JPEG embedding, which hides data in frequency coefficients rather than raw pixels. Stegcore embeds JPEG covers in the pixel domain (outputting PNG) — lossless and dependency-free, but not frequency-domain. Steghide ships in Kali by default; Stegcore is targeting that.
+
+**OpenPuff** is the most technically sophisticated competitor. Its multi-carrier chaining, 16-cipher selection, and video format support are genuinely impressive, and its non-linear adaptive encoding offers real steganalysis resistance. It also supports deniable steganography. Where it falls short: Windows-only with no Linux or macOS binary, no CLI for scripting, no updates since 2018, and a proprietary undocumented KDF. Critically, it uses no authenticated encryption. A wrong password or corrupted carrier produces silent garbage with no integrity error. Stegcore's AEAD on all three ciphers means a wrong passphrase always fails loudly and cleanly.
+
+**Invisible Secrets** (east-tec) is a commercial Windows-only privacy suite bundling steganography alongside a password manager, file shredder, and email encryption. It's broad rather than deep — standard LSB with older cipher choices, no key derivation hardening, and embedding signatures detectable by stegdetect. Where it wins over Stegcore is the bundled productivity suite: self-decrypting packages (recipients need no software installed), a password manager, and secure email. These are outside Stegcore's scope. It's also paid, with no Linux or macOS support.
+
+---
+
 ## Installation
 
 **From source:**
