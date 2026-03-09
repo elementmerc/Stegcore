@@ -7,6 +7,17 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.0.10] — 2026-03
+
+### Changed
+
+- **Unified binary** — `cli.py` and `main.py` merged into a single entrypoint. `stegcore` runs the CLI; `stegcore-gui` (symlink on Linux/macOS, copy on Windows) runs the GUI. Both entry points in `pyproject.toml` now point to `main:main`, which routes by `argv[0]` name detection.
+- **`--onedir` distribution** — all platform builds switched from `--onefile` to `--onedir`. Eliminates the per-launch extraction overhead of the single-file bundle. Binaries are zipped for distribution.
+- **Lazy core imports in `cli.py`** — `core.crypto`, `core.steg`, and `core.utils` are now imported inside the functions that use them rather than at module load time. `stegcore --help`, `stegcore ciphers`, and `stegcore wizard` (before an operation is chosen) no longer load numpy, Pillow, or cryptography. CLI startup is now near-instant.
+- **Console suppression for GUI mode** — on Windows, `FreeConsole()` is called before the GUI launches; on Linux/macOS, `os.setsid()` detaches from the controlling terminal so the shell prompt returns immediately.
+
+---
+
 ## [2.0.6] — 2026-02
 
 ### Changed

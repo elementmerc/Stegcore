@@ -29,16 +29,17 @@ Both modes call the same underlying code — the wizard just handles all the opt
 pip install -e .
 ```
 
-Two entry points are installed:
+Two entry points are installed, both backed by the same binary:
 
 - `stegcore` — the CLI
-- `stegcore-gui` — launches the desktop GUI
+- `stegcore-gui` — launches the desktop GUI (symlink to `stegcore` on Linux/macOS; copy on Windows)
 
 You can also run directly without installing:
 ```bash
+python main.py           # GUI
+python main.py --gui     # GUI (explicit flag)
 python cli.py wizard
 python cli.py embed ...
-python main.py
 ```
 
 ---
