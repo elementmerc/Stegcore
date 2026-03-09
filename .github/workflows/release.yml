@@ -1,7 +1,5 @@
 name: Build & Release
 
-# Triggers on a pushed version tag: v2.0.0, v2.1.3, etc.
-# Run manually via Actions → "Run workflow" by setting a version input.
 on:
   push:
     tags:
@@ -15,7 +13,7 @@ on:
 jobs:
 
   # ──────────────────────────────────────────────────────────────────────────
-  # Linux — onedir binary, zipped for distribution
+  # Linux — single merged onedir binary + stegcore-gui symlink
   # ──────────────────────────────────────────────────────────────────────────
   build-linux:
     name: Build (Linux)
@@ -43,31 +41,34 @@ jobs:
             argon2-cffi pyzstd typer rich \
             pyinstaller
 
-      - name: Build binaries
+      - name: Build binary
         run: pyinstaller $GITHUB_WORKSPACE/stegcore-linux.spec
 
-      - name: Smoke-test CLI binary
+      - name: Create stegcore-gui symlink
+        run: ln -s stegcore dist/stegcore/stegcore-gui
+
+      - name: Smoke-test CLI mode
         run: |
           ./dist/stegcore/stegcore --help
           ./dist/stegcore/stegcore ciphers
 
-      - name: Zip onedir outputs
-        run: |
-          cd dist
-          zip -r stegcore-linux.zip stegcore/
-          zip -r stegcore-gui-linux.zip stegcore-gui/
+      - name: Smoke-test GUI mode (symlink name detection)
+        run: ./dist/stegcore/stegcore-gui --help
 
-      - name: Upload artifacts
+      - name: Zip output
+        run: cd dist && zip -r stegcore-linux.zip stegcore/
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: linux-binaries
-          path: |
-            dist/stegcore-linux.zip
-            dist/stegcore-gui-linux.zip
+          name: linux-binary
+          path: dist/stegcore-linux.zip
           retention-days: 7
 
   # ──────────────────────────────────────────────────────────────────────────
-  # Windows — onedir .exe, zipped for distribution
+  # Windows — single merged onedir binary + stegcore-gui.exe copy
+  # Symlinks require elevated privileges on Windows, so we copy instead.
+  # Name detection in main.py works the same way regardless.
   # ──────────────────────────────────────────────────────────────────────────
   build-windows:
     name: Build (Windows)
@@ -100,40 +101,45 @@ jobs:
             pyinstaller
         shell: pwsh
 
-      - name: Build binaries
+      - name: Build binary
         working-directory: ${{ github.workspace }}
         run: pyinstaller $env:GITHUB_WORKSPACE\stegcore-windows.spec
         shell: pwsh
         env:
           PYTHONUTF8: "1"
 
-      - name: Smoke-test CLI binary
+      - name: Create stegcore-gui.exe copy
+        # Copy rather than symlink — symlinks need elevated privileges on Windows
+        run: Copy-Item dist\stegcore\stegcore.exe dist\stegcore\stegcore-gui.exe
+        shell: pwsh
+
+      - name: Smoke-test CLI mode
         run: |
           .\dist\stegcore\stegcore.exe --help
           .\dist\stegcore\stegcore.exe ciphers
         shell: pwsh
 
-      - name: Zip onedir outputs
-        run: |
-          Compress-Archive -Path dist\stegcore\*     -DestinationPath dist\stegcore-windows.zip
-          Compress-Archive -Path dist\stegcore-gui\* -DestinationPath dist\stegcore-gui-windows.zip
+      - name: Smoke-test GUI mode (copy name detection)
+        run: .\dist\stegcore\stegcore-gui.exe --help
         shell: pwsh
 
-      - name: Upload artifacts
+      - name: Zip output
+        run: Compress-Archive -Path dist\stegcore\* -DestinationPath dist\stegcore-windows.zip
+        shell: pwsh
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-binaries
-          path: |
-            dist\stegcore-windows.zip
-            dist\stegcore-gui-windows.zip
+          name: windows-binary
+          path: dist\stegcore-windows.zip
           retention-days: 7
 
   # ──────────────────────────────────────────────────────────────────────────
-  # macOS — onedir CLI + .app bundle
+  # macOS — single merged onedir CLI + .app bundle
   # ──────────────────────────────────────────────────────────────────────────
   build-macos:
     name: Build (macOS)
-    runs-on: macos-14        # Apple Silicon (arm64); change to macos-13 for Intel
+    runs-on: macos-14
 
     steps:
       - name: Checkout
@@ -155,36 +161,37 @@ jobs:
             argon2-cffi pyzstd typer rich \
             pyinstaller
 
-      - name: Build binaries
+      - name: Build binary
         run: pyinstaller $GITHUB_WORKSPACE/stegcore-macos.spec
 
-      - name: Smoke-test CLI binary
+      - name: Create stegcore-gui symlink
+        run: ln -s stegcore dist/stegcore/stegcore-gui
+
+      - name: Smoke-test CLI mode
         run: |
           ./dist/stegcore/stegcore --help
           ./dist/stegcore/stegcore ciphers
 
+      - name: Smoke-test GUI mode (symlink name detection)
+        run: ./dist/stegcore/stegcore-gui --help
+
       - name: Zip CLI onedir output
-        run: |
-          cd dist
-          zip -r stegcore-macos.zip stegcore/
+        run: cd dist && zip -r stegcore-macos.zip stegcore/
 
-      - name: Zip the .app bundle
-        # Preserves macOS extended attributes and symlinks inside .app bundles
-        run: |
-          cd dist
-          zip -r --symlinks Stegcore.app.zip Stegcore.app
+      - name: Zip .app bundle (preserving symlinks and extended attributes)
+        run: cd dist && zip -r --symlinks Stegcore.app.zip Stegcore.app
 
-      - name: Upload artifacts
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macos-binaries
+          name: macos-binary
           path: |
             dist/stegcore-macos.zip
             dist/Stegcore.app.zip
           retention-days: 7
 
   # ──────────────────────────────────────────────────────────────────────────
-  # Release — download all platform artifacts and publish to GitHub
+  # Release
   # ──────────────────────────────────────────────────────────────────────────
   release:
     name: Publish Release
@@ -206,42 +213,33 @@ jobs:
             echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Download Linux artifacts
+      - name: Download Linux artifact
         uses: actions/download-artifact@v4
         with:
-          name: linux-binaries
-          path: release-assets/linux
+          name: linux-binary
+          path: release-assets
 
-      - name: Download Windows artifacts
+      - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
-          name: windows-binaries
-          path: release-assets/windows
+          name: windows-binary
+          path: release-assets
 
-      - name: Download macOS artifacts
+      - name: Download macOS artifact
         uses: actions/download-artifact@v4
         with:
-          name: macos-binaries
-          path: release-assets/macos
+          name: macos-binary
+          path: release-assets
 
-      - name: Rename and stage assets
+      - name: Rename assets
         run: |
           VERSION=${{ steps.version.outputs.tag }}
+          mv release-assets/stegcore-linux.zip   release-assets/stegcore-${VERSION}-linux-x86_64.zip
+          mv release-assets/stegcore-windows.zip release-assets/stegcore-${VERSION}-windows-x86_64.zip
+          mv release-assets/stegcore-macos.zip   release-assets/stegcore-${VERSION}-macos-arm64.zip
+          mv release-assets/Stegcore.app.zip     release-assets/Stegcore-${VERSION}-macos-arm64.app.zip
 
-          # Linux
-          mv release-assets/linux/stegcore-linux.zip         release-assets/stegcore-${VERSION}-linux-x86_64.zip
-          mv release-assets/linux/stegcore-gui-linux.zip     release-assets/stegcore-gui-${VERSION}-linux-x86_64.zip
-
-          # Windows
-          mv release-assets/windows/stegcore-windows.zip     release-assets/stegcore-${VERSION}-windows-x86_64.zip
-          mv release-assets/windows/stegcore-gui-windows.zip release-assets/stegcore-gui-${VERSION}-windows-x86_64.zip
-
-          # macOS
-          mv release-assets/macos/stegcore-macos.zip         release-assets/stegcore-${VERSION}-macos-arm64.zip
-          mv release-assets/macos/Stegcore.app.zip           release-assets/Stegcore-${VERSION}-macos-arm64.app.zip
-
-      - name: Extract changelog entry for this version
-        id: changelog
+      - name: Extract changelog entry
         run: |
           VERSION=${{ steps.version.outputs.tag }}
           VER=${VERSION#v}
