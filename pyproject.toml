@@ -24,16 +24,20 @@ dependencies = [
 ]
 
 [project.scripts]
-# CLI:  stegcore embed / extract / score / info / ciphers
-stegcore     = "main:main"
-stegcore-gui = "main:main"
+# CLI: stegcore embed / extract / score / info / ciphers / wizard
+stegcore = "main:main"
 
 [project.gui-scripts]
-# GUI: double-click or run stegcore-gui
-stegcore-gui = "main:_launch"
+# GUI: no console window (Windows: no cmd popup; Linux/macOS: detaches terminal)
+stegcore-gui = "main:main"
+
+[tool.setuptools]
+# top-level .py files that are not inside a package directory
+py-modules = ["main", "cli"]
 
 [tool.setuptools.packages.find]
-where = ["."]
+where    = ["."]
+exclude  = ["stegcore_venv*", "build*", "dist*", "tests*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.ico", "*.png"]
