@@ -89,7 +89,7 @@ def _banner() -> None:
         Panel(
             Text.assemble(
                 ("stegcore", "bold white"),
-                ("  v2.0.6", MUTED),
+                ("  v2.0.11", MUTED),
                 ("  |  ", MUTED),
                 ("AGPL-3.0", MUTED),
             ),

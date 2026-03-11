@@ -1,6 +1,7 @@
 # Non-Python assets to include in the source distribution
 include assets/__init__.py
 include assets/Stag.ico
+include CHANGELOG.md
 include LICENSE
 include README.md
 include USAGE.md

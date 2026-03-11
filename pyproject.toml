@@ -4,7 +4,7 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name            = "stegcore"
-version         = "2.0.0"
+version         = "2.0.11"
 description     = "Crypto-steganography toolkit with deniable payloads"
 readme          = "README.md"
 license         = { text = "AGPL-3.0-or-later" }
@@ -18,7 +18,6 @@ dependencies = [
     "cryptography>=41.0",
     "argon2-cffi>=23.1",
     "pyzstd>=0.15",
-    "jpegio>=0.1",
     "typer>=0.12",
     "rich>=13.0",
 ]
