@@ -11,8 +11,11 @@ from tkinter import filedialog
 
 import customtkinter as customtk
 
-from core import crypto, steg, utils
 from ui.theme import get_theme
+
+# Heavy core modules (numpy, cryptography, argon2…) are imported lazily on
+# first ExtractFlow construction so the GUI window appears before they load.
+crypto = steg = utils = None
 
 
 def _file_row(parent, label: str, path_var, pick_fn) -> None:
@@ -41,6 +44,11 @@ class ExtractFlow:
     action_label = "Extract"
 
     def __init__(self, app):
+        global crypto, steg, utils
+        if crypto is None:
+            from core import crypto as _c, steg as _s, utils as _u
+            crypto, steg, utils = _c, _s, _u
+
         self.app = app
 
         self.stego_path = None

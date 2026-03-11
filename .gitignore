@@ -5,3 +5,4 @@ main.spec
 *__pycache__*
 /tests/
 *Zone.Identifier*
+.claude/
