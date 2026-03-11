@@ -7,6 +7,17 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.0.11] — 2026-03
+
+### Fixed
+
+- **Asset path resolution for pip installs** — `asset()` in `core/utils.py` now uses a
+  three-tier lookup: PyInstaller `_MEIPASS` → `importlib.resources.files("assets")` →
+  source-tree fallback. `assets/__init__.py` added so setuptools packages the directory and
+  `importlib.resources` can address it. Resolves broken icon path after `pip install .`.
+
+---
+
 ## [2.0.10] — 2026-03
 
 ### Changed
