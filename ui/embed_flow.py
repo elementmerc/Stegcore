@@ -12,8 +12,11 @@ from tkinter import filedialog
 
 import customtkinter as customtk
 
-from core import crypto, steg, utils
 from ui.theme import get_theme
+
+# Heavy core modules (numpy, cryptography, argon2…) are imported lazily on
+# first EmbedFlow construction so the GUI window appears before they load.
+crypto = steg = utils = None
 
 
 def _fmt_bytes(n: int) -> str:
@@ -64,6 +67,11 @@ class EmbedFlow:
     action_label = "Embed"
 
     def __init__(self, app):
+        global crypto, steg, utils
+        if crypto is None:
+            from core import crypto as _c, steg as _s, utils as _u
+            crypto, steg, utils = _c, _s, _u
+
         self.app = app
 
         self.text_path  = None
