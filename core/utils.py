@@ -22,7 +22,21 @@ BASE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).parent.parent))
 
 
 def asset(filename: str) -> Path:
-    """Return the absolute path to a bundled asset file."""
+    """
+    Return the absolute path to a bundled asset file.
+
+    Resolution order:
+      1. PyInstaller bundle  — assets sit next to _MEIPASS root
+      2. pip-installed wheel — importlib.resources locates the assets package
+      3. Source checkout     — relative to this file's parent.parent
+    """
+    if hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS) / "assets" / filename
+    try:
+        from importlib.resources import files
+        return Path(str(files("assets") / filename))
+    except Exception:
+        pass
     return Path(__file__).parent.parent / "assets" / filename
 
 
