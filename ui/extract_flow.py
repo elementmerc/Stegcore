@@ -40,6 +40,18 @@ def _file_row(parent, label: str, path_var, pick_fn) -> None:
     ).pack(side="right", padx=8, pady=8)
 
 
+def _make_scroll(frame) -> customtk.CTkScrollableFrame:
+    """Return a CTkScrollableFrame that fills `frame`, using the current theme."""
+    t = get_theme()
+    scroll = customtk.CTkScrollableFrame(
+        frame, fg_color=t["BG"], corner_radius=0,
+        scrollbar_button_color=t["BORDER"],
+        scrollbar_button_hover_color=t["BORDER2"],
+    )
+    scroll.pack(fill="both", expand=True)
+    return scroll
+
+
 class ExtractFlow:
     action_label = "Extract"
 
@@ -73,20 +85,22 @@ class ExtractFlow:
         t = get_theme()
         frame = customtk.CTkFrame(self.app._content_area,
                                   fg_color=t["BG"], corner_radius=0)
+        scroll = _make_scroll(frame)
+
         customtk.CTkLabel(
-            frame, text="Select stego file",
+            scroll, text="Select stego file",
             font=("Consolas", 17, "bold"), text_color=t["TEXT"],
         ).pack(padx=24, pady=(24, 4), anchor="w")
         customtk.CTkLabel(
-            frame, text="The file containing the hidden message.",
+            scroll, text="The file containing the hidden message.",
             font=("Consolas", 12), text_color=t["MUTED"],
         ).pack(padx=24, pady=(0, 16), anchor="w")
 
         customtk.CTkLabel(
-            frame, text="STEGO FILE",
+            scroll, text="STEGO FILE",
             font=("Consolas", 12, "bold"), text_color=t["TEXT2"], anchor="w",
         ).pack(fill="x", padx=24, pady=(0, 4))
-        _file_row(frame, "File", self._stego_disp, self._pick_stego)
+        _file_row(scroll, "File", self._stego_disp, self._pick_stego)
 
         return frame
 
@@ -113,28 +127,30 @@ class ExtractFlow:
         t = get_theme()
         frame = customtk.CTkFrame(self.app._content_area,
                                   fg_color=t["BG"], corner_radius=0)
+        scroll = _make_scroll(frame)
+
         customtk.CTkLabel(
-            frame, text="Select key file",
+            scroll, text="Select key file",
             font=("Consolas", 17, "bold"), text_color=t["TEXT"],
         ).pack(padx=24, pady=(24, 4), anchor="w")
         customtk.CTkLabel(
-            frame,
+            scroll,
             text="The .json key file saved when the message was embedded.",
             font=("Consolas", 12), text_color=t["MUTED"],
             wraplength=400, justify="left",
         ).pack(padx=24, pady=(0, 16), anchor="w")
 
         customtk.CTkLabel(
-            frame, text="KEY FILE",
+            scroll, text="KEY FILE",
             font=("Consolas", 12, "bold"), text_color=t["TEXT2"], anchor="w",
         ).pack(fill="x", padx=24, pady=(0, 4))
-        _file_row(frame, "File", self._key_disp, self._pick_key)
+        _file_row(scroll, "File", self._key_disp, self._pick_key)
 
         if self.key_path:
             try:
                 kd = crypto.read_key_file(self.key_path)
                 card = customtk.CTkFrame(
-                    frame, fg_color=t["CARD2"], corner_radius=10,
+                    scroll, fg_color=t["CARD2"], corner_radius=10,
                     border_width=1, border_color=t["BORDER"],
                 )
                 card.pack(fill="x", padx=24, pady=(8, 0))
@@ -156,7 +172,7 @@ class ExtractFlow:
                     ).pack(side="left")
             except ValueError:
                 customtk.CTkLabel(
-                    frame,
+                    scroll,
                     text="⚠  Could not read key file. May be malformed or v1 format.",
                     font=("Consolas", 11), text_color=t["WARN"],
                 ).pack(padx=24, pady=(6, 0), anchor="w")
@@ -181,23 +197,25 @@ class ExtractFlow:
         t = get_theme()
         frame = customtk.CTkFrame(self.app._content_area,
                                   fg_color=t["BG"], corner_radius=0)
+        scroll = _make_scroll(frame)
+
         customtk.CTkLabel(
-            frame, text="Enter passphrase",
+            scroll, text="Enter passphrase",
             font=("Consolas", 17, "bold"), text_color=t["TEXT"],
         ).pack(padx=24, pady=(24, 4), anchor="w")
         customtk.CTkLabel(
-            frame, text="The passphrase used when the message was embedded.",
+            scroll, text="The passphrase used when the message was embedded.",
             font=("Consolas", 12), text_color=t["MUTED"],
             wraplength=400, justify="left",
         ).pack(padx=24, pady=(0, 16), anchor="w")
 
         customtk.CTkLabel(
-            frame, text="PASSPHRASE",
+            scroll, text="PASSPHRASE",
             font=("Consolas", 12, "bold"), text_color=t["TEXT2"], anchor="w",
         ).pack(fill="x", padx=24, pady=(0, 4))
 
         pw_row = customtk.CTkFrame(
-            frame, fg_color=t["CARD2"], corner_radius=8,
+            scroll, fg_color=t["CARD2"], corner_radius=8,
             border_width=1, border_color=t["BORDER"],
         )
         pw_row.pack(fill="x", padx=24)
@@ -211,7 +229,7 @@ class ExtractFlow:
         self._pw_entry.pack(fill="x", padx=12, pady=4)
 
         customtk.CTkCheckBox(
-            frame, text="Show passphrase",
+            scroll, text="Show passphrase",
             variable=self._show_pw,
             font=("Consolas", 11), text_color=t["MUTED"],
             fg_color=t["ACCENT2"], hover_color=t["ACCENT2"],
@@ -220,7 +238,7 @@ class ExtractFlow:
 
         # Summary
         summary = customtk.CTkFrame(
-            frame, fg_color=t["CARD2"], corner_radius=10,
+            scroll, fg_color=t["CARD2"], corner_radius=10,
             border_width=1, border_color=t["BORDER"],
         )
         summary.pack(fill="x", padx=24, pady=(16, 0))
@@ -240,7 +258,7 @@ class ExtractFlow:
             ).pack(side="left")
 
         customtk.CTkLabel(
-            frame,
+            scroll,
             text="You will be prompted to choose a save location\n"
                  "for the recovered text file after clicking Extract.",
             font=("Consolas", 11), text_color=t["MUTED"], justify="left",

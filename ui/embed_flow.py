@@ -63,6 +63,18 @@ LABEL_COLOUR_KEY = {
 }
 
 
+def _make_scroll(frame) -> customtk.CTkScrollableFrame:
+    """Return a CTkScrollableFrame that fills `frame`, using the current theme."""
+    t = get_theme()
+    scroll = customtk.CTkScrollableFrame(
+        frame, fg_color=t["BG"], corner_radius=0,
+        scrollbar_button_color=t["BORDER"],
+        scrollbar_button_hover_color=t["BORDER2"],
+    )
+    scroll.pack(fill="both", expand=True)
+    return scroll
+
+
 class EmbedFlow:
     action_label = "Embed"
 
@@ -103,23 +115,25 @@ class EmbedFlow:
         t = get_theme()
         frame = customtk.CTkFrame(self.app._content_area,
                                   fg_color=t["BG"], corner_radius=0)
+        scroll = _make_scroll(frame)
+
         customtk.CTkLabel(
-            frame, text="Select source file",
+            scroll, text="Select source file",
             font=("Consolas", 17, "bold"), text_color=t["TEXT"],
         ).pack(padx=24, pady=(24, 4), anchor="w")
         customtk.CTkLabel(
-            frame, text="The text file you want to hide.",
+            scroll, text="The text file you want to hide.",
             font=("Consolas", 12), text_color=t["MUTED"],
         ).pack(padx=24, pady=(0, 16), anchor="w")
 
-        _section_label(frame, "TEXT FILE")
-        _file_row(frame, "File", self._text_disp, self._pick_text)
+        _section_label(scroll, "TEXT FILE")
+        _file_row(scroll, "File", self._text_disp, self._pick_text)
 
         if self.text_path:
             try:
                 sz = self.text_path.stat().st_size
                 customtk.CTkLabel(
-                    frame,
+                    scroll,
                     text=f"  {self.text_path.name}  ·  {_fmt_bytes(sz)}",
                     font=("Consolas", 11), text_color=t["GOOD"],
                 ).pack(padx=24, pady=(2, 0), anchor="w")
@@ -146,17 +160,19 @@ class EmbedFlow:
         t = get_theme()
         frame = customtk.CTkFrame(self.app._content_area,
                                   fg_color=t["BG"], corner_radius=0)
+        scroll = _make_scroll(frame)
+
         customtk.CTkLabel(
-            frame, text="Select cover file",
+            scroll, text="Select cover file",
             font=("Consolas", 17, "bold"), text_color=t["TEXT"],
         ).pack(padx=24, pady=(24, 4), anchor="w")
         customtk.CTkLabel(
-            frame, text="The file your message will be hidden inside.",
+            scroll, text="The file your message will be hidden inside.",
             font=("Consolas", 12), text_color=t["MUTED"],
         ).pack(padx=24, pady=(0, 16), anchor="w")
 
-        _section_label(frame, "COVER FILE")
-        _file_row(frame, "File", self._cover_disp, self._pick_cover)
+        _section_label(scroll, "COVER FILE")
+        _file_row(scroll, "File", self._cover_disp, self._pick_cover)
 
         if self.cover_path and self.metrics:
             m     = self.metrics
@@ -164,7 +180,7 @@ class EmbedFlow:
             col   = t[col_k]
 
             card = customtk.CTkFrame(
-                frame, fg_color=t["CARD2"], corner_radius=10,
+                scroll, fg_color=t["CARD2"], corner_radius=10,
                 border_width=1, border_color=t["BORDER"],
             )
             card.pack(fill="x", padx=24, pady=(8, 0))
@@ -204,19 +220,19 @@ class EmbedFlow:
 
             if m["score"] < 35:
                 customtk.CTkLabel(
-                    frame, text="⚠  Low score. Embedding may be more detectable",
+                    scroll, text="⚠  Low score. Embedding may be more detectable",
                     font=("Consolas", 11), text_color=t["WARN"],
                 ).pack(padx=24, pady=(8, 0), anchor="w")
             if m["adaptive_capacity"] < 1024:
                 customtk.CTkLabel(
-                    frame,
+                    scroll,
                     text="⚠  Very low adaptive capacity. Use sequential mode",
                     font=("Consolas", 11), text_color=t["WARN"],
                 ).pack(padx=24, pady=(4, 0), anchor="w")
 
         elif self.cover_path and self.metrics is None:
             customtk.CTkLabel(
-                frame, text="Cover scoring not available for this file type.",
+                scroll, text="Cover scoring not available for this file type.",
                 font=("Consolas", 11), text_color=get_theme()["MUTED"],
             ).pack(padx=24, pady=(6, 0), anchor="w")
 
@@ -252,18 +268,20 @@ class EmbedFlow:
         t = get_theme()
         frame = customtk.CTkFrame(self.app._content_area,
                                   fg_color=t["BG"], corner_radius=0)
+        scroll = _make_scroll(frame)
+
         customtk.CTkLabel(
-            frame, text="Options",
+            scroll, text="Options",
             font=("Consolas", 17, "bold"), text_color=t["TEXT"],
         ).pack(padx=24, pady=(24, 4), anchor="w")
         customtk.CTkLabel(
-            frame, text="Configure encryption and steganography settings.",
+            scroll, text="Configure encryption and steganography settings.",
             font=("Consolas", 12), text_color=t["MUTED"],
         ).pack(padx=24, pady=(0, 8), anchor="w")
 
         # Cipher pills
-        _section_label(frame, "CIPHER")
-        pill_row = customtk.CTkFrame(frame, fg_color="transparent")
+        _section_label(scroll, "CIPHER")
+        pill_row = customtk.CTkFrame(scroll, fg_color="transparent")
         pill_row.pack(fill="x", padx=24, pady=(0, 4))
         for c in crypto.SUPPORTED_CIPHERS:
             is_sel = self.cipher.get() == c
@@ -279,14 +297,14 @@ class EmbedFlow:
             ).pack(side="left", padx=(0, 6))
 
         # Steg mode
-        _section_label(frame, "STEGANOGRAPHY MODE")
+        _section_label(scroll, "STEGANOGRAPHY MODE")
         for val, label, sub in [
             ("adaptive",   "Adaptive",   "Spread spectrum · Steganalysis resistant"),
             ("sequential", "Sequential", "Standard LSB · Maximum capacity"),
         ]:
             is_sel = self.mode.get() == val
             row = customtk.CTkFrame(
-                frame,
+                scroll,
                 fg_color=t["CARD2"] if is_sel else t["CARD"],
                 corner_radius=8, border_width=1,
                 border_color=t["ACCENT"] if is_sel else t["BORDER"],
@@ -313,9 +331,9 @@ class EmbedFlow:
         fmt = self.cover_path.suffix.lower() if self.cover_path else ".png"
         deniable_ok = fmt in {".png", ".bmp"} and self.mode.get() == "adaptive"
 
-        _section_label(frame, "DENIABILITY")
+        _section_label(scroll, "DENIABILITY")
         den_row = customtk.CTkFrame(
-            frame, fg_color=t["CARD2"], corner_radius=8,
+            scroll, fg_color=t["CARD2"], corner_radius=8,
             border_width=1, border_color=t["BORDER"],
         )
         den_row.pack(fill="x", padx=24, pady=(0, 4))
@@ -334,13 +352,13 @@ class EmbedFlow:
         ).pack(side="right", padx=12)
 
         # Passphrase + confirmation + show/hide toggle
-        _section_label(frame, "PASSPHRASE")
+        _section_label(scroll, "PASSPHRASE")
         for var, placeholder in [
             (self.passphrase, "Enter passphrase…"),
             (self.pw_confirm, "Confirm passphrase…"),
         ]:
             pw_row = customtk.CTkFrame(
-                frame, fg_color=t["CARD2"], corner_radius=8,
+                scroll, fg_color=t["CARD2"], corner_radius=8,
                 border_width=1, border_color=t["BORDER"],
             )
             pw_row.pack(fill="x", padx=24, pady=(0, 4))
@@ -361,7 +379,7 @@ class EmbedFlow:
                 self._pw_confirm_entry = entry
 
         # Show/hide toggle (shared for both fields)
-        toggle_row = customtk.CTkFrame(frame, fg_color="transparent")
+        toggle_row = customtk.CTkFrame(scroll, fg_color="transparent")
         toggle_row.pack(fill="x", padx=24, pady=(0, 4))
         customtk.CTkCheckBox(
             toggle_row, text="Show passphrase",
@@ -381,7 +399,7 @@ class EmbedFlow:
             else:
                 hint, col = "Strong", t["GOOD"]
             customtk.CTkLabel(
-                frame, text=f"Strength: {hint}",
+                scroll, text=f"Strength: {hint}",
                 font=("Consolas", 11), text_color=col,
             ).pack(padx=24, anchor="w")
 
@@ -408,12 +426,14 @@ class EmbedFlow:
         t = get_theme()
         frame = customtk.CTkFrame(self.app._content_area,
                                   fg_color=t["BG"], corner_radius=0)
+        scroll = _make_scroll(frame)
+
         customtk.CTkLabel(
-            frame, text="Ready to embed",
+            scroll, text="Ready to embed",
             font=("Consolas", 17, "bold"), text_color=t["TEXT"],
         ).pack(padx=24, pady=(24, 4), anchor="w")
         customtk.CTkLabel(
-            frame, text="Review your settings before proceeding.",
+            scroll, text="Review your settings before proceeding.",
             font=("Consolas", 12), text_color=t["MUTED"],
         ).pack(padx=24, pady=(0, 16), anchor="w")
 
@@ -431,7 +451,7 @@ class EmbedFlow:
         ]
 
         card = customtk.CTkFrame(
-            frame, fg_color=t["CARD2"], corner_radius=10,
+            scroll, fg_color=t["CARD2"], corner_radius=10,
             border_width=1, border_color=t["BORDER"],
         )
         card.pack(fill="x", padx=24)
@@ -457,7 +477,7 @@ class EmbedFlow:
             ).pack(side="left")
 
         customtk.CTkLabel(
-            frame,
+            scroll,
             text="You will be prompted to save the stego file\n"
                  "and key file(s) after clicking Embed.",
             font=("Consolas", 11), text_color=t["MUTED"], justify="left",
