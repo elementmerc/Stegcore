@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name            = "stegcore"
-version         = "2.0.11"
+version         = "2.0.12"
 description     = "Crypto-steganography toolkit with deniable payloads"
 readme          = "README.md"
 license         = "AGPL-3.0"

@@ -49,9 +49,10 @@ _ARGON2_SALT_LEN    = 16
 # Key derivation
 # ---------------------------------------------------------------------------
 
-def _derive_key(passphrase: str, salt: bytes, key_len: int) -> bytes:
+def _derive_key(passphrase: str | bytes | bytearray, salt: bytes, key_len: int) -> bytes:
+    secret = passphrase.encode("utf-8") if isinstance(passphrase, str) else bytes(passphrase)
     return hash_secret_raw(
-        secret=passphrase.encode("utf-8"),
+        secret=secret,
         salt=salt,
         time_cost=_ARGON2_TIME_COST,
         memory_cost=_ARGON2_MEMORY_COST,
@@ -65,7 +66,7 @@ def _derive_key(passphrase: str, salt: bytes, key_len: int) -> bytes:
 # Encryption
 # ---------------------------------------------------------------------------
 
-def encrypt(plaintext: bytes, passphrase: str, cipher: str = "Ascon-128") -> dict:
+def encrypt(plaintext: bytes, passphrase: str | bytes | bytearray, cipher: str = "Ascon-128") -> dict:
     """
     Compress and encrypt plaintext with the chosen cipher and an Argon2id-derived key.
 
@@ -112,7 +113,7 @@ def _encrypt_with(cipher: str, key: bytes, nonce: bytes, plaintext: bytes) -> by
 # Decryption
 # ---------------------------------------------------------------------------
 
-def decrypt(payload: dict, passphrase: str) -> bytes:
+def decrypt(payload: dict, passphrase: str | bytes | bytearray) -> bytes:
     """
     Decrypt and decompress a payload dict produced by encrypt().
 
@@ -165,8 +166,14 @@ def write_key_file(path, nonce: bytes, salt: bytes, cipher: str, info_type: str,
     """
     Write encryption metadata to a JSON key file.
 
-    For deniable embeds, both real and decoy key files are structurally
-    identical. Neither can be identified as "real" from the file alone.
+    Fields stored: cipher, steg_mode, deniable, nonce (base64), salt (base64),
+    info_type. For deniable embeds: partition_seed (base64), partition_half.
+
+    The passphrase and Argon2id-derived key are NEVER stored. Only the salt
+    needed to re-derive the key from the passphrase is persisted.
+
+    For deniable embeds, real and decoy key files are structurally identical —
+    neither can be identified as "real" from the file contents alone.
     """
     data = {
         "cipher":    cipher,
@@ -228,7 +235,7 @@ def read_key_file(path) -> dict:
 # Used by the extract flow to re-derive the key for spread-spectrum seeding.
 # ---------------------------------------------------------------------------
 
-def derive_key(passphrase: str, salt: bytes, cipher: str) -> bytes:
+def derive_key(passphrase: str | bytes | bytearray, salt: bytes, cipher: str) -> bytes:
     """
     Re-derive the encryption key from a passphrase and stored salt.
 

@@ -89,7 +89,7 @@ def _banner() -> None:
         Panel(
             Text.assemble(
                 ("stegcore", "bold white"),
-                ("  v2.0.11", MUTED),
+                ("  v2.0.12", MUTED),
                 ("  |  ", MUTED),
                 ("AGPL-3.0", MUTED),
             ),
@@ -841,6 +841,11 @@ def _do_embed(
         passphrase = _ask_passphrase("Passphrase", confirm=True)
     elif passphrase:
         _warn("Passphrase passed as argument — visible in shell history.")
+    # Convert to bytearray so we can zero memory after use.
+    # Note: if passphrase arrived as a CLI --passphrase option, the str is
+    # already in CPython's heap; pw_buf zeroes only this local copy.
+    pw_buf = bytearray(passphrase.encode("utf-8"))
+    del passphrase
 
     info_type = payload.suffix or ".txt"
 
@@ -851,7 +856,7 @@ def _do_embed(
             _err("Payload file is empty after reading.")
         result = _run_with_spinner(
             f"Encrypting with {cipher}…",
-            crypto.encrypt, plaintext, passphrase, cipher,
+            crypto.encrypt, plaintext, pw_buf, cipher,
         )
     except typer.Exit:
         raise
@@ -881,7 +886,7 @@ def _do_embed(
             confirm=False,
             hint="Must be different from your real passphrase.",
         )
-        if decoy_pw == passphrase:
+        if decoy_pw.encode("utf-8") == pw_buf:
             _err("Decoy passphrase must differ from the real passphrase.")
 
         try:
@@ -914,7 +919,7 @@ def _do_embed(
         else:
             def _embed_op():
                 with utils.temp_file(".bin") as tmp:
-                    tmp.write_bytes(result["ciphertext"])
+                    tmp.write_bytes(result["ciphertext"])  # plaintext never touches disk
                     steg.embed(cover, tmp, output, key=steg_key, mode=effective_mode)
 
             _run_with_spinner("Embedding payload…", _embed_op)
@@ -951,7 +956,8 @@ def _do_embed(
         except Exception as exc:
             _err(f"Could not save decoy key file: {exc}")
 
-    passphrase = ""  # clear from memory
+    pw_buf[:] = b"\x00" * len(pw_buf)  # zero bytes before rebinding
+    del pw_buf
 
     # ── Summary ───────────────────────────────────────────────────────────
     console.print()
@@ -1022,13 +1028,16 @@ def _do_extract(
         passphrase = _ask_passphrase("Passphrase", confirm=False)
     elif passphrase:
         _warn("Passphrase passed as argument — visible in shell history.")
+    # Convert to bytearray so we can zero memory after use.
+    pw_buf = bytearray(passphrase.encode("utf-8"))
+    del passphrase
 
     steg_mode = key_data.get("steg_mode", "sequential")
     deniable  = key_data.get("deniable", False)
 
     try:
         steg_key = (
-            crypto.derive_key(passphrase, key_data["salt"], key_data["cipher"])
+            crypto.derive_key(pw_buf, key_data["salt"], key_data["cipher"])
             if steg_mode == "adaptive" else None
         )
     except Exception as exc:
@@ -1045,14 +1054,14 @@ def _do_extract(
                     partition_seed=key_data["partition_seed"],
                     partition_half=key_data["partition_half"],
                 )
-                return crypto.decrypt({**key_data, "ciphertext": raw}, passphrase)
+                return crypto.decrypt({**key_data, "ciphertext": raw}, pw_buf)
             plaintext = _run_with_spinner("Extracting and decrypting…", _extract_op)
         else:
             def _extract_op():
                 with utils.temp_file(".bin") as tmp:
                     steg.extract(stego, tmp, key=steg_key, mode=steg_mode)
                     ciphertext = tmp.read_bytes()
-                    return crypto.decrypt({**key_data, "ciphertext": ciphertext}, passphrase)
+                    return crypto.decrypt({**key_data, "ciphertext": ciphertext}, pw_buf)
             plaintext = _run_with_spinner("Extracting and decrypting…", _extract_op)
 
     except ValueError as exc:
@@ -1071,7 +1080,8 @@ def _do_extract(
     except OSError as exc:
         _err(f"Could not write output file: {exc}")
 
-    passphrase = ""  # clear from memory
+    pw_buf[:] = b"\x00" * len(pw_buf)  # zero bytes before rebinding
+    del pw_buf
 
     # ── Summary ───────────────────────────────────────────────────────────
     console.print()

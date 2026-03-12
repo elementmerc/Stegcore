@@ -7,6 +7,33 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.0.12] — 2026-03-12
+
+### Security
+
+- **Passphrase memory hardening** — CLI passphrase converted to `bytearray`
+  immediately after prompt; zeroed with `buf[:] = b"\x00" * len(buf)` after
+  use. `_derive_key`, `encrypt`, `decrypt`, and `derive_key` in `core/crypto.py`
+  now accept `str | bytes | bytearray` to support this pattern.
+- **Bandit B110 fixed** — `except Exception: pass` in `core/utils.py` `asset()`
+  narrowed to `except (ImportError, ModuleNotFoundError)` with explanatory comment.
+- **Temp file security documented** — `temp_file()` docstring now explicitly states
+  `mkstemp` mode 0o600, guaranteed `finally` cleanup, and that plaintext is never
+  written to the temp file.
+- **Key file audit** — `write_key_file` docstring updated to enumerate stored fields
+  and explicitly state the passphrase and derived key are never persisted.
+- **`bandit -r core/`** reports zero findings (Undefined/Low/Medium/High all 0).
+
+### Added
+
+- **Full pytest test suite** — 64 tests across `tests/test_crypto.py`,
+  `tests/test_steg.py`, `tests/test_key_file.py`, and `tests/test_integration.py`.
+  Coverage enforced at ≥ 90% (actual: 93.73%).
+- **CI test job** — `.github/workflows/ci.yml` runs the full test suite on every
+  push and pull request to `main` (Python 3.11, ubuntu-latest).
+
+---
+
 ## [2.0.11] — 2026-03
 
 ### Fixed
