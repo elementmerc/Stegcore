@@ -316,6 +316,9 @@ class ExtractFlow:
             app.show_home()
             return
 
+        # Note: StringVar.get() returns an immutable str; in-memory zeroing is not
+        # feasible here. The passphrase StringVar is replaced with a fresh empty
+        # var before _show_working() tears down the frame (see below).
         passphrase = self.passphrase.get().strip()
         steg_mode  = key_data.get("steg_mode", "sequential")
         deniable   = key_data.get("deniable", False)
@@ -326,6 +329,9 @@ class ExtractFlow:
         )
 
         # ── Stage 2: heavy steg extract in worker thread ─────────────
+        # Orphan the passphrase StringVar before the Passphrase step frame is
+        # torn down by _show_working().  The value is already in `passphrase`.
+        self.passphrase = customtk.StringVar()
         app._show_working()
 
         def _do_extract():

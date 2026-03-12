@@ -411,10 +411,16 @@ class EmbedFlow:
         self._pw_confirm_entry.configure(show=show)
 
     def _set_cipher(self, val: str) -> None:
+        # Replace StringVars so the old CTkEntry traces are orphaned on rebuild.
+        self.passphrase = customtk.StringVar(value=self.passphrase.get())
+        self.pw_confirm = customtk.StringVar(value=self.pw_confirm.get())
         self.cipher.set(val)
         self.app._render_step()
 
     def _set_mode(self, val: str) -> None:
+        # Replace StringVars so the old CTkEntry traces are orphaned on rebuild.
+        self.passphrase = customtk.StringVar(value=self.passphrase.get())
+        self.pw_confirm = customtk.StringVar(value=self.pw_confirm.get())
         self.mode.set(val)
         self.app._render_step()
 
@@ -529,6 +535,9 @@ class EmbedFlow:
         effective_mode = self.mode.get() if fmt in {".png", ".bmp"} else "sequential"
         deniable       = self.deniable.get() and effective_mode == "adaptive"
         cipher         = self.cipher.get()
+        # Note: StringVar.get() returns an immutable str; in-memory zeroing is not
+        # feasible here. The passphrase StringVar is replaced with a fresh empty
+        # var before _show_working() tears down the frame (see below).
         passphrase     = self.passphrase.get().strip()
         info_type      = self.text_path.suffix
 
@@ -621,6 +630,10 @@ class EmbedFlow:
                 return
 
         # ── Stage 4: heavy steg operation in worker thread ──────────
+        # Orphan the passphrase StringVars before the Options frame is torn
+        # down by _show_working().  The values are already in local variables.
+        self.passphrase = customtk.StringVar()
+        self.pw_confirm = customtk.StringVar()
         app._show_working()
 
         def _do_embed():

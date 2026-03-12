@@ -35,7 +35,8 @@ def asset(filename: str) -> Path:
     try:
         from importlib.resources import files
         return Path(str(files("assets") / filename))
-    except Exception:
+    except (ImportError, ModuleNotFoundError):
+        # assets package not found in installed environment — fall through to source path
         pass
     return Path(__file__).parent.parent / "assets" / filename
 
@@ -52,6 +53,11 @@ def temp_file(suffix: str = ".bin"):
 
     Uses mkstemp rather than mktemp. mktemp is deprecated and can cause
     memory allocation issues on Linux via glibc.
+
+    Security: mkstemp creates the file with mode 0o600 (owner-only read/write).
+    The finally block guarantees deletion even if the caller raises.
+    Plaintext is never written here — only ciphertext enters the temp file
+    (see cli.py embed path).
 
     Usage:
         with temp_file(".bin") as tmp:
