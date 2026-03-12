@@ -1,0 +1,32 @@
+name: Licence Header Check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check-headers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check AGPL-3.0 headers
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            if ! grep -q "GNU Affero General Public License" "$f"; then
+              echo "MISSING AGPL header: $f"
+              fail=1
+            fi
+          done < <(find . -name "*.py" \
+            -not -path "./stegcore_venv/*" \
+            -not -path "./build/*" \
+            -not -path "./dist/*" \
+            -not -path "./.git/*")
+          if [ "$fail" -eq 1 ]; then
+            echo ""
+            echo "All .py files must include the AGPL-3.0 header."
+            echo "See CONTRIBUTING.md for the required header block."
+            exit 1
+          fi
+          echo "All .py files carry the AGPL-3.0 header."

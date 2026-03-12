@@ -18,6 +18,20 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Stale `jpegio` runtime dependency removed** — `jpegio` was listed in `pyproject.toml`
   but is not imported anywhere; JPEG support has used the pixel-domain LSB pipeline since 2.0.6.
 
+### Changed
+
+- **Lazy imports in GUI flows** — `embed_flow.py` and `extract_flow.py` now defer
+  `from core import crypto, steg, utils` until the first flow is constructed. Same pattern
+  as the CLI lazy-import fix in 2.0.10. Eliminates the 3–5 s startup delay caused by
+  numpy and cryptography loading at import time before the window appears.
+
+### Added
+
+- **CONTRIBUTING.md** — developer contribution guide: environment setup, code style,
+  AGPL header requirement, PR process, and branch conventions.
+- **CI licence check** — `.github/workflows/licence-check.yml` verifies every tracked
+  `.py` file carries the AGPL-3.0 header. Build fails if any file is missing it.
+
 ---
 
 ## [2.0.10] — 2026-03
