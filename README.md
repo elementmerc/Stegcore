@@ -25,7 +25,7 @@ Unlike basic steganography tools that hide data without encrypting it, Stegcore 
 
 **Deniable dual payload**: Embed two separately encrypted payloads into one cover image. One passphrase reveals the real message; another reveals a plausible decoy. Neither key file identifies itself.
 
-**Multiple formats**: PNG and BMP via adaptive or sequential LSB, JPEG via DCT-domain embedding, WAV via audio sample LSB.
+**Multiple formats**: PNG and BMP via adaptive or sequential LSB, JPEG via pixel-domain LSB (output saved as PNG), WAV via audio sample LSB.
 
 **Cover image scoring**: Before embedding, Stegcore scores the cover on entropy, texture density, and resolution. Poor covers are flagged before you commit.
 
@@ -138,10 +138,10 @@ secret.txt
 [ Argon2id key derivation (passphrase + random salt) ]
     │
     ▼
-[ Encrypt: Ascon-128 / ChaCha20-Poly1305 / AES-256-GCM ]
+[ Zstandard compress payload ]
     │
     ▼
-[ Zstandard compress ciphertext ]
+[ Encrypt: Ascon-128 / ChaCha20-Poly1305 / AES-256-GCM ]
     │
     ▼
 [ Score cover image — entropy, texture, capacity ]

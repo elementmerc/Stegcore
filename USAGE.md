@@ -94,7 +94,19 @@ stegcore score <image>
 stegcore score photo.png
 ```
 
-Outputs a score out of 100 (Excellent / Good / Fair / Poor) with entropy, texture density, and capacity breakdown. Aim for 55 or above. Below 35 is usable but increasingly detectable by steganalysis tools.
+Outputs a score out of 100 with a quality label and a full breakdown:
+
+| Field | Description |
+|---|---|
+| `score` | Composite quality score, 0–100 |
+| `label` | Excellent (≥75) / Good (≥55) / Fair (≥35) / Poor (<35) |
+| `entropy` | Shannon entropy of pixel values (0–8 bits) |
+| `texture_density` | Proportion of pixels in high-variance regions |
+| `adaptive_capacity` | Maximum embeddable bytes in adaptive mode |
+| `sequential_capacity` | Maximum embeddable bytes in sequential mode |
+| `width` / `height` | Image dimensions in pixels |
+
+Aim for a score of 55 or above. Below 35 is usable but increasingly detectable by steganalysis tools.
 
 ---
 
