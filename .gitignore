@@ -4,6 +4,8 @@
 main.spec
 stegcore.egg-info/
 *__pycache__*
-/tests/
+*_qa.py*
 *Zone.Identifier*
 .claude/
+*image_tests.py*
+*experiments/

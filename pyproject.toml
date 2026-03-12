@@ -30,6 +30,21 @@ stegcore = "main:main"
 # GUI: no console window (Windows: no cmd popup; Linux/macOS: detaches terminal)
 stegcore-gui = "main:main"
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "Pillow>=10.0",
+    "numpy>=1.26",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts   = "--cov=core --cov-report=html:htmlcov --cov-report=term-missing --cov-fail-under=90"
+
+[tool.coverage.run]
+omit = ["core/utils.py"]
+
 [tool.setuptools]
 # top-level .py files that are not inside a package directory
 py-modules = ["main", "cli"]
