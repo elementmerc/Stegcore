@@ -2,6 +2,7 @@
 /build/
 /dist/
 main.spec
+stegcore.egg-info/
 *__pycache__*
 /tests/
 *Zone.Identifier*
