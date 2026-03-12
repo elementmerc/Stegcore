@@ -15,6 +15,8 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   three-tier lookup: PyInstaller `_MEIPASS` → `importlib.resources.files("assets")` →
   source-tree fallback. `assets/__init__.py` added so setuptools packages the directory and
   `importlib.resources` can address it. Resolves broken icon path after `pip install .`.
+- **Stale `jpegio` runtime dependency removed** — `jpegio` was listed in `pyproject.toml`
+  but is not imported anywhere; JPEG support has used the pixel-domain LSB pipeline since 2.0.6.
 
 ---
 
