@@ -1,11 +1,35 @@
-/stegcore_venv/
-/build/
-/dist/
-main.spec
-stegcore.egg-info/
+# Python legacy (kept for final PyPI release only)
 *__pycache__*
 *_qa.py*
 *Zone.Identifier*
-.claude/
 *image_tests.py*
 *experiments/
+
+# Rust / Cargo
+/target/
+/crates/core/lib/*
+!/crates/core/lib/.gitkeep
+
+# Private engine lib (per-platform)
+crates/core/lib/**/*.a
+crates/core/lib/**/*.lib
+
+# Private docs / test scripts
+/private/
+
+# Frontend
+/frontend/node_modules/
+/frontend/dist/
+
+# Project reference (contains developer context — never commit)
+CLAUDE.md
+
+# IDE
+.claude/
+.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+

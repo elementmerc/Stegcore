@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+/* ── Base resets ────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, sans-serif;
+  font-size: 16px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Design tokens — Dark theme (default) ───────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --sc-bg-primary:    #070d14;
+  --sc-bg-surface:    #0d1520;
+  --sc-bg-border:     #1a2535;
+  --sc-accent:        #2a7fff;
+  --sc-accent-light:  #4da6ff;
+  --sc-accent-dark:   #1252cc;
+  --sc-text-primary:  #e8eaf0;
+  --sc-text-muted:    #4a5568;
+  --sc-success:       #22c55e;
+  --sc-warning:       #f59e0b;
+  --sc-danger:        #ef4444;
+
+  /* Layout tokens */
+  --sc-radius-card:  12px;
+  --sc-radius-btn:    8px;
+  --sc-radius-input:  6px;
+  --sc-shadow-sm:    0 1px 3px rgba(0,0,0,0.18);
+  --sc-shadow-md:    0 4px 12px rgba(0,0,0,0.28);
+  --sc-t-fast:       150ms ease-out;
+  --sc-t-base:       200ms ease-out;
+  --sc-t-slow:       300ms ease-out;
+}
+
+/* ── Design tokens — Light theme ────────────────────────────────────────── */
+[data-theme="light"] {
+  --sc-bg-primary:    #f0f4fa;
+  --sc-bg-surface:    #ffffff;
+  --sc-bg-border:     #e2e8f0;
+  --sc-accent:        #1d4ed8;
+  --sc-accent-light:  #3b82f6;
+  --sc-accent-dark:   #1e3a8a;
+  --sc-text-primary:  #0d1520;
+  --sc-text-muted:    #94a3b8;
+  --sc-success:       #16a34a;
+  --sc-warning:       #d97706;
+  --sc-danger:        #dc2626;
+
+  --sc-shadow-sm:    0 1px 3px rgba(0,0,0,0.08);
+  --sc-shadow-md:    0 4px 12px rgba(0,0,0,0.12);
+}
+
+/* ── Apply tokens to base elements ─────────────────────────────────────── */
+html {
+  background: var(--sc-bg-primary);
+  color: var(--sc-text-primary);
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--sc-bg-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--sc-text-muted); }
+
+/* ── Reduced motion ─────────────────────────────────────────────────────── */
+[data-reduce-motion="true"] *,
+[data-reduce-motion="true"] *::before,
+[data-reduce-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}
