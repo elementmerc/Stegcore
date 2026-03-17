@@ -1,0 +1,34 @@
+[package]
+name = "stegcore-cli"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77.2"
+description = "Stegcore CLI binary"
+license = "AGPL-3.0-or-later"
+
+[[bin]]
+name = "stegcore"
+path = "src/main.rs"
+
+[dependencies]
+stegcore-core = { path = "../core" }
+
+# CLI parsing
+clap = { version = "4", features = ["derive", "color", "env"] }
+
+# Terminal UX
+crossterm = "0.28"
+indicatif = "0.17"
+
+# File dialogs (wizard/interactive mode)
+rfd = "0.15"
+
+# Passphrase input
+rpassword = "7"
+
+# Interrupt handling
+ctrlc = "3"
+
+# Logging
+log = "0.4"
+env_logger = "0.11"
