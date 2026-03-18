@@ -50,6 +50,15 @@ pub mod engine {
         /// or a negative value cast to f64 on error.
         pub fn lsc_assess(path: *const c_char) -> f64;
 
+        /// Read embedded metadata from a stego file without decrypting the payload.
+        /// Returns 0 on success; fills json_out with a library-allocated JSON string.
+        pub fn lsc_read_meta(
+            path: *const c_char,
+            passphrase: *const c_char,
+            json_out: *mut *mut c_char,
+            json_len: *mut usize,
+        ) -> c_int;
+
         /// Free a buffer previously allocated by the engine.
         pub fn lsc_free_buffer(ptr: *mut u8);
     }
@@ -90,6 +99,15 @@ pub mod engine {
 
     pub unsafe fn lsc_analyze(
         _path: *const c_char,
+        _json_out: *mut *mut c_char,
+        _json_len: *mut usize,
+    ) -> c_int {
+        -99
+    }
+
+    pub unsafe fn lsc_read_meta(
+        _path: *const c_char,
+        _passphrase: *const c_char,
         _json_out: *mut *mut c_char,
         _json_len: *mut usize,
     ) -> c_int {

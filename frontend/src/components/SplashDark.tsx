@@ -122,7 +122,7 @@ export default function SplashDark({ onComplete }: SplashProps) {
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        background: '#070d14',
+        background: '#04080f',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -186,7 +186,7 @@ export default function SplashDark({ onComplete }: SplashProps) {
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, sans-serif',
           fontWeight: 500,
           fontSize: '28px',
-          color: '#e8eaf0',
+          color: '#c8d8f2',
           textTransform: 'uppercase',
         }}>
           <span

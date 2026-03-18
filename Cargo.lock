@@ -4211,10 +4211,13 @@ dependencies = [
  "crossterm",
  "ctrlc",
  "env_logger",
+ "glob",
  "indicatif",
  "log",
  "rfd 0.15.4",
  "rpassword",
+ "serde",
+ "serde_json",
  "stegcore-core",
 ]
 

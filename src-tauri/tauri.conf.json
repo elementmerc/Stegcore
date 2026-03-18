@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../frontend/dist",
     "devUrl": "http://localhost:1420",
-    "beforeDevCommand": "cd ../frontend && npm run dev",
-    "beforeBuildCommand": "cd ../frontend && npm run build"
+    "beforeDevCommand": "bash -c 'export PATH=/home/mercury/.nvm/versions/node/v24.14.0/bin:/usr/bin:/bin:$PATH && cd ../frontend && npm run dev'",
+    "beforeBuildCommand": "bash -c 'export PATH=/home/mercury/.nvm/versions/node/v24.14.0/bin:/usr/bin:/bin:$PATH && cd ../frontend && npm run build'"
   },
   "app": {
     "windows": [

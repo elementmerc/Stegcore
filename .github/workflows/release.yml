@@ -1,265 +1,181 @@
-name: Build & Release
+name: Release
 
 on:
   push:
     tags:
-      - "v*.*.*"
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Version tag to build (e.g. v2.1.0)"
-        required: false
+      - 'v*.*.*'
+
+env:
+  CARGO_TERM_COLOR: always
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # ── Tauri desktop builds ──────────────────────────────────────────────────
+  tauri:
+    name: Tauri (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-latest
+            os-label: linux
+            arch: x64
+          - platform: windows-latest
+            os-label: windows
+            arch: x64
+          - platform: macos-latest
+            os-label: macos
+            arch: universal
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # Linux — single merged onedir binary + stegcore-gui symlink
-  # ──────────────────────────────────────────────────────────────────────────
-  build-linux:
-    name: Build (Linux)
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y upx-ucl
-
-      - name: Install Python dependencies
-        run: |
-          pip install --upgrade pip
-          pip install \
-            customtkinter Pillow "numpy<2" ascon cryptography \
-            argon2-cffi pyzstd typer rich \
-            pyinstaller
-
-      - name: Build binary
-        run: pyinstaller $GITHUB_WORKSPACE/stegcore-linux.spec
-
-      - name: Create stegcore-gui symlink
-        run: ln -s stegcore dist/stegcore/stegcore-gui
-
-      - name: Smoke-test CLI mode
-        run: |
-          ./dist/stegcore/stegcore --help
-          ./dist/stegcore/stegcore ciphers
-
-      - name: Smoke-test GUI mode (symlink name detection)
-        run: |
-          test -L dist/stegcore/stegcore-gui          
-          ./dist/stegcore/stegcore-gui --help
-
-      - name: Zip output
-        run: cd dist && zip -r stegcore-linux.zip stegcore/
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-binary
-          path: dist/stegcore-linux.zip
-          retention-days: 7
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # Windows — single merged onedir binary + stegcore-gui.exe copy
-  # Symlinks require elevated privileges on Windows, so we copy instead.
-  # Name detection in main.py works the same way regardless.
-  # ──────────────────────────────────────────────────────────────────────────
-  build-windows:
-    name: Build (Windows)
-    runs-on: windows-2022
+    runs-on: ${{ matrix.platform }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux system deps
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            pkg-config
+
+      - name: Add macOS universal targets
+        if: matrix.platform == 'macos-latest'
+        run: |
+          rustup target add aarch64-apple-darwin
+          rustup target add x86_64-apple-darwin
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
         with:
-          python-version: "3.11"
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Install UPX
-        run: |
-          $upxUrl = "https://github.com/upx/upx/releases/download/v4.2.4/upx-4.2.4-win64.zip"
-          Invoke-WebRequest $upxUrl -OutFile upx.zip
-          Expand-Archive upx.zip -DestinationPath upx_dir
-          $upxPath = (Get-ChildItem upx_dir -Recurse -Filter "upx.exe").DirectoryName
-          echo $upxPath | Out-File -Append -FilePath $env:GITHUB_PATH
-        shell: pwsh
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
 
-      - name: Install Python dependencies
-        run: |
-          pip install --upgrade pip
-          pip install `
-            customtkinter Pillow numpy ascon cryptography `
-            argon2-cffi pyzstd typer rich `
-            pyinstaller
-        shell: pwsh
-
-      - name: Build binary
-        working-directory: ${{ github.workspace }}
-        run: pyinstaller $env:GITHUB_WORKSPACE\stegcore-windows.spec
-        shell: pwsh
-        env:
-          PYTHONUTF8: "1"
-
-      - name: Create stegcore-gui.exe copy
-        # Copy rather than symlink — symlinks need elevated privileges on Windows
-        run: Copy-Item dist\stegcore\stegcore.exe dist\stegcore\stegcore-gui.exe
-        shell: pwsh
-
-      - name: Smoke-test CLI mode
-        run: |
-          .\dist\stegcore\stegcore.exe --help
-          .\dist\stegcore\stegcore.exe ciphers
-        shell: pwsh
-
-      - name: Smoke-test GUI mode (copy name detection)
-        run: |
-          Test-Path dist\stegcore\stegcore-gui.exe     # confirm the copy exists
-          .\dist\stegcore\stegcore-gui.exe --help      # now exits cleanly with the fix above
-        shell: pwsh
-
-      - name: Zip output
-        run: Compress-Archive -Path dist\stegcore\* -DestinationPath dist\stegcore-windows.zip
-        shell: pwsh
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Cache Cargo
+        uses: actions/cache@v4
         with:
-          name: windows-binary
-          path: dist\stegcore-windows.zip
-          retention-days: 7
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # macOS — single merged onedir CLI + .app bundle
-  # ──────────────────────────────────────────────────────────────────────────
-  build-macos:
-    name: Build (macOS)
-    runs-on: macos-14
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install UPX
-        run: brew install upx
-
-      - name: Install Python dependencies
-        run: |
-          pip install --upgrade pip
-          pip install \
-            customtkinter Pillow numpy ascon cryptography \
-            argon2-cffi pyzstd typer rich \
-            pyinstaller
-
-      - name: Build binary
-        run: pyinstaller $GITHUB_WORKSPACE/stegcore-macos.spec
-
-      - name: Create stegcore-gui symlink
-        run: ln -s stegcore dist/stegcore/stegcore-gui
-
-      - name: Smoke-test CLI mode
-        run: |
-          ./dist/stegcore/stegcore --help
-          ./dist/stegcore/stegcore ciphers
-
-      - name: Smoke-test GUI mode (symlink name detection)
-        run: ./dist/stegcore/stegcore-gui --help
-
-      - name: Zip CLI onedir output
-        run: cd dist && zip -r stegcore-macos.zip stegcore/
-
-      - name: Zip .app bundle (preserving symlinks and extended attributes)
-        run: cd dist && zip -r --symlinks Stegcore.app.zip Stegcore.app
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-binary
           path: |
-            dist/stegcore-macos.zip
-            dist/Stegcore.app.zip
-          retention-days: 7
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # Release
-  # ──────────────────────────────────────────────────────────────────────────
-  release:
-    name: Publish Release
-    needs: [build-linux, build-windows, build-macos]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-22.04
+      - name: Build Tauri app (Linux/Windows)
+        if: matrix.platform != 'macos-latest'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Stegcore ${{ github.ref_name }}
+          releaseBody: |
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+          releaseDraft: true
+          prerelease: false
+          tauriScript: npx tauri
+
+      - name: Build Tauri app (macOS universal)
+        if: matrix.platform == 'macos-latest'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Stegcore ${{ github.ref_name }}
+          releaseBody: |
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+          releaseDraft: true
+          prerelease: false
+          tauriScript: npx tauri
+          args: --target universal-apple-darwin
+
+  # ── Docker multi-arch image ───────────────────────────────────────────────
+  docker:
+    name: Docker (amd64 + arm64)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Checksums ─────────────────────────────────────────────────────────────
+  checksums:
+    name: Generate checksums
+    needs: tauri
+    runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Determine version
-        id: version
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          fi
+          gh release download ${{ github.ref_name }} \
+            --repo ${{ github.repository }} \
+            --dir ./assets
 
-      - name: Download Linux artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-binary
-          path: release-assets
-
-      - name: Download Windows artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-binary
-          path: release-assets
-
-      - name: Download macOS artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-binary
-          path: release-assets
-
-      - name: Rename assets
+      - name: Generate SHA-256 checksums
         run: |
-          VERSION=${{ steps.version.outputs.tag }}
-          mv release-assets/stegcore-linux.zip   release-assets/stegcore-${VERSION}-linux-x86_64.zip
-          mv release-assets/stegcore-windows.zip release-assets/stegcore-${VERSION}-windows-x86_64.zip
-          mv release-assets/stegcore-macos.zip   release-assets/stegcore-${VERSION}-macos-arm64.zip
-          mv release-assets/Stegcore.app.zip     release-assets/Stegcore-${VERSION}-macos-arm64.app.zip
+          cd assets
+          sha256sum * > stegcore-${{ github.ref_name }}-checksums.sha256
+          cat stegcore-${{ github.ref_name }}-checksums.sha256
 
-      - name: Extract changelog entry
+      - name: Upload checksums
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION=${{ steps.version.outputs.tag }}
-          VER=${VERSION#v}
-          awk "/^## \[${VER}\]/{found=1; next} found && /^## \[/{exit} found{print}" \
-            CHANGELOG.md > release_body.md
-          if [ ! -s release_body.md ]; then
-            echo "Release ${VERSION}" > release_body.md
-          fi
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: "Stegcore ${{ steps.version.outputs.tag }}"
-          body_path: release_body.md
-          draft: false
-          prerelease: ${{ contains(steps.version.outputs.tag, '-') }}
-          files: release-assets/stegcore-*
+          gh release upload ${{ github.ref_name }} \
+            ./assets/stegcore-${{ github.ref_name }}-checksums.sha256 \
+            --repo ${{ github.repository }}
