@@ -47,6 +47,27 @@ pub enum StegError {
     Json(#[from] serde_json::Error),
 }
 
+/// Maps an FFI return code to a `StegError`.
+/// Any unrecognised negative code maps to `CorruptedFile` as a safe default.
+pub fn from_ffi_code(code: i32) -> StegError {
+    match code {
+        -1  => StegError::InsufficientCapacity { required: 0, available: 0 },
+        -2  => StegError::DecryptionFailed,
+        -3  => StegError::LegacyKeyFile,
+        -4  => StegError::UnsupportedFormat(String::new()),
+        -5  => StegError::PoorCoverQuality { score: 0.0 },
+        -6  => StegError::FileNotFound(String::new()),
+        -7  => StegError::EmptyPayload,
+        -8  => StegError::NoPayloadFound,
+        -9  => StegError::CorruptedFile,
+        -10 => StegError::Io(std::io::Error::new(std::io::ErrorKind::Other, "I/O error")),
+        -11 => StegError::Image("image error".into()),
+        -12 => StegError::CorruptedFile,
+        -99 => StegError::EngineAbsent,
+        _   => StegError::CorruptedFile,
+    }
+}
+
 /// Serialize to a plain string for Tauri IPC.
 impl Serialize for StegError {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {

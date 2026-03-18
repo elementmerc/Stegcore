@@ -2,24 +2,48 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use crate::errors::StegError;
 
+/// Optional export format. Stego files are self-contained; this is only
+/// produced when the user explicitly requests key file export.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeyFile {
     pub engine: String,
+    /// Cipher identifier string (e.g. "chacha20-poly1305").
     pub cipher: String,
-    pub mode: String,
+    /// Base64-encoded nonce.
     pub nonce: String,
+    /// Base64-encoded salt.
     pub salt: String,
     pub deniable: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub partition_seed: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub partition_half: Option<u8>,
 }
 
 /// Write a key file to disk as JSON.
-pub fn write_key_file(_path: &Path, _keyfile: &KeyFile) -> Result<(), StegError> {
-    todo!("Session 1b/3: implement write_key_file")
+pub fn write_key_file(path: &Path, keyfile: &KeyFile) -> Result<(), StegError> {
+    let json = serde_json::to_string_pretty(keyfile)?;
+    std::fs::write(path, json).map_err(StegError::Io)
 }
 
 /// Read a key file from disk, detecting legacy Python format.
-pub fn read_key_file(_path: &Path) -> Result<KeyFile, StegError> {
-    todo!("Session 1b/3: implement read_key_file")
+pub fn read_key_file(path: &Path) -> Result<KeyFile, StegError> {
+    if !path.exists() {
+        return Err(StegError::FileNotFound(path.display().to_string()));
+    }
+    let raw = std::fs::read(path).map_err(StegError::Io)?;
+
+    // Detect legacy Python key files: they lack the "engine" field.
+    let probe: serde_json::Value =
+        serde_json::from_slice(&raw).map_err(|_| StegError::CorruptedFile)?;
+    if probe.get("engine").is_none() {
+        return Err(StegError::LegacyKeyFile);
+    }
+    let engine = probe["engine"].as_str().unwrap_or("");
+    if !engine.starts_with("rust-") {
+        return Err(StegError::LegacyKeyFile);
+    }
+
+    let kf: KeyFile = serde_json::from_slice(&raw)?;
+    Ok(kf)
 }

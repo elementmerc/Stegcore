@@ -1,5 +1,85 @@
 @import "tailwindcss";
 
+/* ── Self-hosted fonts (no external connections) ────────────────────────── */
+
+/* Space Grotesk — variable weight 400–600, latin-ext */
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style:  normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('/fonts/SpaceGrotesk-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+                 U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+                 U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+                 U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Space Grotesk — variable weight 400–600, latin */
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style:  normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('/fonts/SpaceGrotesk-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+                 U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
+                 U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF,
+                 U+FFFD;
+}
+
+/* Space Mono Regular 400, latin-ext */
+@font-face {
+  font-family: 'Space Mono';
+  font-style:  normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/SpaceMono-Regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+                 U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+                 U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+                 U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Space Mono Regular 400, latin */
+@font-face {
+  font-family: 'Space Mono';
+  font-style:  normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/SpaceMono-Regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+                 U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
+                 U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF,
+                 U+FFFD;
+}
+
+/* Space Mono Bold 700, latin-ext */
+@font-face {
+  font-family: 'Space Mono';
+  font-style:  normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/SpaceMono-Bold-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+                 U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+                 U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+                 U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Space Mono Bold 700, latin */
+@font-face {
+  font-family: 'Space Mono';
+  font-style:  normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/SpaceMono-Bold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+                 U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
+                 U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF,
+                 U+FFFD;
+}
+
 /* ── Base resets ────────────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -9,23 +89,30 @@
 
 html, body, #root {
   height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, sans-serif;
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, sans-serif;
   font-size: 16px;
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
 }
 
+code, pre, kbd {
+  font-family: 'Space Mono', ui-monospace, "Cascadia Code", "Fira Mono", monospace;
+}
+
 /* ── Design tokens — Dark theme (default) ───────────────────────────────── */
 :root,
 [data-theme="dark"] {
-  --sc-bg-primary:    #070d14;
-  --sc-bg-surface:    #0d1520;
-  --sc-bg-border:     #1a2535;
+  --sc-bg-primary:    #04080f;
+  --sc-bg-surface:    #040b13;
+  --sc-bg-surface-2:  #07111c;
+  --sc-bg-border:     #0a1e30;
+  --sc-bg-border-2:   #0f2535;
   --sc-accent:        #2a7fff;
   --sc-accent-light:  #4da6ff;
   --sc-accent-dark:   #1252cc;
-  --sc-text-primary:  #e8eaf0;
-  --sc-text-muted:    #4a5568;
+  --sc-text-primary:  #c8d8f2;
+  --sc-text-secondary:#8ab4d8;
+  --sc-text-muted:    #1a3a5a;
   --sc-success:       #22c55e;
   --sc-warning:       #f59e0b;
   --sc-danger:        #ef4444;
@@ -34,22 +121,46 @@ html, body, #root {
   --sc-radius-card:  12px;
   --sc-radius-btn:    8px;
   --sc-radius-input:  6px;
-  --sc-shadow-sm:    0 1px 3px rgba(0,0,0,0.18);
-  --sc-shadow-md:    0 4px 12px rgba(0,0,0,0.28);
+  --sc-shadow-sm:    0 1px 3px rgba(0,0,0,0.40);
+  --sc-shadow-md:    0 4px 16px rgba(0,0,0,0.55);
   --sc-t-fast:       150ms ease-out;
   --sc-t-base:       200ms ease-out;
   --sc-t-slow:       300ms ease-out;
+
+  /* --ui-* aliases → --sc-* (one source of truth, no hex duplication) */
+  --ui-bg:          var(--sc-bg-primary);
+  --ui-surface:     var(--sc-bg-surface);
+  --ui-surface2:    var(--sc-bg-surface-2);
+  --ui-border:      var(--sc-bg-border);
+  --ui-border2:     var(--sc-bg-border-2);
+  --ui-accent:      var(--sc-accent);
+  --ui-accent-lo:   var(--sc-accent-light);
+  --ui-accent-hi:   var(--sc-accent-dark);
+  --ui-text:        var(--sc-text-primary);
+  --ui-text2:       var(--sc-text-secondary);
+  --ui-muted:       var(--sc-text-muted);
+  --ui-success:     var(--sc-success);
+  --ui-warn:        var(--sc-warning);
+  --ui-danger:      var(--sc-danger);
+
+  /* Icon size tokens */
+  --icon-sm:  16px;
+  --icon-md:  20px;
+  --icon-lg:  24px;
 }
 
 /* ── Design tokens — Light theme ────────────────────────────────────────── */
 [data-theme="light"] {
   --sc-bg-primary:    #f0f4fa;
   --sc-bg-surface:    #ffffff;
+  --sc-bg-surface-2:  #f6f8fb;
   --sc-bg-border:     #e2e8f0;
+  --sc-bg-border-2:   #d1dae8;
   --sc-accent:        #1d4ed8;
   --sc-accent-light:  #3b82f6;
   --sc-accent-dark:   #1e3a8a;
   --sc-text-primary:  #0d1520;
+  --sc-text-secondary:#3d5a80;
   --sc-text-muted:    #94a3b8;
   --sc-success:       #16a34a;
   --sc-warning:       #d97706;
@@ -57,6 +168,22 @@ html, body, #root {
 
   --sc-shadow-sm:    0 1px 3px rgba(0,0,0,0.08);
   --sc-shadow-md:    0 4px 12px rgba(0,0,0,0.12);
+
+  /* --ui-* aliases for light theme */
+  --ui-bg:          var(--sc-bg-primary);
+  --ui-surface:     var(--sc-bg-surface);
+  --ui-surface2:    var(--sc-bg-surface-2);
+  --ui-border:      var(--sc-bg-border);
+  --ui-border2:     var(--sc-bg-border-2);
+  --ui-accent:      var(--sc-accent);
+  --ui-accent-lo:   var(--sc-accent-light);
+  --ui-accent-hi:   var(--sc-accent-dark);
+  --ui-text:        var(--sc-text-primary);
+  --ui-text2:       var(--sc-text-secondary);
+  --ui-muted:       var(--sc-text-muted);
+  --ui-success:     var(--sc-success);
+  --ui-warn:        var(--sc-warning);
+  --ui-danger:      var(--sc-danger);
 }
 
 /* ── Apply tokens to base elements ─────────────────────────────────────── */
@@ -71,7 +198,21 @@ html {
 ::-webkit-scrollbar-thumb { background: var(--sc-bg-border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--sc-text-muted); }
 
+/* ── Page / step enter animation ────────────────────────────────────────── */
+@keyframes sc-screen-enter {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0);    }
+}
+
+.sc-enter {
+  animation: sc-screen-enter 250ms ease both;
+}
+
 /* ── Reduced motion ─────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .sc-enter { animation: none; }
+}
+
 [data-reduce-motion="true"] *,
 [data-reduce-motion="true"] *::before,
 [data-reduce-motion="true"] *::after {

@@ -24,6 +24,9 @@ crates/core/lib/**/*.lib
 # Project reference (contains developer context — never commit)
 CLAUDE.md
 
+# Private engine repo — separate git repo, never tracked here
+/libstegcore/
+
 # IDE
 .claude/
 .vscode/settings.json

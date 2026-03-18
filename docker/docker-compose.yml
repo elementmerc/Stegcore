@@ -1,0 +1,19 @@
+services:
+  stegcore:
+    image: ghcr.io/elementmerc/stegcore:latest
+    volumes:
+      - ./files:/data
+    # Example usage — override command as needed:
+    #   embed:   command: embed /data/cover.png /data/message.txt /data/output.png
+    #   extract: command: extract /data/output.png
+    #   analyse: command: analyze /data/output.png --report html -o /data/report.html
+    command: --version
+
+  # Build locally instead of pulling from registry:
+  # stegcore:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/Dockerfile
+  #   volumes:
+  #     - ./files:/data
+  #   command: embed /data/cover.png /data/message.txt /data/output.png
