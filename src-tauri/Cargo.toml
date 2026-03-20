@@ -19,7 +19,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-stegcore-core = { path = "../crates/core" }
+stegcore-core = { path = "../crates/core", default-features = false }
 
 # Tauri
 tauri = { version = "2", features = [] }
@@ -36,5 +36,6 @@ serde_json = "1"
 log = "0.4"
 
 [features]
-default = ["custom-protocol"]
+default = ["custom-protocol", "engine"]
 custom-protocol = ["tauri/custom-protocol"]
+engine = ["stegcore-core/engine"]
