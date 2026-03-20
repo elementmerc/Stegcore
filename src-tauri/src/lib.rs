@@ -80,8 +80,7 @@ fn load_settings(app: &tauri::AppHandle) -> Settings {
 
 fn save_settings(app: &tauri::AppHandle, s: &Settings) -> Result<(), StegError> {
     let Some(path) = settings_path(app) else {
-        return Err(StegError::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        return Err(StegError::Io(std::io::Error::other(
             "Could not resolve app config directory",
         )));
     };
@@ -108,6 +107,7 @@ fn score_cover(path: String) -> Result<f64, StegError> {
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 fn embed(
     cover:           String,
     payload:         String,

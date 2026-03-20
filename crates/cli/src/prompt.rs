@@ -63,6 +63,7 @@ pub fn pick_file(cfg: &PickerConfig<'_>) -> Option<PathBuf> {
 }
 
 /// Prompt for a directory path. Same display-availability logic as `pick_file`.
+#[allow(dead_code)]
 pub fn pick_folder(title: &str) -> Option<PathBuf> {
     if has_display() {
         #[cfg(not(target_os = "linux"))]
@@ -104,17 +105,15 @@ fn read_path_from_stdin(prompt: &str) -> Option<PathBuf> {
 ///
 /// If `interrupted` is set (Ctrl-C handler) during the prompt, exits 130.
 pub fn prompt_passphrase(label: &str, interrupted: &Arc<AtomicBool>) -> Vec<u8> {
-    loop {
-        if interrupted.load(Ordering::SeqCst) {
-            eprintln!();
-            std::process::exit(130);
-        }
-        match rpassword::prompt_password(format!("  {label}: ")) {
-            Ok(s) => return s.into_bytes(),
-            Err(e) => {
-                eprintln!("✗ Failed to read passphrase: {e}");
-                std::process::exit(1);
-            }
+    if interrupted.load(Ordering::SeqCst) {
+        eprintln!();
+        std::process::exit(130);
+    }
+    match rpassword::prompt_password(format!("  {label}: ")) {
+        Ok(s) => s.into_bytes(),
+        Err(e) => {
+            eprintln!("✗ Failed to read passphrase: {e}");
+            std::process::exit(1);
         }
     }
 }

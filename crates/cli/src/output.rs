@@ -79,6 +79,7 @@ pub fn die(e: &StegError, verbose: bool) -> ! {
 
 pub struct Spinner {
     pb: ProgressBar,
+    #[allow(dead_code)]
     interrupted: Arc<AtomicBool>,
 }
 
@@ -96,6 +97,7 @@ impl Spinner {
     }
 
     /// Check if Ctrl-C was pressed; if so, clean up and exit 130.
+    #[allow(dead_code)]
     pub fn check_interrupt(&self) {
         if self.interrupted.load(Ordering::SeqCst) {
             self.pb.finish_and_clear();

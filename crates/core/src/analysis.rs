@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::ffi::CString;
 use std::path::{Path, PathBuf};
-use crate::errors::{StegError, from_ffi_code};
-use crate::ffi::engine;
+use crate::errors::StegError;
 
 // ── Types (mirrored from libstegcore) ─────────────────────────────────────────
 
@@ -42,31 +40,20 @@ pub struct AnalysisReport {
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
-/// Analyze a single file for steganographic content.
+/// Analyse a single file for steganographic content.
+#[cfg(engine)]
 pub fn analyze(path: &Path) -> Result<AnalysisReport, StegError> {
-    let c_path = CString::new(path.to_string_lossy().as_bytes())
-        .map_err(|_| StegError::FileNotFound(path.display().to_string()))?;
-
-    let mut json_ptr: *mut std::os::raw::c_char = std::ptr::null_mut();
-    let mut json_len: usize = 0;
-
-    let rc = unsafe { engine::lsc_analyze(c_path.as_ptr(), &mut json_ptr, &mut json_len) };
-
-    if rc != 0 {
-        return Err(from_ffi_code(rc));
-    }
-
-    let report = unsafe {
-        let slice = std::slice::from_raw_parts(json_ptr as *const u8, json_len);
-        let result = serde_json::from_slice::<AnalysisReport>(slice).map_err(StegError::Json);
-        engine::lsc_free_buffer(json_ptr as *mut u8);
-        result?
-    };
-
-    Ok(report)
+    let json_str = stegcore_engine::analysis::analyze(path)
+        .map_err(StegError::from)?;
+    serde_json::from_str::<AnalysisReport>(&json_str).map_err(StegError::Json)
 }
 
-/// Analyze multiple files.
+#[cfg(not(engine))]
+pub fn analyze(_path: &Path) -> Result<AnalysisReport, StegError> {
+    Err(StegError::EngineAbsent)
+}
+
+/// Analyse multiple files.
 pub fn analyze_batch(paths: &[&Path]) -> Vec<Result<AnalysisReport, StegError>> {
     paths.iter().map(|p| analyze(p)).collect()
 }

@@ -41,6 +41,17 @@ jobs:
             libssl-dev \
             pkg-config
 
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm ci && npm run build
+
       - name: Cache Cargo
         uses: actions/cache@v4
         with:
