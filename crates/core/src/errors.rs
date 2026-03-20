@@ -30,7 +30,7 @@ pub enum StegError {
     #[error("Invalid or corrupted stego file")]
     CorruptedFile,
 
-    /// Returned when the prebuilt engine library is not present in this build.
+    /// Returned when the engine feature is not compiled into this build.
     #[error(
         "The steganographic engine is not present in this build. \
          Download a prebuilt release from the releases page."
@@ -47,28 +47,34 @@ pub enum StegError {
     Json(#[from] serde_json::Error),
 }
 
-/// Maps an FFI return code to a `StegError`.
-/// Any unrecognised negative code maps to `CorruptedFile` as a safe default.
-pub fn from_ffi_code(code: i32) -> StegError {
-    match code {
-        -1  => StegError::InsufficientCapacity { required: 0, available: 0 },
-        -2  => StegError::DecryptionFailed,
-        -3  => StegError::LegacyKeyFile,
-        -4  => StegError::UnsupportedFormat(String::new()),
-        -5  => StegError::PoorCoverQuality { score: 0.0 },
-        -6  => StegError::FileNotFound(String::new()),
-        -7  => StegError::EmptyPayload,
-        -8  => StegError::NoPayloadFound,
-        -9  => StegError::CorruptedFile,
-        -10 => StegError::Io(std::io::Error::new(std::io::ErrorKind::Other, "I/O error")),
-        -11 => StegError::Image("image error".into()),
-        -12 => StegError::CorruptedFile,
-        -99 => StegError::EngineAbsent,
-        _   => StegError::CorruptedFile,
+/// Convert from the engine's error type into the public error type.
+/// This replaces the old `from_ffi_code()` integer-based mapping with
+/// a proper Rust enum-to-enum conversion.
+#[cfg(engine)]
+impl From<stegcore_engine::errors::StegError> for StegError {
+    fn from(e: stegcore_engine::errors::StegError) -> Self {
+        use stegcore_engine::errors::StegError as E;
+        match e {
+            E::InsufficientCapacity { required, available } => {
+                StegError::InsufficientCapacity { required, available }
+            }
+            E::DecryptionFailed        => StegError::DecryptionFailed,
+            E::LegacyKeyFile           => StegError::LegacyKeyFile,
+            E::UnsupportedFormat(s)    => StegError::UnsupportedFormat(s),
+            E::PoorCoverQuality { score } => StegError::PoorCoverQuality { score },
+            E::FileNotFound(s)         => StegError::FileNotFound(s),
+            E::EmptyPayload            => StegError::EmptyPayload,
+            E::NoPayloadFound          => StegError::NoPayloadFound,
+            E::CorruptedFile           => StegError::CorruptedFile,
+            E::EngineAbsent            => StegError::EngineAbsent,
+            E::Io(e)                   => StegError::Io(e),
+            E::Image(e)               => StegError::Image(e.to_string()),
+            E::Json(e)                 => StegError::Json(e),
+        }
     }
 }
 
-/// Serialize to a plain string for Tauri IPC.
+/// Serialise to a plain string for Tauri IPC.
 impl Serialize for StegError {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         s.serialize_str(&self.to_string())

@@ -2,7 +2,7 @@
 // step-by-step with explanations, native file dialogs where available, and
 // robust fallback to stdin-based prompts everywhere else.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -530,17 +530,17 @@ fn pick_existing_file(
 /// Warns if the destination already exists.
 fn pick_output_path(
     title: &str,
-    default: &PathBuf,
+    default: &Path,
     interrupted: &Arc<AtomicBool>,
 ) -> PathBuf {
     loop {
         check_interrupt(interrupted);
         let raw = match prompt::read_line(&format!("{title} (Enter for default)")) {
-            None    => return default.clone(),
+            None    => return default.to_path_buf(),
             Some(s) => s,
         };
         let path = if raw.is_empty() {
-            default.clone()
+            default.to_path_buf()
         } else {
             PathBuf::from(&raw)
         };
@@ -585,7 +585,7 @@ fn prompt_decoy_passphrase(
     }
 }
 
-fn default_output_path(cover: &PathBuf) -> PathBuf {
+fn default_output_path(cover: &Path) -> PathBuf {
     let stem = cover.file_stem().unwrap_or_default().to_string_lossy();
     let parent = cover.parent().unwrap_or_else(|| std::path::Path::new("."));
     parent.join(format!("{stem}_steg.png"))
@@ -600,7 +600,7 @@ fn cover_label(pct: u32) -> &'static str {
     }
 }
 
-fn write_keyfile(kf: &stegcore_core::keyfile::KeyFile, path: &PathBuf) {
+fn write_keyfile(kf: &stegcore_core::keyfile::KeyFile, path: &Path) {
     match stegcore_core::keyfile::write_key_file(path, kf) {
         Ok(()) => output::print_success(&format!("Key file saved → {}", path.display())),
         Err(e) => output::print_warn(&format!(
