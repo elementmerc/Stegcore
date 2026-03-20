@@ -1,0 +1,100 @@
+name: Dev Build
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  tauri:
+    name: Build (${{ matrix.os-label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-latest
+            os-label: linux
+            arch: x64
+          - platform: windows-latest
+            os-label: windows
+            arch: x64
+          - platform: macos-latest
+            os-label: macos
+            arch: universal
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux system deps
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            pkg-config
+
+      - name: Add macOS universal targets
+        if: matrix.platform == 'macos-latest'
+        run: |
+          rustup target add aarch64-apple-darwin
+          rustup target add x86_64-apple-darwin
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-dev-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build Tauri app (Linux/Windows)
+        if: matrix.platform != 'macos-latest'
+        uses: tauri-apps/tauri-action@v0
+        with:
+          tauriScript: npx tauri
+
+      - name: Build Tauri app (macOS universal)
+        if: matrix.platform == 'macos-latest'
+        uses: tauri-apps/tauri-action@v0
+        with:
+          tauriScript: npx tauri
+          args: --target universal-apple-darwin
+
+      - name: Upload artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: stegcore-dev-${{ matrix.os-label }}-${{ matrix.arch }}
+          path: |
+            src-tauri/target/release/bundle/**/*.deb
+            src-tauri/target/release/bundle/**/*.AppImage
+            src-tauri/target/release/bundle/**/*.msi
+            src-tauri/target/release/bundle/**/*.exe
+            src-tauri/target/release/bundle/**/*.dmg
+            src-tauri/target/release/bundle/**/*.app
+            src-tauri/target/release/bundle/**/*.rpm
+          if-no-files-found: warn
+          retention-days: 14
