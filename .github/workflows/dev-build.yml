@@ -47,6 +47,21 @@ jobs:
             libssl-dev \
             pkg-config
 
+      - name: Create engine stub
+        shell: bash
+        run: |
+          mkdir -p libstegcore/src
+          cat > libstegcore/Cargo.toml << 'STUB'
+          [package]
+          name = "stegcore-engine"
+          version = "0.1.0"
+          edition = "2021"
+
+          [lib]
+          name = "stegcore_engine"
+          STUB
+          touch libstegcore/src/lib.rs
+
       - name: Add macOS universal targets
         if: matrix.platform == 'macos-latest'
         run: |
@@ -82,13 +97,14 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         with:
           tauriScript: npx tauri
+          args: -- --no-default-features
 
       - name: Build Tauri app (macOS universal)
         if: matrix.platform == 'macos-latest'
         uses: tauri-apps/tauri-action@v0
         with:
           tauriScript: npx tauri
-          args: --target universal-apple-darwin
+          args: --target universal-apple-darwin -- --no-default-features
 
       - name: Upload artefacts
         uses: actions/upload-artifact@v4

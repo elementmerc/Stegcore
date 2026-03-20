@@ -35,6 +35,20 @@ jobs:
             libssl-dev \
             pkg-config
 
+      - name: Create engine stub
+        run: |
+          mkdir -p libstegcore/src
+          cat > libstegcore/Cargo.toml << 'STUB'
+          [package]
+          name = "stegcore-engine"
+          version = "0.1.0"
+          edition = "2021"
+
+          [lib]
+          name = "stegcore_engine"
+          STUB
+          touch libstegcore/src/lib.rs
+
       - name: Use Node.js 24
         uses: actions/setup-node@v4
         with:
