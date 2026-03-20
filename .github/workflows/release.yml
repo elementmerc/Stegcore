@@ -108,7 +108,7 @@ jobs:
           releaseDraft: true
           prerelease: false
           tauriScript: npx tauri
-          args: -- --no-default-features
+          args: -- --no-default-features --features custom-protocol
 
       - name: Build Tauri app (macOS universal)
         if: matrix.platform == 'macos-latest'
@@ -123,7 +123,7 @@ jobs:
           releaseDraft: true
           prerelease: false
           tauriScript: npx tauri
-          args: --target universal-apple-darwin -- --no-default-features
+          args: --target universal-apple-darwin -- --no-default-features --features custom-protocol
 
   # ── Docker multi-arch image ───────────────────────────────────────────────
   docker:
