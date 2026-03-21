@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Unlock, Key, KeyRound, Eye, EyeOff, FileDown } from 'lucide-react'
-import { DropZone } from '../components/DropZone'
+// DropZone replaced by native file pickers for full filesystem paths
 import { SuccessCheck } from '../components/SuccessCheck'
 import { EntropyBar } from '../components/EntropyBar'
 import { useExtractStore } from '../lib/stores/extractStore'
@@ -52,14 +52,20 @@ function StepShell({ title, subtitle, step, totalSteps, children }: {
 // ── Step 1: Stego file ────────────────────────────────────────────────────
 
 function Step1() {
-  const { stegoFile, stegoPreviewUrl, setStegoFile, setStep } = useExtractStore()
+  const { stegoFile, stegoPath, setStegoFile, setStep } = useExtractStore()
   const navigate = useNavigate()
 
-  const handleFiles = useCallback((files: File[]) => {
-    const f = files[0]
-    const isImage = /\.(png|bmp|jpg|jpeg|webp)$/i.test(f.name)
-    const url = isImage ? URL.createObjectURL(f) : null
-    setStegoFile(f, url)
+  const handlePick = useCallback(async () => {
+    const paths = await pickFiles({
+      title: 'Select stego file',
+      multiple: false,
+      filters: [{ name: 'Stego files', extensions: ['png', 'bmp', 'jpg', 'jpeg', 'webp', 'wav', 'flac'] }],
+    })
+    if (paths.length > 0) {
+      const name = paths[0].split(/[/\\]/).pop() ?? paths[0]
+      const f = new File([], name)
+      setStegoFile(f, null, paths[0])
+    }
   }, [setStegoFile])
 
   useFooter({
@@ -74,15 +80,40 @@ function Step1() {
 
   return (
     <StepShell title="Stego file" subtitle="Choose the file containing the hidden message." step={1} totalSteps={3}>
-      <DropZone
-        accept={['.png', '.bmp', '.jpg', '.jpeg', '.webp', '.wav', '.flac']}
-        onFiles={handleFiles}
-        label="Drop your stego file here"
-        sublabel="PNG, BMP, JPEG, WebP, WAV, FLAC"
-        preview={stegoPreviewUrl ?? undefined}
-        fileName={stegoFile?.name}
-        onRemove={() => setStegoFile(null, null)}
-      />
+      <div
+        onClick={handlePick}
+        className="sc-analyse-drop"
+        style={{
+          borderRadius: 'var(--sc-radius-card)',
+          padding: '2.5rem 1.5rem',
+          textAlign: 'center',
+          cursor: 'pointer',
+          userSelect: 'none',
+        }}
+      >
+        {stegoFile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ui-text)' }}>{stegoFile.name}</span>
+            {stegoPath && (
+              <span style={{ fontSize: 10, color: 'var(--ui-text2)', fontFamily: "'Space Mono', monospace", wordBreak: 'break-all' }}>
+                {stegoPath}
+              </span>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setStegoFile(null, null) }}
+              style={{ fontSize: 11, color: 'var(--ui-accent)', background: 'transparent', border: 'none', cursor: 'pointer', marginTop: 4 }}
+            >
+              Remove
+            </button>
+          </div>
+        ) : (
+          <>
+            <Unlock size={32} strokeWidth={1.5} style={{ color: 'var(--ui-accent)', margin: '0 auto 0.5rem', display: 'block' }} />
+            <p style={{ color: 'var(--ui-text)', fontSize: 14, fontWeight: 500 }}>Click to select stego file</p>
+            <p style={{ color: 'var(--ui-text2)', fontSize: 12, marginTop: 4 }}>PNG, BMP, JPEG, WebP, WAV, FLAC</p>
+          </>
+        )}
+      </div>
     </StepShell>
   )
 }
@@ -90,20 +121,20 @@ function Step1() {
 // ── Step 2: Key file (optional) ───────────────────────────────────────────
 
 function Step2() {
-  const { keyFile, keyFileMetadata, setKeyFile, setStep } = useExtractStore()
+  const { keyFile, keyFilePath, keyFileMetadata, setKeyFile, setStep } = useExtractStore()
 
-  const handleFiles = useCallback((files: File[]) => {
-    const f = files[0]
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const meta = JSON.parse(e.target?.result as string)
-        setKeyFile(f, meta)
-      } catch {
-        setKeyFile(f, {})
-      }
+  const handlePick = useCallback(async () => {
+    const paths = await pickFiles({
+      title: 'Select key file (optional)',
+      multiple: false,
+      filters: [{ name: 'Key files', extensions: ['json'] }],
+    })
+    if (paths.length > 0) {
+      const name = paths[0].split(/[/\\]/).pop() ?? paths[0]
+      const f = new File([], name)
+      // Set key file with path — metadata preview not needed for extraction
+      setKeyFile(f, null, paths[0])
     }
-    reader.readAsText(f)
   }, [setKeyFile])
 
   const isLegacy = keyFileMetadata ? isLegacyKeyFile(keyFileMetadata) : false
@@ -129,14 +160,41 @@ function Step2() {
         </div>
       )}
 
-      <DropZone
-        accept={['.json']}
-        onFiles={handleFiles}
-        label={keyFile ? undefined : 'Drop a key file here (optional)'}
-        sublabel="JSON key file"
-        fileName={keyFile?.name}
-        onRemove={() => setKeyFile(null, null)}
-      />
+      {/* Key file picker */}
+      <div
+        onClick={handlePick}
+        className="sc-analyse-drop"
+        style={{
+          borderRadius: 'var(--sc-radius-card)',
+          padding: '1.5rem',
+          textAlign: 'center',
+          cursor: 'pointer',
+          userSelect: 'none',
+        }}
+      >
+        {keyFile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+            <KeyRound size={20} strokeWidth={1.5} style={{ color: 'var(--ui-success)' }} />
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ui-text)' }}>{keyFile.name}</span>
+            {keyFilePath && (
+              <span style={{ fontSize: 10, color: 'var(--ui-text2)', fontFamily: "'Space Mono', monospace", wordBreak: 'break-all' }}>
+                {keyFilePath}
+              </span>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setKeyFile(null, null) }}
+              style={{ fontSize: 11, color: 'var(--ui-accent)', background: 'transparent', border: 'none', cursor: 'pointer', marginTop: 4 }}
+            >
+              Remove
+            </button>
+          </div>
+        ) : (
+          <>
+            <Key size={24} strokeWidth={1.5} style={{ color: 'var(--ui-text2)', margin: '0 auto 0.5rem', display: 'block' }} />
+            <p style={{ color: 'var(--ui-text2)', fontSize: 13 }}>Click to select a key file (optional)</p>
+          </>
+        )}
+      </div>
 
       {/* Legacy warning */}
       {isLegacy && (
@@ -193,12 +251,13 @@ function Step3() {
       setResult(bytes)
       toast.success('Extracted successfully')
       playSuccess()
-    } catch {
-      // Oracle-resistant: never confirm or deny presence of hidden data
-      setError('Wrong passphrase or corrupted file.')
-      toast.error('Extraction failed')
+    } catch (e) {
+      // Oracle-resistant: show generic message regardless of actual error type
+      const detail = e instanceof Error ? e.message : undefined
+      setError(detail ?? 'Wrong passphrase or corrupted file.')
+      toast.error('Extraction failed', detail)
     }
-  }, [stegoFile, passphrase, keyFile, setExtracting, setError, setResult])
+  }, [stegoFile, stegoPath, passphrase, keyFile, keyFilePath, setExtracting, setError, setResult])
 
   const handleSave = useCallback(() => {
     if (!result) return

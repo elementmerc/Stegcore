@@ -8,7 +8,7 @@ export interface Toast {
   detail?: string
   /** If true, stays until the user dismisses it */
   persistent: boolean
-  duration: number // ms
+  duration: number // ms (0 = persistent)
 }
 
 type Listener = (toasts: Toast[]) => void
@@ -35,9 +35,8 @@ function add(t: Omit<Toast, 'id'>): string {
   toasts = [...toasts, entry]
   notify()
 
-  if (!t.persistent) {
-    setTimeout(() => toast.remove(id), t.duration)
-  }
+  // Auto-dismiss is handled by the ToastCard component's countdown bar.
+  // The store no longer uses setTimeout — the component manages its own lifecycle.
 
   return id
 }
@@ -48,7 +47,8 @@ export const toast = {
   },
 
   error(message: string, detail?: string): string {
-    return add({ type: 'error', message, detail, persistent: true, duration: 0 })
+    // Errors auto-dismiss after 8 seconds (longer than success)
+    return add({ type: 'error', message, detail, persistent: false, duration: 8000 })
   },
 
   warning(message: string, duration = 5000): string {
@@ -57,6 +57,16 @@ export const toast = {
 
   info(message: string, duration = 4000): string {
     return add({ type: 'info', message, persistent: false, duration })
+  },
+
+  /** Persistent toast — stays until dismissed or removed by ID. No countdown bar. */
+  persistent(message: string, type: ToastType = 'info'): string {
+    return add({ type, message, persistent: true, duration: 0 })
+  },
+
+  /** Long-duration toast (e.g. "Hit R to reload") — 30s with countdown. */
+  long(message: string, type: ToastType = 'info', duration = 30000): string {
+    return add({ type, message, persistent: false, duration })
   },
 
   remove(id: string): void {

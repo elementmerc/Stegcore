@@ -139,6 +139,7 @@ export function scoreCover(path: string): Promise<number> {
 
 /** Embed a payload into a cover file. */
 export function embed(opts: EmbedOptions): Promise<EmbedResult> {
+  // Tauri v2 auto-converts camelCase → snake_case for Rust params
   return safeInvoke<EmbedResult>('embed', {
     cover: opts.cover,
     payload: opts.payload,
@@ -154,12 +155,15 @@ export function embed(opts: EmbedOptions): Promise<EmbedResult> {
 }
 
 /** Extract hidden payload from a stego file. Returns raw bytes. */
-export function extract(opts: ExtractOptions): Promise<Uint8Array> {
-  return safeInvoke<Uint8Array>('extract', {
+export async function extract(opts: ExtractOptions): Promise<Uint8Array> {
+  const result = await safeInvoke<number[] | Uint8Array>('extract', {
     stego: opts.stego,
     passphrase: opts.passphrase,
     keyFile: opts.keyFile ?? null,
-  }, new TextEncoder().encode('Hello from Stegcore (mock)'))
+  }, Array.from(new TextEncoder().encode('Hello from Stegcore (mock)')))
+  // Tauri serialises Vec<u8> as a JSON array of numbers — convert to Uint8Array
+  if (result instanceof Uint8Array) return result
+  return new Uint8Array(result)
 }
 
 /** Analyse a single file for hidden content. */

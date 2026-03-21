@@ -96,7 +96,7 @@ export default function Analyze() {
             // Only show toast ONCE when ALL full reports have arrived
             if (next.size >= expectedCountRef.current && expectedCountRef.current > 0 && !toastFiredRef.current) {
               toastFiredRef.current = true
-              toast.info('Full analysis ready. Hit R to reload')
+              toast.long('Full analysis ready. Hit R to reload', 'success', 30000)
             }
             return next
           })
