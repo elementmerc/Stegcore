@@ -40,7 +40,7 @@ export function useFooter(cfg: FooterConfig | null) {
     set(cfg)
     return () => set(null)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(cfg)])
+  }, [cfg?.backLabel, cfg?.continueLabel, cfg?.continueDisabled, cfg?.currentStep, !!cfg?.backAction, !!cfg?.continueAction])
 }
 
 // ── Error boundary — prevents blank screens on render crashes ─────────────
@@ -89,6 +89,14 @@ class ErrorBoundary extends React.Component<
 function VerseBar() {
   const { settings } = useSettingsStore()
   const [verse, setVerse] = useState<{ text: string; reference: string } | null>(null)
+  const outerRef = useRef<HTMLDivElement>(null)
+  const innerRef = useRef<HTMLSpanElement>(null)
+  const [scrolling, setScrolling] = useState(false)
+  const [overflow, setOverflow] = useState(0) // pixels of overflow
+  const idleTimer = useRef<ReturnType<typeof setTimeout>>()
+  const scrollPhase = useRef<'idle' | 'scrollLeft' | 'pauseLeft' | 'scrollBack'>('idle')
+  const scrollPos = useRef(0)
+  const rafId = useRef(0)
 
   useEffect(() => {
     if (!settings.bibleVerses) { setVerse(null); return }
@@ -105,29 +113,138 @@ function VerseBar() {
     return () => { cancelled = true; clearInterval(interval) }
   }, [settings.bibleVerses])
 
+  // Measure overflow
+  useEffect(() => {
+    if (!innerRef.current || !outerRef.current) return
+    const measure = () => {
+      const inner = innerRef.current!.scrollWidth
+      const outer = outerRef.current!.clientWidth
+      setOverflow(Math.max(0, inner - outer))
+    }
+    measure()
+    const obs = new ResizeObserver(measure)
+    obs.observe(outerRef.current)
+    return () => obs.disconnect()
+  }, [verse])
+
+  // Idle detection — start scrolling after 5s of no mouse activity
+  useEffect(() => {
+    if (overflow <= 0) return
+
+    const resetIdle = () => {
+      // User moved — snap back quickly
+      if (scrolling) {
+        setScrolling(false)
+        scrollPhase.current = 'idle'
+        cancelAnimationFrame(rafId.current)
+        // Animate back to 0
+        const el = innerRef.current
+        if (el) {
+          el.style.transition = 'transform 0.4s ease-out'
+          el.style.transform = 'translateX(0)'
+          setTimeout(() => { if (el) el.style.transition = '' }, 400)
+        }
+        scrollPos.current = 0
+      }
+      clearTimeout(idleTimer.current)
+      idleTimer.current = setTimeout(() => setScrolling(true), 5000)
+    }
+
+    resetIdle() // start the first idle timer
+
+    window.addEventListener('mousemove', resetIdle)
+    window.addEventListener('keydown', resetIdle)
+    window.addEventListener('click', resetIdle)
+    return () => {
+      window.removeEventListener('mousemove', resetIdle)
+      window.removeEventListener('keydown', resetIdle)
+      window.removeEventListener('click', resetIdle)
+      clearTimeout(idleTimer.current)
+      cancelAnimationFrame(rafId.current)
+    }
+  }, [overflow, scrolling])
+
+  // Animation loop when scrolling
+  useEffect(() => {
+    if (!scrolling || overflow <= 0) return
+    const el = innerRef.current
+    if (!el) return
+
+    el.style.transition = ''
+    scrollPhase.current = 'scrollLeft'
+    scrollPos.current = 0
+    let pauseStart = 0
+    const SPEED = 0.4 // px per frame (~24px/s at 60fps)
+
+    const tick = () => {
+      switch (scrollPhase.current) {
+        case 'scrollLeft':
+          scrollPos.current = Math.min(scrollPos.current + SPEED, overflow)
+          el.style.transform = `translateX(-${scrollPos.current}px)`
+          if (scrollPos.current >= overflow) {
+            scrollPhase.current = 'pauseLeft'
+            pauseStart = performance.now()
+          }
+          break
+        case 'pauseLeft':
+          if (performance.now() - pauseStart > 5000) {
+            scrollPhase.current = 'scrollBack'
+          }
+          break
+        case 'scrollBack':
+          scrollPos.current = Math.max(scrollPos.current - SPEED, 0)
+          el.style.transform = `translateX(-${scrollPos.current}px)`
+          if (scrollPos.current <= 0) {
+            scrollPhase.current = 'idle'
+            // Pause, then restart
+            setTimeout(() => {
+              if (scrolling) scrollPhase.current = 'scrollLeft'
+            }, 5000)
+          }
+          break
+        case 'idle':
+          break
+      }
+      if (scrolling) rafId.current = requestAnimationFrame(tick)
+    }
+
+    rafId.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId.current)
+  }, [scrolling, overflow])
+
   if (!verse) return <div style={{ flex: 1 }} />
 
   return (
-    <div style={{
-      flex: 1,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
-      overflow: 'hidden',
-      padding: '0 12px',
-      minWidth: 0,
-    }}>
-      <span style={{
-        fontSize: 'var(--font-size-xs)',
-        fontStyle: 'italic',
-        color: 'var(--ui-text2)',
+    <div
+      ref={outerRef}
+      style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
         overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      }}>
-        {verse.text}
-      </span>
+        padding: '0 12px',
+        minWidth: 0,
+      }}
+    >
+      <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
+        <span
+          ref={innerRef}
+          style={{
+            display: 'block',
+            fontSize: 'var(--font-size-xs)',
+            fontStyle: 'italic',
+            color: 'var(--ui-text2)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: scrolling ? 'clip' : 'ellipsis',
+            willChange: scrolling ? 'transform' : undefined,
+          }}
+        >
+          {verse.text}
+        </span>
+      </div>
       <span style={{
         fontSize: 'var(--font-size-xs)',
         color: 'var(--ui-text2)',
@@ -206,14 +323,12 @@ function Layout({
             </span>
           </button>
 
-          {/* Step track — only on wizard routes */}
-          {!isHome && footerCfg?.steps && footerCfg.currentStep !== undefined && (
-            <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+          {/* Spacer — step track on wizard routes, empty spacer otherwise */}
+          <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+            {!isHome && footerCfg?.steps && footerCfg.currentStep !== undefined && (
               <StepTrack steps={footerCfg.steps} current={footerCfg.currentStep} />
-            </div>
-          )}
-
-          {isHome && <div style={{ flex: 1 }} />}
+            )}
+          </div>
 
           {/* Icon buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -234,7 +349,14 @@ function Layout({
         {/* ── Content ── */}
         <main style={{ flex: 1, overflow: 'hidden auto', background: 'var(--ui-bg)', position: 'relative' }}>
           <ErrorBoundary key={location.pathname}>
-            <React.Suspense fallback={null}>
+            <React.Suspense fallback={
+              <div style={{ padding: '2.5rem 2rem', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div className="sc-skeleton" style={{ width: 120, height: 14 }} />
+                <div className="sc-skeleton" style={{ width: 260, height: 28 }} />
+                <div className="sc-skeleton" style={{ width: 180, height: 12 }} />
+                <div className="sc-skeleton" style={{ width: '100%', height: 160, marginTop: 8 }} />
+              </div>
+            }>
               <div className={isBack ? 'sc-enter-back' : 'sc-enter'} style={{ height: '100%' }}>
                 <Outlet />
               </div>

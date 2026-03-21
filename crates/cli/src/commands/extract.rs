@@ -7,6 +7,12 @@ use crate::output::{self, JsonOut, Spinner};
 use crate::prompt;
 
 #[derive(Debug, clap::Args)]
+#[command(after_long_help = "\x1b[36mExamples:\x1b[0m
+  stegcore extract stego.png -o recovered.txt
+  stegcore extract stego.png --stdout
+  stegcore extract stego.png --raw | xxd
+  stegcore extract stego.png --key-file stego.json
+")]
 pub struct ExtractArgs {
     /// Stego file to extract from
     pub stego: PathBuf,
@@ -24,9 +30,13 @@ pub struct ExtractArgs {
     #[arg(long, short = 'o')]
     pub output: Option<PathBuf>,
 
-    /// Print extracted payload to stdout (only safe for text payloads)
+    /// Print extracted payload to stdout (text payloads only; use --raw for binary)
     #[arg(long)]
     pub stdout: bool,
+
+    /// Write raw bytes to stdout (for piping: stegcore extract stego.png --raw | xxd)
+    #[arg(long)]
+    pub raw: bool,
 }
 
 pub fn run(
@@ -90,17 +100,30 @@ pub fn run(
         Ok(data) => {
             spinner.success("Extracted successfully");
 
+            // --raw: write raw bytes to stdout (for piping)
+            if args.raw {
+                use std::io::Write;
+                let mut out = std::io::stdout().lock();
+                if let Err(e) = out.write_all(&data) {
+                    let err = stegcore_core::errors::StegError::Io(e);
+                    output::die(&err, verbose);
+                }
+                std::process::exit(0);
+            }
+
             if args.stdout {
                 // Print as UTF-8 if possible; warn if binary.
                 match std::str::from_utf8(&data) {
                     Ok(text) => println!("{text}"),
                     Err(_) => {
                         output::print_warn(
-                            "Payload is not valid UTF-8 — use --output to save as a file.",
+                            "Payload is not valid UTF-8 — use --raw for binary, or --output to save.",
                         );
                         if json {
                             output::emit_json(
-                                &JsonOut::<()>::failure("Payload is binary; use --output to save."),
+                                &JsonOut::<()>::failure(
+                                    "Payload is binary; use --raw or --output.",
+                                ),
                                 1,
                             );
                         }

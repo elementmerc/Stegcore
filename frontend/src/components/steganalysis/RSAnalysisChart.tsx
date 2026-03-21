@@ -79,7 +79,7 @@ export function RSAnalysisChart({ data, replay, onReplayDone }: Props) {
 
     // Axis labels (fade in last)
     const textAlpha = easeInOut(Math.max(0, (t - 50) / 30))
-    ctx.font = '8px "Space Mono", monospace'
+    ctx.font = '10px "Space Mono", monospace'
     ctx.fillStyle = th.textMuted
     ctx.globalAlpha = textAlpha
     ctx.textAlign = 'right'

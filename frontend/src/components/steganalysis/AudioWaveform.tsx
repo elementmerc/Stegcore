@@ -95,7 +95,7 @@ export function AudioWaveform({ values, replay, onReplayDone }: Props) {
 
     // Labels
     ctx.globalAlpha = textAlpha
-    ctx.font = '7px "Space Mono", monospace'
+    ctx.font = '10px "Space Mono", monospace'
     ctx.fillStyle = th.textMuted
     ctx.textAlign = 'center'
     ctx.fillText('Audio sample blocks', PAD.left + cw / 2, h - 4)

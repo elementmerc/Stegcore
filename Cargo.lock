@@ -5213,6 +5213,9 @@ dependencies = [
 name = "stegcore-cli"
 version = "0.1.0"
 dependencies = [
+ "aes-gcm",
+ "argon2",
+ "chacha20poly1305",
  "clap",
  "clap_complete",
  "crossterm",

@@ -23,6 +23,11 @@ function isSuspicious(i: number, regions: [number, number][]): boolean {
   return regions.some(([s, e]) => i >= s && i <= e)
 }
 
+const BORDER_ZONE = 8 // samples near a suspicious region get amber tint
+function isNearSuspicious(i: number, regions: [number, number][]): boolean {
+  return regions.some(([s, e]) => (i >= s - BORDER_ZONE && i < s) || (i > e && i <= e + BORDER_ZONE))
+}
+
 export function OscilloscopeTrace({ data, replay, onReplayDone }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [containerRef, size] = useContainerSize()
@@ -84,7 +89,7 @@ export function OscilloscopeTrace({ data, replay, onReplayDone }: Props) {
 
     // Axis labels (fade in last)
     ctx.globalAlpha = textAlpha
-    ctx.font = '8px "Space Mono", monospace'
+    ctx.font = '10px "Space Mono", monospace'
     ctx.fillStyle = th.textMuted
     ctx.textAlign = 'right'
     for (const tick of yTicks) ctx.fillText(tick.toFixed(1), PAD.left - 4, sampleY(tick) + 3)
@@ -123,7 +128,7 @@ export function OscilloscopeTrace({ data, replay, onReplayDone }: Props) {
 
         ctx.globalAlpha = suspectReveal * 0.75
         ctx.fillStyle = 'rgba(255, 90, 90, 0.9)'
-        ctx.font = '7px "Space Mono", monospace'
+        ctx.font = '10px "Space Mono", monospace'
         ctx.textAlign = 'center'
         ctx.fillText('LSB+', x0 + regionW / 2, PAD.top - 3)
         ctx.globalAlpha = 1
@@ -137,10 +142,17 @@ export function OscilloscopeTrace({ data, replay, onReplayDone }: Props) {
       const barH = Math.abs(y - midY) + 1
 
       if (isSuspicious(i, regions) && suspectReveal > 0) {
+        // Anomalous — blue → red
         const r = Math.round(lerp(77, 255, suspectReveal))
         const g = Math.round(lerp(159, 92, suspectReveal))
         const b = Math.round(lerp(255, 92, suspectReveal))
         ctx.fillStyle = `rgba(${r},${g},${b},0.88)`
+      } else if (isNearSuspicious(i, regions) && suspectReveal > 0) {
+        // Near suspicious — blue → amber
+        const r = Math.round(lerp(77, 245, suspectReveal))
+        const g = Math.round(lerp(159, 200, suspectReveal))
+        const b = Math.round(lerp(255, 66, suspectReveal))
+        ctx.fillStyle = `rgba(${r},${g},${b},0.80)`
       } else {
         ctx.fillStyle = 'rgba(77, 159, 255, 0.75)'
       }
@@ -185,14 +197,6 @@ export function OscilloscopeTrace({ data, replay, onReplayDone }: Props) {
     setHoverIdx(i >= 0 && i < N ? i : null)
   }, [N, size])
 
-  const verdictConfig: Record<string, { text: string; color: string }> = {
-    clean:           { text: 'No LSB anomalies detected',                          color: '#3dd6a3' },
-    uncertain:       { text: `${regions.length} region(s) — inconclusive`,         color: '#f5c842' },
-    suspicious:      { text: `${regions.length} suspicious region(s) flagged`,     color: '#ff7070' },
-    likely_embedded: { text: `${regions.length} region(s) — likely embedded`,      color: '#ff5c5c' },
-  }
-  const vc = verdictConfig[data.verdict] ?? verdictConfig.clean
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div ref={containerRef} style={{ position: 'relative', flex: 1, minHeight: 120 }}>
@@ -203,29 +207,8 @@ export function OscilloscopeTrace({ data, replay, onReplayDone }: Props) {
           onMouseLeave={() => setHoverIdx(null)}
         />
       </div>
-      {/* Legend */}
-      <div style={{ display: 'flex', gap: 14, marginTop: 4, flexShrink: 0 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, color: 'rgba(77,159,255,0.8)' }}>
-          <span style={{ width: 10, height: 4, borderRadius: 1, background: 'rgba(77,159,255,0.75)' }} />
-          Normal LSB
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, color: 'rgba(255,92,92,0.8)' }}>
-          <span style={{ width: 10, height: 4, borderRadius: 1, background: 'rgba(255,92,92,0.85)' }} />
-          Anomalous region
-        </span>
-      </div>
-      {/* Verdict badge */}
-      <div style={{
-        marginTop: 6, flexShrink: 0,
-        display: 'inline-flex', alignItems: 'center', gap: 5,
-        padding: '3px 10px', borderRadius: 12, alignSelf: 'flex-start',
-        background: `${vc.color}18`, color: vc.color,
-        fontSize: 9, fontWeight: 600, fontFamily: "'Space Mono', monospace",
-        letterSpacing: '0.04em', textTransform: 'uppercase',
-      }}>
-        <span style={{ width: 5, height: 5, borderRadius: '50%', background: vc.color }} />
-        {vc.text}
-      </div>
+      {/* Legend removed — colours are self-explanatory, pill badge handles verdict */}
+      {/* Verdict badge handled by ChartCard wrapper */}
     </div>
   )
 }

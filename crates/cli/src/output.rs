@@ -91,7 +91,7 @@ impl Spinner {
     pub fn new(msg: &str, interrupted: Arc<AtomicBool>) -> Self {
         let pb = ProgressBar::new_spinner();
         pb.set_style(
-            ProgressStyle::with_template("{spinner:.cyan} {msg}")
+            ProgressStyle::with_template("{spinner:.cyan} {msg} {elapsed_precise:.dim}")
                 .unwrap()
                 .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
         );
@@ -167,4 +167,57 @@ pub fn emit_json<T: Serialize>(v: &JsonOut<T>, code: i32) -> ! {
         serde_json::to_string_pretty(v).unwrap_or_else(|_| "{}".into())
     );
     std::process::exit(code);
+}
+
+// ── Box-drawing summary card ─────────────────────────────────────────────────
+
+/// Print a bordered summary card with key-value rows.
+/// ```text
+/// ╭────────────────────────────────╮
+/// │  ✓ Embedded successfully       │
+/// ├────────────────────────────────┤
+/// │  Cover     photo.png           │
+/// │  Output    photo_stego.png     │
+/// │  Cipher    ChaCha20-Poly1305   │
+/// │  Mode      Adaptive            │
+/// │  Time      1.2s                │
+/// ╰────────────────────────────────╯
+/// ```
+pub fn print_summary(title: &str, title_color: Color, rows: &[(&str, &str)]) {
+    let mut s = std::io::stderr();
+
+    // Calculate column widths
+    let label_w = rows.iter().map(|(k, _)| k.len()).max().unwrap_or(0);
+    let value_w = rows.iter().map(|(_, v)| v.len()).max().unwrap_or(0);
+    let title_w = title.len() + 4; // "  ✓ " prefix
+    let inner = label_w + value_w + 5; // "  label  value  "
+    let width = inner.max(title_w) + 2;
+
+    let bar = "─".repeat(width);
+    let _ = s.execute(SetForegroundColor(Color::DarkGrey));
+    let _ = s.execute(Print(format!("\n  ╭{bar}╮\n")));
+
+    // Title row
+    let _ = s.execute(Print("  │  "));
+    let _ = s.execute(SetForegroundColor(title_color));
+    let _ = s.execute(Print(title.to_string()));
+    let _ = s.execute(SetForegroundColor(Color::DarkGrey));
+    let pad = width - title_w;
+    let _ = s.execute(Print(format!("{:pad$}  │\n", "")));
+    let _ = s.execute(Print(format!("  ├{bar}┤\n")));
+
+    // Data rows
+    for (label, value) in rows {
+        let _ = s.execute(Print("  │  "));
+        let _ = s.execute(SetForegroundColor(Color::DarkGrey));
+        let _ = s.execute(Print(format!("{label:label_w$}  ")));
+        let _ = s.execute(SetForegroundColor(Color::Reset));
+        let vpad = width - label_w - 4;
+        let _ = s.execute(Print(format!("{value:vpad$}")));
+        let _ = s.execute(SetForegroundColor(Color::DarkGrey));
+        let _ = s.execute(Print("│\n"));
+    }
+
+    let _ = s.execute(Print(format!("  ╰{bar}╯\n\n")));
+    let _ = s.execute(ResetColor);
 }

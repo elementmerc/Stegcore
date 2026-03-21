@@ -7,6 +7,12 @@ use crate::output::{self, JsonOut, Spinner};
 use crate::prompt;
 
 #[derive(Debug, clap::Args)]
+#[command(after_long_help = "\x1b[36mExamples:\x1b[0m
+  stegcore embed photo.png secret.txt
+  stegcore embed photo.png secret.txt -o stego.png --cipher aes-256-gcm
+  stegcore embed photo.png real.txt --deniable --decoy decoy.txt
+  echo \"secret\" | stegcore embed photo.png - -o stego.png
+")]
 pub struct EmbedArgs {
     /// Cover file (PNG, BMP, JPEG, WAV, WebP)
     pub cover: PathBuf,
@@ -76,7 +82,7 @@ pub fn run(
         }
         output::die(&e, verbose);
     }
-    if !args.payload.exists() {
+    if args.payload.as_os_str() != "-" && !args.payload.exists() {
         let e = stegcore_core::errors::StegError::FileNotFound(args.payload.display().to_string());
         if json {
             output::emit_json(
@@ -248,10 +254,36 @@ pub fn run(
                 stegcore_core::keyfile::write_key_file(&p, kf).ok()?;
                 Some(p)
             });
-            spinner.success(&format!("Embedded → {}", output.display()));
-            if let Some(ref kp) = key_path {
-                output::print_info(&format!("Key file → {}", kp.display()));
+            spinner.success("Embedded successfully");
+
+            if !json {
+                let cover_name = args
+                    .cover
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                let out_name = output
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                let mode_str = if args.mode == "sequential" {
+                    "Standard"
+                } else {
+                    "Adaptive"
+                };
+                let mut rows: Vec<(&str, &str)> = vec![
+                    ("Cover", &cover_name),
+                    ("Output", &out_name),
+                    ("Cipher", &args.cipher),
+                    ("Mode", mode_str),
+                ];
+                let key_str = key_path.as_ref().map(|p| p.display().to_string());
+                if let Some(ref ks) = key_str {
+                    rows.push(("Key file", ks));
+                }
+                output::print_summary("✓ Embedded", crossterm::style::Color::Green, &rows);
             }
+
             if json {
                 #[derive(serde::Serialize)]
                 struct Out {

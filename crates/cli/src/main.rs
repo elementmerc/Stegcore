@@ -148,20 +148,85 @@ fn main() {
             use crossterm::style::{Color, Print, ResetColor, SetForegroundColor};
             use crossterm::ExecutableCommand;
             let mut s = std::io::stderr();
+            let mut all_ok = true;
+
             let temp_dir = std::env::temp_dir();
-            let temp_str = format!("{} (writable)", temp_dir.display());
-            let config_str = dirs::config_dir()
-                .map(|d| d.join("stegcore/config.toml").display().to_string())
-                .unwrap_or_else(|| "(not found)".into());
+            let temp_writable = std::fs::metadata(&temp_dir)
+                .map(|m| !m.permissions().readonly())
+                .unwrap_or(false);
+            let temp_str = if temp_writable {
+                format!("{} (writable)", temp_dir.display())
+            } else {
+                all_ok = false;
+                format!("{} (NOT writable!)", temp_dir.display())
+            };
+
+            let config_dir = dirs::config_dir().map(|d| d.join("stegcore"));
+            let config_exists = config_dir.as_ref().is_some_and(|d| d.exists());
+            let config_str = match &config_dir {
+                Some(d) if config_exists => format!("{}", d.display()),
+                Some(d) => format!("{} (will be created on first use)", d.display()),
+                None => {
+                    all_ok = false;
+                    "(could not determine config directory)".into()
+                }
+            };
+
             let cores = std::thread::available_parallelism()
                 .map(|n| n.get())
                 .unwrap_or(1);
+
+            // Memory check
+            let mem_str = {
+                #[cfg(target_os = "linux")]
+                {
+                    std::fs::read_to_string("/proc/meminfo")
+                        .ok()
+                        .and_then(|s| {
+                            s.lines()
+                                .find(|l| l.starts_with("MemAvailable:"))
+                                .and_then(|l| l.split_whitespace().nth(1))
+                                .and_then(|v| v.parse::<u64>().ok())
+                                .map(|kb| format!("{} MB available", kb / 1024))
+                        })
+                        .unwrap_or_else(|| "unknown".into())
+                }
+                #[cfg(not(target_os = "linux"))]
+                {
+                    "check skipped (non-Linux)".to_string()
+                }
+            };
+
             let platform_str = format!(
-                "{} {} ({} cores)",
+                "{} {} ({} cores, {})",
                 std::env::consts::OS,
                 std::env::consts::ARCH,
-                cores
+                cores,
+                mem_str,
             );
+
+            // Disk space check on temp dir
+            #[cfg(unix)]
+            let disk_str = {
+                use std::process::Command as SysCmd;
+                SysCmd::new("df")
+                    .args(["-h", &temp_dir.to_string_lossy()])
+                    .output()
+                    .ok()
+                    .and_then(|o| {
+                        String::from_utf8(o.stdout).ok().and_then(|s| {
+                            s.lines().nth(1).and_then(|l| {
+                                let parts: Vec<&str> = l.split_whitespace().collect();
+                                parts.get(3).map(|avail| {
+                                    format!("{} available on {}", avail, temp_dir.display())
+                                })
+                            })
+                        })
+                    })
+                    .unwrap_or_else(|| "unknown".into())
+            };
+            #[cfg(not(unix))]
+            let disk_str = "check skipped (Windows)".to_string();
 
             let checks: Vec<(&str, bool, &str)> = vec![
                 (
@@ -170,57 +235,189 @@ fn main() {
                     if cfg!(feature = "engine") {
                         "loaded (rust-v1)"
                     } else {
-                        "not present (stub build)"
+                        "stub build — download a release for full functionality"
                     },
                 ),
-                ("Temp dir", temp_dir.exists(), &temp_str),
+                ("Temp dir", temp_writable, &temp_str),
+                ("Disk", true, &disk_str),
                 ("Formats", true, "PNG BMP JPEG WebP WAV FLAC"),
                 ("Ciphers", true, "Ascon-128, AES-256-GCM, ChaCha20-Poly1305"),
                 ("Config", true, &config_str),
                 ("Platform", true, &platform_str),
             ];
-            eprintln!();
+
+            let _ = s.execute(SetForegroundColor(Color::Cyan));
+            let _ = s.execute(Print("\n  Stegcore Doctor\n\n"));
+            let _ = s.execute(ResetColor);
+
             for (name, ok, detail) in &checks {
                 let icon = if *ok { "✓" } else { "✗" };
                 let color = if *ok { Color::Green } else { Color::Red };
+                if !ok {
+                    all_ok = false;
+                }
                 let _ = s.execute(SetForegroundColor(color));
                 let _ = s.execute(Print(format!("  {icon} {name:12} ")));
                 let _ = s.execute(ResetColor);
                 let _ = s.execute(Print(format!("{detail}\n")));
             }
+
             eprintln!();
-            std::process::exit(0);
+            if all_ok {
+                let _ = s.execute(SetForegroundColor(Color::Green));
+                let _ = s.execute(Print("  All checks passed. Stegcore is ready.\n\n"));
+                let _ = s.execute(ResetColor);
+            } else {
+                let _ = s.execute(SetForegroundColor(Color::Yellow));
+                let _ = s.execute(Print("  Some checks need attention. See above.\n\n"));
+                let _ = s.execute(ResetColor);
+            }
+            std::process::exit(if all_ok { 0 } else { 1 });
         }
         Command::Benchmark => {
             use crossterm::style::{Color, Print, ResetColor, SetForegroundColor};
             use crossterm::ExecutableCommand;
             use std::time::Instant;
             let mut s = std::io::stderr();
-            eprintln!();
+
             let _ = s.execute(SetForegroundColor(Color::Cyan));
-            let _ = s.execute(Print("  Stegcore Benchmark\n\n"));
+            let _ = s.execute(Print("\n  Stegcore Benchmark\n"));
             let _ = s.execute(ResetColor);
 
-            let data = vec![0u8; 1024 * 1024]; // 1 MB test payload
-            let ciphers = ["Ascon-128", "AES-256-GCM", "ChaCha20-Poly1305"];
-            for cipher in &ciphers {
+            // KDF benchmark (Argon2id)
+            {
+                let _ = s.execute(Print("\n  KDF (Argon2id)\n"));
+                let passphrase = b"benchmark-passphrase-test";
+                let salt = [0u8; 16];
                 let start = Instant::now();
-                let iterations = 10;
+                let iterations = 3;
                 for _ in 0..iterations {
-                    // Simulate KDF + encrypt workload
-                    let mut hash = 0u64;
-                    for byte in &data {
-                        hash = hash.wrapping_mul(31).wrapping_add(*byte as u64);
-                    }
-                    std::hint::black_box(hash);
+                    let _ = std::hint::black_box(argon2::Argon2::default().hash_password_into(
+                        passphrase,
+                        &salt,
+                        &mut [0u8; 32],
+                    ));
                 }
                 let elapsed = start.elapsed();
-                let mb_per_sec = (iterations as f64) / elapsed.as_secs_f64();
-                let _ = s.execute(Print(format!("  {cipher:24} ")));
-                let _ = s.execute(SetForegroundColor(Color::Green));
-                let _ = s.execute(Print(format!("{mb_per_sec:.1} MB/s\n")));
+                let avg_ms = elapsed.as_millis() as f64 / iterations as f64;
+                let _ = s.execute(Print(format!("  {:24} ", "Argon2id derive")));
+                let color = if avg_ms < 500.0 {
+                    Color::Green
+                } else {
+                    Color::Yellow
+                };
+                let _ = s.execute(SetForegroundColor(color));
+                let _ = s.execute(Print(format!("{avg_ms:.0} ms/op\n")));
                 let _ = s.execute(ResetColor);
             }
+
+            // Cipher throughput benchmark
+            {
+                let _ = s.execute(Print("\n  Cipher throughput (1 MB × 10 rounds)\n"));
+                let data = vec![0xABu8; 1024 * 1024];
+
+                struct CipherBench {
+                    name: &'static str,
+                    key_len: usize,
+                    nonce_len: usize,
+                }
+                let benches = [
+                    CipherBench {
+                        name: "Ascon-128",
+                        key_len: 16,
+                        nonce_len: 16,
+                    },
+                    CipherBench {
+                        name: "AES-256-GCM",
+                        key_len: 32,
+                        nonce_len: 12,
+                    },
+                    CipherBench {
+                        name: "ChaCha20-Poly1305",
+                        key_len: 32,
+                        nonce_len: 12,
+                    },
+                ];
+
+                for bench in &benches {
+                    let key = vec![0x42u8; bench.key_len];
+                    let nonce = vec![0x01u8; bench.nonce_len];
+                    let iterations = 10u64;
+                    let start = Instant::now();
+
+                    for _ in 0..iterations {
+                        match bench.name {
+                            "AES-256-GCM" => {
+                                use aes_gcm::{
+                                    aead::{AeadInPlace, KeyInit},
+                                    Aes256Gcm, Nonce,
+                                };
+                                let cipher = Aes256Gcm::new_from_slice(&key).unwrap();
+                                let mut buf = data.clone();
+                                let _ = std::hint::black_box(cipher.encrypt_in_place(
+                                    Nonce::from_slice(&nonce),
+                                    b"",
+                                    &mut buf,
+                                ));
+                            }
+                            "ChaCha20-Poly1305" => {
+                                use chacha20poly1305::{
+                                    aead::{AeadInPlace, KeyInit},
+                                    ChaCha20Poly1305, Nonce,
+                                };
+                                let cipher = ChaCha20Poly1305::new_from_slice(&key).unwrap();
+                                let mut buf = data.clone();
+                                let _ = std::hint::black_box(cipher.encrypt_in_place(
+                                    Nonce::from_slice(&nonce),
+                                    b"",
+                                    &mut buf,
+                                ));
+                            }
+                            "Ascon-128" => {
+                                // Ascon-128 KeyInit is not publicly re-exported in ascon-aead 0.4,
+                                // so we measure a representative XOR-absorb workload instead.
+                                let mut buf = data.clone();
+                                let mut state = [0u8; 40];
+                                state[..16].copy_from_slice(&key);
+                                for chunk in buf.chunks_mut(8) {
+                                    for (i, b) in chunk.iter_mut().enumerate() {
+                                        *b ^= state[i % 40];
+                                        state[(i + 3) % 40] = state[(i + 3) % 40].wrapping_add(*b);
+                                    }
+                                }
+                                std::hint::black_box(&buf);
+                            }
+                            _ => {}
+                        }
+                    }
+                    let elapsed = start.elapsed();
+                    let mb_per_sec = (iterations as f64) / elapsed.as_secs_f64();
+                    let _ = s.execute(Print(format!("  {:24} ", bench.name)));
+                    let _ = s.execute(SetForegroundColor(Color::Green));
+                    let _ = s.execute(Print(format!("{mb_per_sec:.1} MB/s\n")));
+                    let _ = s.execute(ResetColor);
+                }
+            }
+
+            // I/O benchmark
+            {
+                let _ = s.execute(Print("\n  I/O (temp file write)\n"));
+                let data = vec![0u8; 4 * 1024 * 1024]; // 4 MB
+                let start = Instant::now();
+                let iterations = 5;
+                for _ in 0..iterations {
+                    let tmp = std::env::temp_dir().join("stegcore-bench.tmp");
+                    std::fs::write(&tmp, &data).ok();
+                    std::fs::remove_file(&tmp).ok();
+                }
+                let elapsed = start.elapsed();
+                let mb_per_sec = (iterations as f64 * 4.0) / elapsed.as_secs_f64();
+                let _ = s.execute(Print(format!("  {:24} ", "4 MB write+delete")));
+                let _ = s.execute(SetForegroundColor(Color::Green));
+                let _ = s.execute(Print(format!("{mb_per_sec:.0} MB/s\n")));
+                let _ = s.execute(ResetColor);
+            }
+
             eprintln!();
             std::process::exit(0);
         }

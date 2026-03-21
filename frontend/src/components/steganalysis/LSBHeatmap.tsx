@@ -51,7 +51,7 @@ export function LSBHeatmap({ data, replay, onReplayDone }: Props) {
 
     // Row/col labels (fade in last)
     const textAlpha = easeOut(clamp((t - 50) / 30, 0, 1))
-    ctx.font = '7px "Space Mono", monospace'
+    ctx.font = '10px "Space Mono", monospace'
     ctx.fillStyle = 'rgba(255,255,255,0.25)'
     ctx.globalAlpha = textAlpha
     ctx.textAlign = 'right'

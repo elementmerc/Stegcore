@@ -429,6 +429,9 @@ function Step3() {
             <button
               key={m}
               onClick={() => setOptions({ mode: m })}
+              title={m === 'adaptive'
+                ? 'Scatters payload bits across high-entropy regions. Harder to detect but uses more space per bit.'
+                : 'Sequential LSB embedding. Fits more data but is easier to detect with steganalysis tools.'}
               style={{
                 flex: 1,
                 padding: '12px 14px',
@@ -464,7 +467,7 @@ function Step3() {
           checked={deniable}
           onChange={(v) => setOptions({ deniable: v })}
           label="Deniable mode"
-          description="Hide two separate messages — one real, one decoy."
+          description="Hide two separate messages — one real, one decoy. Each passphrase reveals a different payload. Neither partition references the other."
         />
         {deniable && (
           <div style={{ marginTop: 12, padding: '14px', borderRadius: 10, background: 'color-mix(in srgb, var(--ui-accent) 5%, var(--ui-surface))', border: '1px solid var(--ui-border)' }}>
@@ -617,7 +620,7 @@ function Step4() {
       setError(msg)
       toast.error('Embedding failed', msg)
     }
-  }, [payloadFile, coverFile, coverPreviewUrl, passphrase, cipher, mode, deniable, decoyFile, decoyPassphrase, exportKey, setEmbedding, setError, setResult])
+  }, [payloadFile, coverFile, coverPath, passphrase, cipher, mode, deniable, decoyFile, decoyPath, decoyPassphrase, exportKey, setEmbedding, setError, setResult])
 
   const { settings } = useSettingsStore()
 

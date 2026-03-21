@@ -4,26 +4,88 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [3.0.0-dev] — 2026-03-20
+## [3.0.0-dev] — 2026-03-21
 
 Complete rewrite. Rust + Tauri v2 replaces Python + PyInstaller.
 
+### Engine
 - Full Rust engine with three AEAD ciphers + Argon2id
-- Tauri v2 desktop app (~10 MB native binary)
-- React + TypeScript frontend with step-by-step wizards
-- Built-in steganalysis suite (Chi-Squared, SPA, RS, LSB Entropy, tool fingerprinting)
-- Progressive two-phase analysis (fast preliminary + background full)
-- Interactive scatter plots, radar charts, and entropy heatmaps
-- WebP and JPEG DCT (JSteg) embedding support
-- First-run installer wizard
-- Keyboard shortcuts (E/X/A/L/R/?)
-- Interface size scaling, reduce-motion, clipboard auto-clear
-- PDF/HTML/JSON/CSV export from cached reports
-- Parallel per-test analysis (~3-4x speedup)
-- Async Tauri commands (no UI freezes)
+- Direct Rust crate dependency (replaced C FFI boundary)
+- Parallel batch analysis with rayon
+- Magic byte validation (PNG, BMP, JPEG, WAV, WebP, FLAC)
+- File size limits with clear error messages
+- Fixed: `extract_with_keyfile` now auto-detects embedding mode
+  (was hardcoded to sequential, breaking adaptive-mode key file extraction)
 - Release profile: LTO + codegen-units=1
 
-Bug fixes and improvements.
+### GUI
+- Tauri v2 desktop app (~10 MB native binary)
+- React + TypeScript frontend with step-by-step wizards
+- First-run setup wizard (AUP, licence, preferences)
+- Animated steganalysis dashboard with four chart types:
+  - Chi-Squared lateral slide (per-channel p-values)
+  - RS Analysis untangle (4-curve divergence)
+  - Sample Pair Analysis arc sweep gauge (with confidence)
+  - LSB Entropy corner ripple heatmap (10×10 grid)
+  - Audio oscilloscope trace (WAV/FLAC waveform with LSB highlighting)
+- Progressive two-phase analysis (fast preliminary + background full)
+- Before/after pixel diff on embed success
+- Copy dashboard to clipboard as image
+- PDF/HTML/JSON/CSV export from cached reports
+- Keyboard shortcuts (E/X/A/L/R/?)
+- Interface size scaling (small/default/large/xl)
+- Dark and light themes with live switching
+- Reduce-motion support
+- Clipboard auto-clear after configurable timeout
+- Skeleton loaders for lazy-loaded routes
+- Success sound (optional, via Web Audio API)
+- Format recommendations on cover file selection
+- Smart output naming (auto-generated from input)
+- Error recovery suggestions
+- Stable footer (no layout shift between routes)
+
+### CLI
+- Shell completions (Bash, Zsh, Fish)
+- Config file (~/.config/stegcore/config.toml)
+- `stegcore doctor` — system health check
+- `stegcore benchmark` — real cipher throughput test
+- `stegcore diff` — pixel comparison between files
+- `stegcore verse` — daily Bible verse
+- Pipe support (stdin payloads, `--raw` stdout for binary)
+- `--quiet` mode (exit code only)
+- `--watch` mode (directory monitoring)
+- Coloured help output with clap styles
+- Progress ETA on batch operations
+- Elapsed time on all spinners
+- Smart output naming (auto-generated when `-o` omitted)
+
+### Security
+- Content Security Policy enabled in Tauri
+- Passphrase env var warnings in help text
+- Path canonicalisation in IPC commands
+- Config directory created with 0o700 permissions
+- TOCTOU fixes (direct file opens, no pre-checks)
+- Oracle-resistant error messages
+
+### Polish
+- Backdrop blur on settings panel overlay
+- Spring physics on all interactive buttons (cubic-bezier bounce)
+- Dashboard chart cards lift on hover
+- Drop zone hover lift with shadow
+- Contextual tooltips on cipher/mode selectors
+- Box-drawn summary cards in CLI output (Unicode borders)
+- Summary card after CLI embed (cover, output, cipher, mode)
+- Inline examples in `--help` for embed, extract, analyse
+- Bible verse footer auto-scrolls on 5s idle, snaps back on interaction
+- Before/after pixel diff shown on embed success
+
+### Distribution
+- One-liner install script (Linux/macOS)
+- Homebrew formula
+- Winget manifest
+- Kali Linux packaging
+- SourceForge release notes
+- Comprehensive integration test suite (123 tests across 16 categories)
 
 ---
 
