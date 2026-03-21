@@ -10,9 +10,7 @@ use std::sync::Arc;
 /// Returns true when a graphical display is available.
 pub fn has_display() -> bool {
     // Linux / BSD: DISPLAY (X11) or WAYLAND_DISPLAY
-    if std::env::var_os("DISPLAY").is_some()
-        || std::env::var_os("WAYLAND_DISPLAY").is_some()
-    {
+    if std::env::var_os("DISPLAY").is_some() || std::env::var_os("WAYLAND_DISPLAY").is_some() {
         return true;
     }
     // macOS and Windows always have a display when running interactively.
@@ -49,9 +47,7 @@ pub fn pick_file(cfg: &PickerConfig<'_>) -> Option<PathBuf> {
             if let Some(p) = dialog.pick_file() {
                 return Some(p);
             }
-            eprintln!(
-                "ℹ  No graphical file picker available — please type the path manually."
-            );
+            eprintln!("ℹ  No graphical file picker available — please type the path manually.");
         }
     } else {
         eprintln!(
@@ -120,10 +116,7 @@ pub fn prompt_passphrase(label: &str, interrupted: &Arc<AtomicBool>) -> Vec<u8> 
 
 /// Prompt for a passphrase with confirmation (used during embed).
 /// Re-prompts until both entries match or the user hits Ctrl-C.
-pub fn prompt_passphrase_confirmed(
-    label: &str,
-    interrupted: &Arc<AtomicBool>,
-) -> Vec<u8> {
+pub fn prompt_passphrase_confirmed(label: &str, interrupted: &Arc<AtomicBool>) -> Vec<u8> {
     loop {
         if interrupted.load(Ordering::SeqCst) {
             eprintln!();
@@ -171,9 +164,9 @@ pub fn read_line(prompt: &str) -> Option<String> {
 /// Re-prompts on invalid input. Returns `None` on EOF.
 pub fn read_yes_no(prompt: &str, default: Option<bool>) -> Option<bool> {
     let hint = match default {
-        Some(true)  => " [Y/n]",
+        Some(true) => " [Y/n]",
         Some(false) => " [y/N]",
-        None        => " [y/n]",
+        None => " [y/n]",
     };
     loop {
         print!("  {prompt}{hint}: ");
@@ -185,7 +178,7 @@ pub fn read_yes_no(prompt: &str, default: Option<bool>) -> Option<bool> {
         }
         match line.trim().to_lowercase().as_str() {
             "y" | "yes" => return Some(true),
-            "n" | "no"  => return Some(false),
+            "n" | "no" => return Some(false),
             "" => {
                 if let Some(d) = default {
                     return Some(d);
@@ -206,10 +199,7 @@ pub fn read_menu(prompt: &str, options: &[&str]) -> Option<usize> {
         let answer = read_line(prompt)?;
         match answer.trim().parse::<usize>() {
             Ok(n) if n >= 1 && n <= options.len() => return Some(n - 1),
-            _ => eprintln!(
-                "  Please enter a number between 1 and {}.",
-                options.len()
-            ),
+            _ => eprintln!("  Please enter a number between 1 and {}.", options.len()),
         }
     }
 }

@@ -1,22 +1,25 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { KeyRound, Eye, EyeOff, FolderOpen, Copy, Lock } from 'lucide-react'
 import { DropZone } from '../components/DropZone'
 import { ScoreCard } from '../components/ScoreCard'
 import { EntropyBar } from '../components/EntropyBar'
 import { Toggle } from '../components/Toggle'
+import { SuccessCheck } from '../components/SuccessCheck'
 import { useEmbedStore } from '../lib/stores/embedStore'
 import { useSettingsStore } from '../lib/stores/settingsStore'
 import { useFooter } from '../App'
-import { scoreCover, embed as ipcEmbed } from '../lib/ipc'
+import { scoreCover, embed as ipcEmbed, pickFiles, getFileSize, pixelDiff, type PixelDiffResult } from '../lib/ipc'
+import { toast } from '../lib/toast'
+import { playSuccess } from '../lib/sound'
 import type { Cipher, EmbedMode } from '../lib/ipc'
 
 const EMBED_STEPS = ['Message', 'Cover', 'Options', 'Embed']
 
 const CIPHER_INFO: Record<Cipher, { label: string; desc: string }> = {
-  'chacha20-poly1305': { label: 'ChaCha20-Poly1305', desc: 'Fast, secure. Recommended for most uses.' },
-  'aes-256-gcm':       { label: 'AES-256-GCM',       desc: 'Industry standard. Hardware-accelerated on most CPUs.' },
   'ascon-128':         { label: 'Ascon-128',          desc: 'Lightweight cipher. Excellent for constrained environments.' },
+  'aes-256-gcm':       { label: 'AES-256-GCM',       desc: 'Industry standard. Hardware-accelerated on most CPUs.' },
+  'chacha20-poly1305': { label: 'ChaCha20-Poly1305', desc: 'Fast, secure. Recommended for most uses.' },
 }
 
 // ── Step wrappers ─────────────────────────────────────────────────────────
@@ -30,14 +33,15 @@ function StepShell({ title, subtitle, step, totalSteps, children }: {
 }) {
   const pad = (n: number) => String(n).padStart(2, '0')
   return (
-    <div style={{ padding: '48px 40px 32px' }}>
+    <div style={{ padding: '48px 40px 32px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
       <div style={{ marginBottom: '1.5rem' }}>
         <span style={{
           display: 'block',
           fontSize: 11,
           fontFamily: "'Space Mono', monospace",
           color: 'var(--ui-text2)',
-          letterSpacing: '0.1em',
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase' as const,
           marginBottom: 8,
         }}>
           {pad(step)} / {pad(totalSteps)}
@@ -55,9 +59,29 @@ function StepShell({ title, subtitle, step, totalSteps, children }: {
 // ── Step 1: Message file ──────────────────────────────────────────────────
 
 function Step1() {
-  const { payloadFile, setPayloadFile } = useEmbedStore()
+  const { payloadFile, payloadPath, payloadSizeBytes, setPayloadFile } = useEmbedStore()
   const navigate = useNavigate()
 
+  // Native file picker for real filesystem paths
+  const handlePick = useCallback(async () => {
+    const paths = await pickFiles({
+      title: 'Select message file',
+      multiple: false,
+      filters: [{ name: 'All files', extensions: ['*'] }],
+    })
+    if (paths.length > 0) {
+      const name = paths[0].split(/[/\\]/).pop() ?? paths[0]
+      const f = new File([], name)
+      setPayloadFile(f, paths[0])
+      // Fetch real file size from backend
+      getFileSize(paths[0]).then(size => {
+        useEmbedStore.setState({ payloadSizeBytes: size })
+      }).catch(() => {})
+    }
+  }, [setPayloadFile])
+
+  // Also accept browser drag-drop (path won't be available for IPC, but
+  // native picker is the primary flow)
   const handleFiles = useCallback((files: File[]) => {
     setPayloadFile(files[0])
   }, [setPayloadFile])
@@ -73,20 +97,48 @@ function Step1() {
   })
 
   return (
-    <StepShell title="What do you want to hide?" subtitle="Drop any file — text, binary, document." step={1} totalSteps={4}>
-      <DropZone
-        accept={['.txt', '.md', '.pdf', '.doc', '.docx', '.zip', '.bin']}
-        onFiles={handleFiles}
-        label="Drop message file here or click to browse"
-        
-        fileName={payloadFile?.name}
-        onRemove={() => setPayloadFile(null)}
-      />
-      {payloadFile && (
-        <p style={{ fontSize: 12, color: 'var(--ui-text2)', marginTop: 8 }}>
-          {(payloadFile.size / 1024).toFixed(1)} KB
-        </p>
-      )}
+    <StepShell title="What do you want to hide?" subtitle="Select any file — text, binary, document." step={1} totalSteps={4}>
+      <div
+        onClick={handlePick}
+        className="sc-analyse-drop"
+        style={{
+          borderRadius: 'var(--sc-radius-card)',
+          padding: '2.5rem 1.5rem',
+          textAlign: 'center',
+          cursor: 'pointer',
+          userSelect: 'none',
+        }}
+      >
+        {payloadFile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ui-text)' }}>{payloadFile.name}</span>
+            {payloadPath && (
+              <span style={{ fontSize: 10, color: 'var(--ui-text2)', fontFamily: "'Space Mono', monospace", wordBreak: 'break-all' }}>
+                {payloadPath}
+              </span>
+            )}
+            {payloadSizeBytes > 0 && (
+              <span style={{ fontSize: 11, color: 'var(--ui-text2)' }}>
+                {payloadSizeBytes > 1024 * 1024
+                  ? `${(payloadSizeBytes / (1024 * 1024)).toFixed(1)} MB`
+                  : `${(payloadSizeBytes / 1024).toFixed(1)} KB`}
+              </span>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setPayloadFile(null) }}
+              style={{ fontSize: 11, color: 'var(--ui-accent)', background: 'transparent', border: 'none', cursor: 'pointer', marginTop: 4 }}
+            >
+              Remove
+            </button>
+          </div>
+        ) : (
+          <>
+            <KeyRound size={32} strokeWidth={1.5} style={{ color: 'var(--ui-accent)', margin: '0 auto 0.5rem', display: 'block' }} />
+            <p style={{ color: 'var(--ui-text)', fontSize: 14, fontWeight: 500 }}>Click to select message file</p>
+            <p style={{ color: 'var(--ui-text2)', fontSize: 12, marginTop: 4 }}>Or drag and drop</p>
+          </>
+        )}
+      </div>
     </StepShell>
   )
 }
@@ -94,36 +146,56 @@ function Step1() {
 // ── Step 2: Cover file ────────────────────────────────────────────────────
 
 function Step2() {
-  const { coverFile, coverPreviewUrl, coverScore, coverScoring, setCoverFile, setCoverScore, setStep } = useEmbedStore()
+  const { coverFile, coverPath, coverSizeBytes, coverPreviewUrl, coverScore, coverScoring, setCoverFile, setCoverScore, setStep } = useEmbedStore()
   const { settings } = useSettingsStore()
 
   const isJpeg = coverFile ? /\.(jpg|jpeg)$/i.test(coverFile.name) : false
 
-  const handleFiles = useCallback(async (files: File[]) => {
-    const f = files[0]
-    const url = URL.createObjectURL(f)
-    setCoverFile(f, url)
-    if (settings.autoScoreOnDrop) {
-      setCoverScore(null, true)
-      try {
-        const score = await scoreCover(url)
-        setCoverScore(score)
-      } catch {
-        setCoverScore(0, false)
+  // Native file picker for real filesystem path
+  const handlePick = useCallback(async () => {
+    const paths = await pickFiles({
+      title: 'Select cover file',
+      multiple: false,
+      filters: [{ name: 'Cover files', extensions: ['png', 'bmp', 'jpg', 'jpeg', 'webp', 'wav'] }],
+    })
+    if (paths.length > 0) {
+      const name = paths[0].split(/[/\\]/).pop() ?? paths[0]
+      const f = new File([], name)
+      setCoverFile(f, null, paths[0])
+      // Fetch real file size
+      getFileSize(paths[0]).then(size => {
+        useEmbedStore.setState({ coverSizeBytes: size })
+      }).catch(() => {})
+      if (settings.autoScoreOnDrop) {
+        setCoverScore(null, true)
+        try {
+          const score = await scoreCover(paths[0])
+          setCoverScore(score)
+        } catch {
+          setCoverScore(0, false)
+        }
       }
     }
   }, [settings.autoScoreOnDrop, setCoverFile, setCoverScore])
 
+  // Browser drag-drop fallback
+  const handleFiles = useCallback(async (files: File[]) => {
+    const f = files[0]
+    const url = URL.createObjectURL(f)
+    setCoverFile(f, url)
+  }, [setCoverFile])
+
   const handleManualScore = useCallback(async () => {
-    if (!coverPreviewUrl) return
+    const path = coverPath
+    if (!path) return
     setCoverScore(null, true)
     try {
-      const score = await scoreCover(coverPreviewUrl)
+      const score = await scoreCover(path)
       setCoverScore(score)
     } catch {
       setCoverScore(0, false)
     }
-  }, [coverPreviewUrl, setCoverScore])
+  }, [coverPath, setCoverScore])
 
   useFooter({
     backLabel: 'Message',
@@ -142,24 +214,79 @@ function Step2() {
       step={2}
       totalSteps={4}
     >
-      <DropZone
-        accept={['.png', '.bmp', '.jpg', '.jpeg', '.webp', '.wav']}
-        onFiles={handleFiles}
-        label="Drop a cover file here"
-        sublabel="PNG, BMP, JPEG, WebP, WAV"
-        preview={coverPreviewUrl ?? undefined}
-        fileName={coverFile?.name}
-        onRemove={() => { setCoverFile(null, null); setCoverScore(null) }}
-      />
+      <div
+        onClick={handlePick}
+        className="sc-analyse-drop"
+        style={{
+          borderRadius: 'var(--sc-radius-card)',
+          padding: '2rem 1.5rem',
+          textAlign: 'center',
+          cursor: 'pointer',
+          userSelect: 'none',
+        }}
+      >
+        {coverFile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ui-text)' }}>{coverFile.name}</span>
+            {coverPath && (
+              <span style={{ fontSize: 10, color: 'var(--ui-text2)', fontFamily: "'Space Mono', monospace", wordBreak: 'break-all' }}>
+                {coverPath}
+              </span>
+            )}
+            {coverSizeBytes > 0 && (
+              <span style={{ fontSize: 11, color: 'var(--ui-text2)' }}>
+                {(coverSizeBytes / 1024).toFixed(1)} KB
+              </span>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setCoverFile(null, null); setCoverScore(null) }}
+              style={{ fontSize: 11, color: 'var(--ui-accent)', background: 'transparent', border: 'none', cursor: 'pointer', marginTop: 4 }}
+            >
+              Remove
+            </button>
+          </div>
+        ) : (
+          <>
+            <Lock size={32} strokeWidth={1.5} style={{ color: 'var(--ui-accent)', margin: '0 auto 0.5rem', display: 'block' }} />
+            <p style={{ color: 'var(--ui-text)', fontSize: 14, fontWeight: 500 }}>Click to select cover file</p>
+            <p style={{ color: 'var(--ui-text2)', fontSize: 12, marginTop: 4 }}>PNG, BMP, JPEG, WebP, WAV</p>
+          </>
+        )}
+      </div>
 
-      {/* JPEG info */}
-      {isJpeg && (
-        <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: 'color-mix(in srgb, var(--ui-accent) 10%, var(--ui-surface))', border: '1px solid color-mix(in srgb, var(--ui-accent) 25%, transparent)' }}>
-          <p style={{ fontSize: 12, color: 'var(--ui-text2)' }}>
-            Data will be embedded in the JPEG's compression layer. Output stays a JPEG — quality is unchanged.
-          </p>
-        </div>
-      )}
+      {/* Format recommendation */}
+      {coverFile && (() => {
+        const ext = coverFile.name.split('.').pop()?.toLowerCase() ?? ''
+        if (ext === 'jpg' || ext === 'jpeg') return (
+          <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: 'color-mix(in srgb, var(--ui-accent) 10%, var(--ui-surface))', border: '1px solid color-mix(in srgb, var(--ui-accent) 25%, transparent)' }}>
+            <p style={{ fontSize: 12, color: 'var(--ui-text2)' }}>
+              JPEG uses DCT coefficient embedding. For maximum capacity, PNG is recommended.
+            </p>
+          </div>
+        )
+        if (ext === 'bmp') return (
+          <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: 'color-mix(in srgb, var(--ui-success) 10%, var(--ui-surface))', border: '1px solid color-mix(in srgb, var(--ui-success) 25%, transparent)' }}>
+            <p style={{ fontSize: 12, color: 'var(--ui-text2)' }}>
+              BMP is lossless — excellent for embedding. PNG offers similar quality with smaller file size.
+            </p>
+          </div>
+        )
+        if (ext === 'png') return (
+          <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: 'color-mix(in srgb, var(--ui-success) 10%, var(--ui-surface))', border: '1px solid color-mix(in srgb, var(--ui-success) 25%, transparent)' }}>
+            <p style={{ fontSize: 12, color: 'var(--ui-text2)' }}>
+              PNG — best format for steganography. Lossless, high capacity.
+            </p>
+          </div>
+        )
+        if (ext === 'wav') return (
+          <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: 'color-mix(in srgb, var(--ui-accent) 10%, var(--ui-surface))', border: '1px solid color-mix(in srgb, var(--ui-accent) 25%, transparent)' }}>
+            <p style={{ fontSize: 12, color: 'var(--ui-text2)' }}>
+              WAV audio embedding. Will not survive conversion to MP3 or other lossy formats.
+            </p>
+          </div>
+        )
+        return null
+      })()}
 
       {/* Score */}
       {coverFile && (
@@ -173,9 +300,9 @@ function Step2() {
             </button>
           )}
           <ScoreCard score={coverScore} loading={coverScoring} />
-          {coverScore !== null && (
+          {coverScore !== null && (coverSizeBytes || coverFile.size) > 0 && (
             <span style={{ fontSize: 12, color: 'var(--ui-text2)' }}>
-              ~{Math.round(coverScore * (coverFile.size / 1024) * 0.1)} KB capacity
+              ~{Math.round(coverScore * ((coverSizeBytes || coverFile.size) / 1024) * 0.1)} KB capacity
             </span>
           )}
         </div>
@@ -186,7 +313,7 @@ function Step2() {
 
 // ── Step 3: Options ───────────────────────────────────────────────────────
 
-function CipherPill({ cipher, selected, onSelect }: { cipher: Cipher; selected: boolean; onSelect: () => void }) {
+const CipherPill = memo(function CipherPill({ cipher, selected, onSelect }: { cipher: Cipher; selected: boolean; onSelect: () => void }) {
   const info = CIPHER_INFO[cipher]
   return (
     <button
@@ -208,10 +335,60 @@ function CipherPill({ cipher, selected, onSelect }: { cipher: Cipher; selected: 
       {info.label}
     </button>
   )
-}
+})
+
+const CapacityBar = memo(function CapacityBar({ label, usedKB, capacityKB }: { label: string; usedKB: number; capacityKB: number }) {
+  const pct = capacityKB > 0 ? Math.min(100, Math.round((usedKB / capacityKB) * 100)) : 100
+  const color = pct < 70 ? 'var(--ui-success)' : pct < 90 ? 'var(--ui-warn)' : 'var(--ui-danger)'
+  const fmtKB = (v: number) => v > 0 && v < 1 ? v.toFixed(1) : String(Math.round(v))
+  return (
+    <div style={{ marginBottom: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 3 }}>
+        <span style={{ color: 'var(--ui-text2)' }}>{label}</span>
+        <span style={{ color, fontFamily: "'Space Mono', monospace" }}>
+          {fmtKB(usedKB)} / {fmtKB(capacityKB)} KB{usedKB > capacityKB ? ' — too large' : ''}
+        </span>
+      </div>
+      <div style={{ height: 3, borderRadius: 2, background: 'var(--ui-border)', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${pct}%`, borderRadius: 2, background: color, transition: 'width var(--sc-t-base)' }} />
+      </div>
+    </div>
+  )
+})
+
+const CapacityIndicator = memo(function CapacityIndicator({ coverSizeKB, coverScore, payloadSizeKB, decoySizeKB, deniable, mode }: {
+  coverSizeKB: number; coverScore: number; payloadSizeKB: number; decoySizeKB: number; deniable: boolean; mode: string
+}) {
+  // Sequential mode has ~30% more capacity than adaptive
+  const modeMultiplier = mode === 'sequential' ? 1.3 : 1.0
+  const totalCapacityKB = Math.round(coverScore * coverSizeKB * 0.1 * modeMultiplier)
+  const halfCapacity = Math.floor(totalCapacityKB / 2)
+
+  return (
+    <div style={{
+      padding: '10px 14px',
+      background: 'var(--ui-surface)',
+      border: '1px solid var(--ui-border)',
+      borderRadius: 8,
+      marginBottom: '1.25rem',
+    }}>
+      {deniable ? (
+        <>
+          <CapacityBar label="Real payload" usedKB={payloadSizeKB} capacityKB={halfCapacity} />
+          <CapacityBar label="Decoy payload" usedKB={decoySizeKB} capacityKB={halfCapacity} />
+          <p style={{ fontSize: 10, color: 'var(--ui-text2)', marginTop: 2 }}>
+            Total: ~{totalCapacityKB} KB · Each half: ~{halfCapacity} KB
+          </p>
+        </>
+      ) : (
+        <CapacityBar label="Capacity" usedKB={payloadSizeKB} capacityKB={totalCapacityKB} />
+      )}
+    </div>
+  )
+})
 
 function Step3() {
-  const { cipher, mode, deniable, decoyFile, passphrase, decoyPassphrase, exportKey, setOptions, setStep } = useEmbedStore()
+  const { cipher, mode, deniable, decoyFile, passphrase, decoyPassphrase, exportKey, coverScore, coverFile, coverSizeBytes, payloadFile, payloadSizeBytes, setOptions, setStep } = useEmbedStore()
   const { settings } = useSettingsStore()
   const [showPass, setShowPass] = useState(false)
   const [showDecoyPass, setShowDecoyPass] = useState(false)
@@ -268,8 +445,8 @@ function Step3() {
                   {m === 'adaptive' ? 'Adaptive' : 'Standard'}
                 </span>
                 {m === 'adaptive' && (
-                  <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 10, background: 'color-mix(in srgb, var(--ui-accent) 15%, transparent)', color: 'var(--ui-accent)', letterSpacing: '0.05em' }}>
-                    SECURE
+                  <span style={{ fontSize: 9, fontWeight: 500, fontFamily: "'Space Mono', monospace", color: 'var(--ui-success)', marginTop: 3 }}>
+                    Recommended
                   </span>
                 )}
               </div>
@@ -306,6 +483,18 @@ function Step3() {
           </div>
         )}
       </div>
+
+      {/* Capacity estimate */}
+      {coverScore !== null && coverFile && payloadFile && (
+        <CapacityIndicator
+          coverSizeKB={(coverSizeBytes || coverFile.size) / 1024}
+          coverScore={coverScore}
+          payloadSizeKB={(payloadSizeBytes || payloadFile.size) / 1024}
+          decoySizeKB={deniable && decoyFile ? decoyFile.size / 1024 : 0}
+          deniable={deniable}
+          mode={mode}
+        />
+      )}
 
       {/* Passphrase */}
       <div style={{ marginBottom: '1rem' }}>
@@ -368,15 +557,30 @@ function PassField({ value, show, onToggle, onChange }: { value: string; show: b
 // ── Step 4: Embed ─────────────────────────────────────────────────────────
 
 function Step4() {
-  const { payloadFile, coverFile, coverPreviewUrl, cipher, mode, deniable, decoyFile, passphrase, decoyPassphrase, exportKey, result, error, embedding, setResult, setError, setEmbedding, setStep } = useEmbedStore()
+  const { payloadFile, payloadPath, coverFile, coverPath, cipher, mode, deniable, decoyFile, decoyPath, passphrase, decoyPassphrase, exportKey, result, error, embedding, setResult, setError, setEmbedding, setStep } = useEmbedStore()
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
+  const [diff, setDiff] = useState<PixelDiffResult | null>(null)
+  const [diffLoading, setDiffLoading] = useState(false)
 
-  useFooter({
+  // Auto-run pixel diff when embed succeeds
+  useEffect(() => {
+    if (result && coverPath && result.outputPath) {
+      setDiffLoading(true)
+      pixelDiff(coverPath, result.outputPath)
+        .then(setDiff)
+        .catch(() => {})
+        .finally(() => setDiffLoading(false))
+    }
+  }, [result, coverPath])
+
+  useFooter(result ? {
+    // Success: Home button on the RIGHT (continue position), primary style, nothing on left
+    continueLabel: 'Home',
+    continueAction: () => navigate('/'),
+  } : {
     backLabel: 'Options',
     backAction: embedding ? null : () => setStep(3),
-    continueLabel: result ? 'Done' : undefined,
-    continueAction: result ? () => navigate('/') : null,
     steps: EMBED_STEPS,
     currentStep: 4,
   })
@@ -386,30 +590,49 @@ function Step4() {
     setEmbedding(true)
     setError(null)
     try {
+      const coverArg = coverPath ?? coverFile.name
+      const payloadArg = payloadPath ?? payloadFile.name
+      // Auto-generate output path from cover
+      const coverStem = coverArg.replace(/\.[^.]+$/, '')
+      const coverExt = coverArg.split('.').pop() ?? 'png'
+      const outputArg = `${coverStem}_stego.${coverExt}`
+
       const res = await ipcEmbed({
-        cover: coverPreviewUrl ?? coverFile.name,
-        payload: payloadFile.name,
+        cover: coverArg,
+        payload: payloadArg,
         passphrase,
         cipher,
         mode,
         deniable,
-        decoyPayload: deniable ? (decoyFile?.name ?? undefined) : undefined,
+        decoyPayload: deniable ? (decoyPath ?? decoyFile?.name ?? undefined) : undefined,
         decoyPassphrase: deniable ? decoyPassphrase : undefined,
         exportKey,
-        output: '',
+        output: outputArg,
       })
       setResult(res)
+      toast.success('Embedded successfully')
+      playSuccess()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')
+      const msg = e instanceof Error ? e.message : 'Something went wrong. Please try again.'
+      setError(msg)
+      toast.error('Embedding failed', msg)
     }
   }, [payloadFile, coverFile, coverPreviewUrl, passphrase, cipher, mode, deniable, decoyFile, decoyPassphrase, exportKey, setEmbedding, setError, setResult])
+
+  const { settings } = useSettingsStore()
 
   const handleCopy = useCallback(() => {
     if (!result?.outputPath) return
     navigator.clipboard.writeText(result.outputPath)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }, [result])
+    // Auto-clear clipboard after configured timeout
+    if (settings.clearClipboardSecs > 0) {
+      setTimeout(() => {
+        navigator.clipboard.writeText('').catch(() => {})
+      }, settings.clearClipboardSecs * 1000)
+    }
+  }, [result, settings.clearClipboardSecs])
 
   return (
     <StepShell title="Review & Embed" subtitle="Check your selections and embed when ready." step={4} totalSteps={4}>
@@ -490,13 +713,22 @@ function Step4() {
       {/* Success state */}
       {result && (
         <div style={{ padding: '1.25rem', borderRadius: 10, background: 'color-mix(in srgb, var(--ui-success) 10%, var(--ui-surface))', border: '1px solid color-mix(in srgb, var(--ui-success) 30%, transparent)' }}>
-          <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--ui-success)', marginBottom: 8 }}>Hidden successfully</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <SuccessCheck size={28} />
+            <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--ui-success)' }}>Hidden successfully</p>
+          </div>
           <p style={{ fontSize: 12, color: 'var(--ui-text2)', fontFamily: "'Space Mono', monospace", wordBreak: 'break-all', marginBottom: 12 }}>
             {result.outputPath}
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
-              onClick={() => { /* Tauri: open folder */ }}
+              onClick={async () => {
+                try {
+                  const { open } = await import('@tauri-apps/plugin-shell')
+                  const dir = result.outputPath.replace(/[/\\][^/\\]*$/, '')
+                  await open(dir)
+                } catch { /* WSL or dev — no file manager */ }
+              }}
               style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--ui-text)', background: 'var(--ui-surface)', border: '1px solid var(--ui-border)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}
             >
               <FolderOpen size={14} /> Open folder
@@ -508,6 +740,36 @@ function Step4() {
               <Copy size={14} /> {copied ? 'Copied!' : 'Copy path'}
             </button>
           </div>
+
+          {/* Pixel diff — auto-computed after embed */}
+          {diffLoading && (
+            <div className="sc-skeleton" style={{ height: 48, marginTop: 12 }} />
+          )}
+          {diff && (
+            <div style={{
+              marginTop: 12, padding: '10px 14px', borderRadius: 8,
+              background: 'var(--ui-surface)', border: '1px solid var(--ui-border)',
+            }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--ui-text2)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                Before / After
+              </p>
+              <div style={{ display: 'flex', gap: 16, fontSize: 12 }}>
+                <div>
+                  <span style={{ color: 'var(--ui-text2)' }}>Changed: </span>
+                  <span style={{ color: diff.percentChanged < 1 ? 'var(--ui-success)' : 'var(--ui-warn)', fontWeight: 500, fontFamily: "'Space Mono', monospace" }}>
+                    {diff.changedPixels.toLocaleString()} px ({diff.percentChanged.toFixed(2)}%)
+                  </span>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--ui-text2)' }}>Max Δ: </span>
+                  <span style={{ fontFamily: "'Space Mono', monospace", color: 'var(--ui-text)' }}>{diff.maxDelta}</span>
+                </div>
+                <div style={{ color: diff.lsbOnly ? 'var(--ui-success)' : 'var(--ui-warn)', fontWeight: 500 }}>
+                  {diff.lsbOnly ? '✓ LSB-only — visually identical' : '⚠ Changes exceed LSB'}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

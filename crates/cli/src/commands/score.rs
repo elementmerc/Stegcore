@@ -18,10 +18,10 @@ pub fn run(
     interrupted: Arc<std::sync::atomic::AtomicBool>,
 ) -> ! {
     if !args.file.exists() {
-        let e = stegcore_core::errors::StegError::FileNotFound(
-            args.file.display().to_string(),
-        );
-        if json { output::emit_json(&JsonOut::<()>::failure(&e.to_string()), 3); }
+        let e = stegcore_core::errors::StegError::FileNotFound(args.file.display().to_string());
+        if json {
+            output::emit_json(&JsonOut::<()>::failure(&e.to_string()), 3);
+        }
         output::die(&e, verbose);
     }
 
@@ -32,23 +32,42 @@ pub fn run(
             let pct = (score * 100.0).round() as u32;
             let label = match pct {
                 75..=100 => "Excellent",
-                50..=74  => "Good",
-                25..=49  => "Fair",
-                _        => "Poor — not recommended for embedding",
+                50..=74 => "Good",
+                25..=49 => "Fair",
+                _ => "Poor — not recommended for embedding",
             };
             spinner.success(&format!("{pct}/100 — {label}"));
             if json {
                 #[derive(serde::Serialize)]
-                struct Out { score: f64, percent: u32, label: &'static str }
-                output::emit_json(&JsonOut::success(Out { score, percent: pct, label }), 0);
+                struct Out {
+                    score: f64,
+                    percent: u32,
+                    label: &'static str,
+                }
+                output::emit_json(
+                    &JsonOut::success(Out {
+                        score,
+                        percent: pct,
+                        label,
+                    }),
+                    0,
+                );
             }
             std::process::exit(0);
         }
         Err(e) => {
             spinner.fail(&e.to_string());
-            if json { output::emit_json(&JsonOut::<()>::failure(&e.to_string()), output::exit_code(&e)); }
-            if verbose { output::print_error(&e.to_string(), Some(&format!("{e:#}"))); }
-            else { output::print_error(&e.to_string(), None); }
+            if json {
+                output::emit_json(
+                    &JsonOut::<()>::failure(&e.to_string()),
+                    output::exit_code(&e),
+                );
+            }
+            if verbose {
+                output::print_error(&e.to_string(), Some(&format!("{e:#}")));
+            } else {
+                output::print_error(&e.to_string(), None);
+            }
             std::process::exit(output::exit_code(&e));
         }
     }

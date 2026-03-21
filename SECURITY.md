@@ -1,4 +1,4 @@
-# Stegcore v2 — Security
+# Stegcore — Security
 
 What Stegcore protects against, what it doesn't, and how to use it sensibly. Worth reading before you use it for anything that actually matters.
 
@@ -38,7 +38,10 @@ Let me be real with you about relying on this software for anything high-stakes
 
 Tools like StegExpose, zsteg, and ML-based detectors (SRM, SPAM, GFR) analyse the statistical properties of pixel distributions rather than looking for visible changes. Standard LSB steganography is reliably detected by these tools. Stegcore's adaptive mode with spread spectrum significantly raises the detection threshold, but doesn't make detection impossible - particularly at high payload density on low-quality covers. If your adversary is running automated ML-based steganalysis across a large corpus of files, Stegcore provides meaningful but not absolute resistance.
 
-*Stegcore v3 (currently in the works) will include a built-in self-test that runs detectors against your own output and reports a detection risk score before you share anything.*
+Stegcore includes a built-in steganalysis suite that runs five
+detectors against any file. You can test your own output before sharing
+it. The GUI shows interactive scatter plots and heatmaps of the
+detection results.
 
 **Traffic analysis and metadata**
 
@@ -72,9 +75,13 @@ Stegcore hides data inside files. It doesn't protect the transmission of those f
 
 **Ciphers:** All three ciphers are AEAD (Authenticated Encryption with Associated Data). The ciphertext includes an authentication tag. Decryption fails with an explicit error if the ciphertext has been modified or if the wrong passphrase is used. There's no "partial decryption" that produces garbled output. Only clean success, or clean failure.
 
-**Nonces:** Generated with `os.urandom()` per operation, never reused, stored in the key file for extraction.
+**Nonces:** Generated with `rand::ChaCha8Rng` per operation, never
+reused, stored in the key file for extraction.
 
-**No passphrase storage:** The passphrase is never written to disk, logged, or included in the key file. It exists only in memory for the duration of the operation and is explicitly cleared from Python variables afterwards. Python string interning means cleared variables may still linger in memory temporarily. That's a Python-level limitation, not something specific to Stegcore.
+**No passphrase storage:** The passphrase is never written to disk,
+logged, or included in the key file. It exists only in memory for the
+duration of the operation and is explicitly cleared using `zeroize`
+after use.
 
 ---
 
@@ -110,9 +117,3 @@ In the UK (where this software was developed), steganography is not illegal. The
 ## Reporting security issues
 
 If you discover a security vulnerability in Stegcore, please report it privately rather than opening a public issue. Use the repository's security advisory system or the contact address listed in the repository. And for the love of everything on God's green earth, please don't disclose vulnerabilities publicly until they've been assessed and a fix is available.
-
----
-
-## What's in v3
-
-Stegcore v3 will include a **built-in steganalysis self-test, batch processing, and a scripting API among other things**. These directly address some of the limitations described above and are the most significant security improvements over v2.

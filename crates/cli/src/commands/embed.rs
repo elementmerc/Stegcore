@@ -10,10 +10,11 @@ use crate::prompt;
 pub struct EmbedArgs {
     /// Cover file (PNG, BMP, JPEG, WAV, WebP)
     pub cover: PathBuf,
-    /// Message file to hide
+    /// Message file to hide (use "-" for stdin)
     pub payload: PathBuf,
-    /// Output stego file path
-    pub output: PathBuf,
+    /// Output stego file path (auto-generated if omitted)
+    #[arg(short = 'o', long)]
+    pub output: Option<PathBuf>,
 
     /// Embedding mode
     #[arg(long, default_value = "adaptive", value_parser = ["adaptive", "sequential"])]
@@ -24,8 +25,10 @@ pub struct EmbedArgs {
           value_parser = ["chacha20-poly1305", "ascon-128", "aes-256-gcm"])]
     pub cipher: String,
 
-    /// Passphrase (omit to be prompted securely)
-    #[arg(long, env = "STEGCORE_PASSPHRASE")]
+    /// Passphrase (omit to be prompted securely).
+    /// WARNING: env vars are visible to child processes and may be logged in shell history.
+    /// Prefer the interactive prompt for sensitive use.
+    #[arg(long, env = "STEGCORE_PASSPHRASE", hide_env = true)]
     pub passphrase: Option<String>,
 
     /// Enable deniable dual-payload mode
@@ -51,22 +54,35 @@ pub fn run(
     json: bool,
     interrupted: Arc<std::sync::atomic::AtomicBool>,
 ) -> ! {
+    // ── Smart output naming ───────────────────────────────────────────────────
+    let output = args.output.clone().unwrap_or_else(|| {
+        let stem = args.cover.file_stem().unwrap_or_default().to_string_lossy();
+        let ext = args.cover.extension().unwrap_or_default().to_string_lossy();
+        let parent = args
+            .cover
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."));
+        parent.join(format!("{stem}_stego.{ext}"))
+    });
+
     // ── Validate inputs ───────────────────────────────────────────────────────
     if !args.cover.exists() {
-        let e = stegcore_core::errors::StegError::FileNotFound(
-            args.cover.display().to_string(),
-        );
+        let e = stegcore_core::errors::StegError::FileNotFound(args.cover.display().to_string());
         if json {
-            output::emit_json(&JsonOut::<()>::failure(&e.to_string()), output::exit_code(&e));
+            output::emit_json(
+                &JsonOut::<()>::failure(&e.to_string()),
+                output::exit_code(&e),
+            );
         }
         output::die(&e, verbose);
     }
     if !args.payload.exists() {
-        let e = stegcore_core::errors::StegError::FileNotFound(
-            args.payload.display().to_string(),
-        );
+        let e = stegcore_core::errors::StegError::FileNotFound(args.payload.display().to_string());
         if json {
-            output::emit_json(&JsonOut::<()>::failure(&e.to_string()), output::exit_code(&e));
+            output::emit_json(
+                &JsonOut::<()>::failure(&e.to_string()),
+                output::exit_code(&e),
+            );
         }
         output::die(&e, verbose);
     }
@@ -78,24 +94,37 @@ pub fn run(
             }
             Some(p) if !p.exists() => {
                 let e = stegcore_core::errors::StegError::FileNotFound(p.display().to_string());
-                if json { output::emit_json(&JsonOut::<()>::failure(&e.to_string()), 3); }
+                if json {
+                    output::emit_json(&JsonOut::<()>::failure(&e.to_string()), 3);
+                }
                 output::die(&e, verbose);
             }
             _ => {}
         }
     }
 
-    // ── Read payload ──────────────────────────────────────────────────────────
-    let payload_bytes = match std::fs::read(&args.payload) {
+    // ── Read payload (supports "-" for stdin) ──────────────────────────────────
+    let payload_read = if args.payload.as_os_str() == "-" {
+        use std::io::Read;
+        let mut buf = Vec::new();
+        std::io::stdin().read_to_end(&mut buf).map(|_| buf)
+    } else {
+        std::fs::read(&args.payload)
+    };
+    let payload_bytes = match payload_read {
         Ok(b) if b.is_empty() => {
             let e = stegcore_core::errors::StegError::EmptyPayload;
-            if json { output::emit_json(&JsonOut::<()>::failure(&e.to_string()), 1); }
+            if json {
+                output::emit_json(&JsonOut::<()>::failure(&e.to_string()), 1);
+            }
             output::die(&e, verbose);
         }
         Ok(b) => b,
         Err(e) => {
             let err = stegcore_core::errors::StegError::Io(e);
-            if json { output::emit_json(&JsonOut::<()>::failure(&err.to_string()), 3); }
+            if json {
+                output::emit_json(&JsonOut::<()>::failure(&err.to_string()), 3);
+            }
             output::die(&err, verbose);
         }
     };
@@ -103,7 +132,7 @@ pub fn run(
     // ── Passphrases ───────────────────────────────────────────────────────────
     let passphrase = match &args.passphrase {
         Some(p) => p.as_bytes().to_vec(),
-        None    => prompt::prompt_passphrase_confirmed("Passphrase", &interrupted),
+        None => prompt::prompt_passphrase_confirmed("Passphrase", &interrupted),
     };
     if passphrase.is_empty() {
         output::print_error("Passphrase cannot be empty.", None);
@@ -119,20 +148,24 @@ pub fn run(
             Ok(b) if b.is_empty() => {
                 drop(spinner);
                 let e = stegcore_core::errors::StegError::EmptyPayload;
-                if json { output::emit_json(&JsonOut::<()>::failure(&e.to_string()), 1); }
+                if json {
+                    output::emit_json(&JsonOut::<()>::failure(&e.to_string()), 1);
+                }
                 output::die(&e, verbose);
             }
             Ok(b) => b,
             Err(e) => {
                 drop(spinner);
                 let err = stegcore_core::errors::StegError::Io(e);
-                if json { output::emit_json(&JsonOut::<()>::failure(&err.to_string()), 3); }
+                if json {
+                    output::emit_json(&JsonOut::<()>::failure(&err.to_string()), 3);
+                }
                 output::die(&err, verbose);
             }
         };
         let decoy_pass = match &args.decoy_passphrase {
             Some(p) => p.as_bytes().to_vec(),
-            None    => prompt::prompt_passphrase_confirmed("Decoy passphrase", &interrupted),
+            None => prompt::prompt_passphrase_confirmed("Decoy passphrase", &interrupted),
         };
         if decoy_pass.is_empty() {
             drop(spinner);
@@ -141,28 +174,34 @@ pub fn run(
         }
 
         match steg::embed_deniable(
-            &args.cover, &payload_bytes, &decoy_bytes,
-            &passphrase, &decoy_pass, &args.cipher, &args.output,
+            &args.cover,
+            &payload_bytes,
+            &decoy_bytes,
+            &passphrase,
+            &decoy_pass,
+            &args.cipher,
+            &output,
         ) {
             Ok((real_kf, decoy_kf)) => {
                 // Write both key files alongside output.
-                let real_path  = args.output.with_extension("real.json");
-                let decoy_path = args.output.with_extension("decoy.json");
-                let _ = stegcore_core::keyfile::write_key_file(&real_path,  &real_kf);
+                let real_path = output.with_extension("real.json");
+                let decoy_path = output.with_extension("decoy.json");
+                let _ = stegcore_core::keyfile::write_key_file(&real_path, &real_kf);
                 let _ = stegcore_core::keyfile::write_key_file(&decoy_path, &decoy_kf);
-                spinner.success(&format!(
-                    "Embedded (deniable) → {}",
-                    args.output.display()
-                ));
+                spinner.success(&format!("Embedded (deniable) → {}", output.display()));
                 output::print_info(&format!("Real key file  → {}", real_path.display()));
                 output::print_info(&format!("Decoy key file → {}", decoy_path.display()));
                 if json {
                     #[derive(serde::Serialize)]
-                    struct Out { output: String, real_key: String, decoy_key: String }
+                    struct Out {
+                        output: String,
+                        real_key: String,
+                        decoy_key: String,
+                    }
                     output::emit_json(
                         &JsonOut::success(Out {
-                            output:    args.output.display().to_string(),
-                            real_key:  real_path.display().to_string(),
+                            output: output.display().to_string(),
+                            real_key: real_path.display().to_string(),
                             decoy_key: decoy_path.display().to_string(),
                         }),
                         0,
@@ -172,8 +211,17 @@ pub fn run(
             }
             Err(e) => {
                 spinner.fail(&e.to_string());
-                if json { output::emit_json(&JsonOut::<()>::failure(&e.to_string()), output::exit_code(&e)); }
-                if verbose { output::print_error(&e.to_string(), Some(&format!("{e:#}"))); } else { output::print_error(&e.to_string(), None); }
+                if json {
+                    output::emit_json(
+                        &JsonOut::<()>::failure(&e.to_string()),
+                        output::exit_code(&e),
+                    );
+                }
+                if verbose {
+                    output::print_error(&e.to_string(), Some(&format!("{e:#}")));
+                } else {
+                    output::print_error(&e.to_string(), None);
+                }
                 std::process::exit(output::exit_code(&e));
             }
         }
@@ -187,25 +235,33 @@ pub fn run(
     };
 
     match embed_fn(
-        &args.cover, &payload_bytes, &passphrase,
-        &args.cipher, &args.output, args.export_key,
+        &args.cover,
+        &payload_bytes,
+        &passphrase,
+        &args.cipher,
+        &output,
+        args.export_key,
     ) {
         Ok(kf_opt) => {
             let key_path = kf_opt.as_ref().and_then(|kf| {
-                let p = args.output.with_extension("json");
+                let p = output.with_extension("json");
                 stegcore_core::keyfile::write_key_file(&p, kf).ok()?;
                 Some(p)
             });
-            spinner.success(&format!("Embedded → {}", args.output.display()));
+            spinner.success(&format!("Embedded → {}", output.display()));
             if let Some(ref kp) = key_path {
                 output::print_info(&format!("Key file → {}", kp.display()));
             }
             if json {
                 #[derive(serde::Serialize)]
-                struct Out { output: String, #[serde(skip_serializing_if = "Option::is_none")] key_file: Option<String> }
+                struct Out {
+                    output: String,
+                    #[serde(skip_serializing_if = "Option::is_none")]
+                    key_file: Option<String>,
+                }
                 output::emit_json(
                     &JsonOut::success(Out {
-                        output: args.output.display().to_string(),
+                        output: output.display().to_string(),
                         key_file: key_path.map(|p| p.display().to_string()),
                     }),
                     0,
@@ -215,8 +271,17 @@ pub fn run(
         }
         Err(e) => {
             spinner.fail(&e.to_string());
-            if json { output::emit_json(&JsonOut::<()>::failure(&e.to_string()), output::exit_code(&e)); }
-            if verbose { output::print_error(&e.to_string(), Some(&format!("{e:#}"))); } else { output::print_error(&e.to_string(), None); }
+            if json {
+                output::emit_json(
+                    &JsonOut::<()>::failure(&e.to_string()),
+                    output::exit_code(&e),
+                );
+            }
+            if verbose {
+                output::print_error(&e.to_string(), Some(&format!("{e:#}")));
+            } else {
+                output::print_error(&e.to_string(), None);
+            }
             std::process::exit(output::exit_code(&e));
         }
     }

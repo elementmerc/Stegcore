@@ -1,8 +1,18 @@
 import { create } from 'zustand'
 import type { Cipher, EmbedMode } from '../ipc'
 
+export type FontSize = 'small' | 'default' | 'large' | 'xl'
+
+export const FONT_SIZE_PX: Record<FontSize, number> = {
+  small: 13,
+  default: 14,
+  large: 15,
+  xl: 16,
+}
+
 export interface Settings {
   theme: 'dark' | 'light' | 'system'
+  fontSize: FontSize
   reduceMotion: boolean
   defaultCipher: Cipher
   defaultMode: EmbedMode
@@ -13,12 +23,14 @@ export interface Settings {
   clearClipboardSecs: number
   sessionTimeoutMins: number
   showTechnicalErrors: boolean
-  defaultReportFormat: 'html' | 'json' | 'csv'
+  bibleVerses: boolean
+  defaultReportFormat: 'pdf' | 'html' | 'json' | 'csv'
   reportOutputFolder: string
 }
 
 const DEFAULTS: Settings = {
   theme: 'system',
+  fontSize: 'default',
   reduceMotion: false,
   defaultCipher: 'chacha20-poly1305',
   defaultMode: 'adaptive',
@@ -29,7 +41,8 @@ const DEFAULTS: Settings = {
   clearClipboardSecs: 30,
   sessionTimeoutMins: 0,
   showTechnicalErrors: false,
-  defaultReportFormat: 'html',
+  bibleVerses: false,
+  defaultReportFormat: 'pdf',
   reportOutputFolder: '',
 }
 

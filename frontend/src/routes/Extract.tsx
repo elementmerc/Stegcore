@@ -2,10 +2,13 @@ import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Unlock, Key, KeyRound, Eye, EyeOff, FileDown } from 'lucide-react'
 import { DropZone } from '../components/DropZone'
+import { SuccessCheck } from '../components/SuccessCheck'
 import { EntropyBar } from '../components/EntropyBar'
 import { useExtractStore } from '../lib/stores/extractStore'
 import { useFooter } from '../App'
-import { extract as ipcExtract } from '../lib/ipc'
+import { extract as ipcExtract, pickFiles } from '../lib/ipc'
+import { toast } from '../lib/toast'
+import { playSuccess } from '../lib/sound'
 
 const EXTRACT_STEPS = ['Stego file', 'Key file', 'Extract']
 
@@ -23,14 +26,15 @@ function StepShell({ title, subtitle, step, totalSteps, children }: {
 }) {
   const pad = (n: number) => String(n).padStart(2, '0')
   return (
-    <div style={{ padding: '48px 40px 32px' }}>
+    <div style={{ padding: '48px 40px 32px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
       <div style={{ marginBottom: '1.5rem' }}>
         <span style={{
           display: 'block',
           fontSize: 11,
           fontFamily: "'Space Mono', monospace",
           color: 'var(--ui-text2)',
-          letterSpacing: '0.1em',
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase' as const,
           marginBottom: 8,
         }}>
           {pad(step)} / {pad(totalSteps)}
@@ -163,7 +167,7 @@ function Step2() {
 // ── Step 3: Passphrase + Extract ──────────────────────────────────────────
 
 function Step3() {
-  const { stegoFile, keyFile, passphrase, result, resultText, error, extracting, setPassphrase, setResult, setError, setExtracting, setStep } = useExtractStore()
+  const { stegoFile, stegoPath, keyFile, keyFilePath, passphrase, result, resultText, error, extracting, setPassphrase, setResult, setError, setExtracting, setStep } = useExtractStore()
   const navigate = useNavigate()
   const [showPass, setShowPass] = useState(false)
 
@@ -182,14 +186,17 @@ function Step3() {
     setError(null)
     try {
       const bytes = await ipcExtract({
-        stego: stegoFile.name,
+        stego: stegoPath ?? stegoFile.name,
         passphrase,
-        keyFile: keyFile?.name,
+        keyFile: keyFilePath ?? keyFile?.name,
       })
       setResult(bytes)
+      toast.success('Extracted successfully')
+      playSuccess()
     } catch {
       // Oracle-resistant: never confirm or deny presence of hidden data
       setError('Wrong passphrase or corrupted file.')
+      toast.error('Extraction failed')
     }
   }, [stegoFile, passphrase, keyFile, setExtracting, setError, setResult])
 
@@ -290,7 +297,10 @@ function Step3() {
       {/* Success */}
       {result && (
         <div style={{ padding: '1.25rem', borderRadius: 10, background: 'color-mix(in srgb, var(--ui-success) 10%, var(--ui-surface))', border: '1px solid color-mix(in srgb, var(--ui-success) 30%, transparent)' }}>
-          <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--ui-success)', marginBottom: 10 }}>Extracted successfully</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <SuccessCheck size={28} />
+            <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--ui-success)' }}>Extracted successfully</p>
+          </div>
           {resultText !== null ? (
             <pre style={{
               fontFamily: "'Space Mono', monospace",

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, createContext, useContext } from 'react'
+import React, { useState, useCallback, useEffect, useRef, createContext, useContext } from 'react'
 import { BrowserRouter, Routes, Route, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Sun, Moon, Cog, ArrowLeft, ArrowRight } from 'lucide-react'
 import SplashDark from './components/SplashDark'
@@ -7,11 +7,15 @@ import { Settings as SettingsPanel } from './components/Settings'
 import { StepTrack } from './components/StepTrack'
 import { IconButton } from './components/IconButton'
 import { effectiveTheme, toggleTheme } from './lib/theme'
-import { useSettingsStore } from './lib/stores/settingsStore'
+import { useSettingsStore, FONT_SIZE_PX } from './lib/stores/settingsStore'
 import Home from './routes/Home'
-import Embed from './routes/Embed'
-import Extract from './routes/Extract'
-import Analyze from './routes/Analyze'
+const Embed = React.lazy(() => import('./routes/Embed'))
+const Extract = React.lazy(() => import('./routes/Extract'))
+const Analyse = React.lazy(() => import('./routes/Analyse'))
+const Learn = React.lazy(() => import('./routes/Learn'))
+import { Installer } from './components/Installer'
+import { ToastContainer } from './components/ToastContainer'
+import { KeyboardShortcuts } from './components/KeyboardShortcuts'
 
 // ── Theme observation ─────────────────────────────────────────────────────
 
@@ -39,6 +43,105 @@ export function useFooter(cfg: FooterConfig | null) {
   }, [JSON.stringify(cfg)])
 }
 
+// ── Error boundary — prevents blank screens on render crashes ─────────────
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null }
+
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', height: '100%', gap: 12, padding: 32,
+          color: 'var(--ui-text)', textAlign: 'center',
+        }}>
+          <p style={{ fontSize: 15, fontWeight: 600 }}>Something went wrong</p>
+          <p style={{ fontSize: 12, color: 'var(--ui-text2)', maxWidth: 400 }}>
+            {this.state.error.message}
+          </p>
+          <button
+            onClick={() => { this.setState({ error: null }); window.history.back() }}
+            style={{
+              marginTop: 8, padding: '8px 20px', borderRadius: 7,
+              background: 'var(--ui-accent)', color: '#fff', border: 'none',
+              fontSize: 12, fontWeight: 500, cursor: 'pointer',
+            }}
+          >
+            Go back
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+// ── Verse bar — rotating NLT Bible verse in footer ──────────────────────
+
+function VerseBar() {
+  const { settings } = useSettingsStore()
+  const [verse, setVerse] = useState<{ text: string; reference: string } | null>(null)
+
+  useEffect(() => {
+    if (!settings.bibleVerses) { setVerse(null); return }
+    let cancelled = false
+
+    const fetchVerse = () => {
+      import('./lib/ipc').then(({ getVerse }) => getVerse()).then(v => {
+        if (!cancelled) setVerse(v)
+      }).catch(() => {})
+    }
+
+    fetchVerse()
+    const interval = setInterval(fetchVerse, 600_000) // 10 minutes
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [settings.bibleVerses])
+
+  if (!verse) return <div style={{ flex: 1 }} />
+
+  return (
+    <div style={{
+      flex: 1,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      overflow: 'hidden',
+      padding: '0 12px',
+      minWidth: 0,
+    }}>
+      <span style={{
+        fontSize: 'var(--font-size-xs)',
+        fontStyle: 'italic',
+        color: 'var(--ui-text2)',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}>
+        {verse.text}
+      </span>
+      <span style={{
+        fontSize: 'var(--font-size-xs)',
+        color: 'var(--ui-text2)',
+        whiteSpace: 'nowrap',
+        flexShrink: 0,
+        fontFamily: "'Space Mono', monospace",
+        opacity: 0.7,
+      }}>
+        — {verse.reference}
+      </span>
+    </div>
+  )
+}
+
 // ── Layout ────────────────────────────────────────────────────────────────
 
 function Layout({
@@ -53,6 +156,9 @@ function Layout({
   const [footerCfg, setFooterCfg] = useState<FooterConfig | null>(null)
   const [theme, setThemeState] = useState<'dark' | 'light'>(effectiveTheme())
   const isHome = location.pathname === '/'
+  const prevPathRef = useRef(location.pathname)
+  const isBack = location.pathname === '/' || (prevPathRef.current !== '/' && location.pathname < prevPathRef.current)
+  useEffect(() => { prevPathRef.current = location.pathname }, [location.pathname])
 
   // Keep local theme state in sync with OS changes
   useEffect(() => {
@@ -126,17 +232,24 @@ function Layout({
         </header>
 
         {/* ── Content ── */}
-        <main style={{ flex: 1, overflowY: 'auto', background: 'var(--ui-bg)', position: 'relative' }}>
-          <div key={location.pathname} className="sc-enter" style={{ height: '100%' }}>
-            <Outlet />
-          </div>
+        <main style={{ flex: 1, overflow: 'hidden auto', background: 'var(--ui-bg)', position: 'relative' }}>
+          <ErrorBoundary key={location.pathname}>
+            <React.Suspense fallback={null}>
+              <div className={isBack ? 'sc-enter-back' : 'sc-enter'} style={{ height: '100%' }}>
+                <Outlet />
+              </div>
+            </React.Suspense>
+          </ErrorBoundary>
         </main>
 
-        {/* ── Footer nav — hidden on Home ── */}
-        {!isHome && (footerCfg?.backAction !== undefined || footerCfg?.continueAction !== undefined) && (
+        {/* ── Footer nav — always present to prevent layout shift ── */}
+        {/* Footer — always in DOM (prevents layout shift) */}
+        {(() => {
+          const showButtons = !isHome && (footerCfg?.backAction !== undefined || footerCfg?.continueAction !== undefined)
+          return (
           <footer style={{
             flexShrink: 0,
-            height: 64,
+            height: 52,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -144,53 +257,62 @@ function Layout({
             borderTop: '1px solid var(--ui-border)',
             background: 'var(--ui-surface)',
           }}>
-            <button
-              onClick={footerCfg?.backAction ?? undefined}
-              disabled={!footerCfg?.backAction}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                background: 'transparent',
-                border: '1px solid var(--ui-border)',
-                borderRadius: 'var(--sc-radius-btn)',
-                cursor: footerCfg?.backAction ? 'pointer' : 'default',
-                color: footerCfg?.backAction ? 'var(--ui-text)' : 'var(--ui-text2)',
-                fontSize: 13,
-                fontWeight: 500,
-                padding: '7px 16px',
-                opacity: footerCfg?.backAction ? 1 : 0.4,
-                transition: 'opacity var(--sc-t-fast)',
-              }}
-            >
-              <ArrowLeft size={14} />
-              {footerCfg?.backLabel ?? 'Back'}
-            </button>
+              <button
+                onClick={footerCfg?.backAction ?? undefined}
+                disabled={!footerCfg?.backAction}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: 'transparent',
+                  border: '1px solid var(--ui-border)',
+                  borderRadius: 'var(--sc-radius-btn)',
+                  cursor: footerCfg?.backAction ? 'pointer' : 'default',
+                  color: footerCfg?.backAction ? 'var(--ui-text)' : 'var(--ui-text2)',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  padding: '7px 16px',
+                  opacity: showButtons ? (footerCfg?.backAction ? 1 : 0.4) : 0,
+                  transition: 'opacity var(--sc-t-fast)',
+                  pointerEvents: showButtons ? 'auto' : 'none',
+                  flexShrink: 0,
+                }}
+              >
+                <ArrowLeft size={14} />
+                {footerCfg?.backLabel ?? 'Back'}
+              </button>
 
-            <button
-              onClick={footerCfg?.continueAction ?? undefined}
-              disabled={!footerCfg?.continueAction || footerCfg?.continueDisabled}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                background: 'var(--ui-accent)',
-                border: 'none',
-                borderRadius: 'var(--sc-radius-btn)',
-                cursor: footerCfg?.continueAction && !footerCfg?.continueDisabled ? 'pointer' : 'default',
-                color: '#ffffff',
-                fontSize: 14,
-                fontWeight: 500,
-                padding: '9px 22px',
-                opacity: footerCfg?.continueAction && !footerCfg?.continueDisabled ? 1 : 0.4,
-                transition: 'opacity var(--sc-t-fast)',
-              }}
-            >
-              {footerCfg?.continueLabel ?? 'Continue'}
-              <ArrowRight size={14} />
-            </button>
+              {/* Verse — fills the middle between the buttons */}
+              <VerseBar />
+
+              <button
+                className="sc-btn-primary"
+                onClick={footerCfg?.continueAction ?? undefined}
+                disabled={!footerCfg?.continueAction || footerCfg?.continueDisabled}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: 'var(--ui-accent)',
+                  border: 'none',
+                  borderRadius: 'var(--sc-radius-btn)',
+                  cursor: footerCfg?.continueAction && !footerCfg?.continueDisabled ? 'pointer' : 'default',
+                  color: '#ffffff',
+                  fontSize: 14,
+                  fontWeight: 500,
+                  padding: '9px 22px',
+                  opacity: showButtons ? (footerCfg?.continueAction && !footerCfg?.continueDisabled ? 1 : 0.4) : 0,
+                  transition: 'opacity var(--sc-t-fast)',
+                  pointerEvents: showButtons ? 'auto' : 'none',
+                  flexShrink: 0,
+                }}
+              >
+                {footerCfg?.continueLabel ?? 'Continue'}
+                <ArrowRight size={14} />
+              </button>
           </footer>
-        )}
+          )
+        })()}
       </div>
     </FooterCtx.Provider>
   )
@@ -199,18 +321,71 @@ function Layout({
 // ── App root ──────────────────────────────────────────────────────────────
 
 function App() {
+  const [firstRun, setFirstRun] = useState<boolean | null>(null) // null = checking
   const [splashDone, setSplashDone] = useState(false)
   const [splashVisible, setSplashVisible] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
-  const { load } = useSettingsStore()
+  // Global `?` key opens keyboard shortcuts overlay
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (e.key === '?' && !settingsOpen) {
+        e.preventDefault()
+        setShortcutsOpen(v => !v)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [settingsOpen])
+
+  const { load, settings } = useSettingsStore()
 
   useEffect(() => { load() }, [load])
+
+  // Sync reduce-motion attribute with setting
+  useEffect(() => {
+    document.documentElement.setAttribute('data-reduce-motion', String(settings.reduceMotion))
+  }, [settings.reduceMotion])
+
+  // Sync interface size — zoom scales all inline px values proportionally
+  useEffect(() => {
+    const px = FONT_SIZE_PX[settings.fontSize] ?? 14
+    const zoom = px / 14 // 14px is the base (zoom 1.0)
+    document.documentElement.style.setProperty('--font-size-base', `${px}px`)
+    document.documentElement.style.setProperty('--sc-ui-zoom', String(zoom))
+  }, [settings.fontSize])
+
+  // Check first-run status on mount
+  useEffect(() => {
+    import('@tauri-apps/api/core').then(({ invoke }) => {
+      invoke<boolean>('is_first_run').then(setFirstRun)
+    }).catch(() => {
+      // Browser dev mode — skip installer
+      setFirstRun(false)
+    })
+  }, [])
+
+  const handleInstallerComplete = useCallback((prefs: { theme: string; defaultCipher: string }) => {
+    // Apply preferences immediately
+    const doc = document.documentElement
+    if (prefs.theme === 'light') doc.setAttribute('data-theme', 'light')
+    else if (prefs.theme === 'dark') doc.setAttribute('data-theme', 'dark')
+    setFirstRun(false)
+  }, [])
 
   const handleSplashComplete = useCallback(() => {
     setSplashDone(true)
     setTimeout(() => setSplashVisible(false), 200)
   }, [])
+
+  // Still checking first-run status
+  if (firstRun === null) return null
+
+  // First-run: show installer instead of main app
+  if (firstRun) return <Installer onComplete={handleInstallerComplete} />
 
   return (
     <>
@@ -238,12 +413,15 @@ function App() {
             <Route index element={<Home />} />
             <Route path="embed"   element={<Embed />} />
             <Route path="extract" element={<Extract />} />
-            <Route path="analyze" element={<Analyze />} />
+            <Route path="analyse" element={<Analyse />} />
+            <Route path="learn"   element={<Learn />} />
           </Route>
         </Routes>
       </BrowserRouter>
 
       <SettingsPanel isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <ToastContainer />
+      <KeyboardShortcuts open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </>
   )
 }

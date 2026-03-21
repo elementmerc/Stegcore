@@ -31,3 +31,6 @@ tempfile = "3"
 
 # Logging
 log = "0.4"
+
+# Parallelism
+rayon = "1"

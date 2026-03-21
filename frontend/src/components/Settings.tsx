@@ -1,8 +1,15 @@
 import { useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, Palette, SlidersHorizontal, Shield, BarChart3, BookOpen, Info, type LucideIcon } from 'lucide-react'
 import { Toggle } from './Toggle'
-import { useSettingsStore } from '../lib/stores/settingsStore'
+import { useSettingsStore, FONT_SIZE_PX, type FontSize } from '../lib/stores/settingsStore'
 import type { Cipher, EmbedMode } from '../lib/ipc'
+
+const FONT_SIZE_OPTIONS: Array<{ value: FontSize; label: string }> = [
+  { value: 'small',   label: 'Small' },
+  { value: 'default', label: 'Medium' },
+  { value: 'large',   label: 'Large' },
+  { value: 'xl',      label: 'XL' },
+]
 
 interface SettingsProps {
   isOpen: boolean
@@ -15,12 +22,15 @@ const CIPHER_LABELS: Record<Cipher, string> = {
   'aes-256-gcm':        'AES-256-GCM',
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, icon: Icon, children }: { title: string; icon?: LucideIcon; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: '1.75rem' }}>
-      <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ui-text2)', marginBottom: '0.75rem' }}>
-        {title}
-      </p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: '0.75rem' }}>
+        {Icon && <Icon size={13} style={{ color: 'var(--ui-text2)', flexShrink: 0 }} />}
+        <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ui-text2)', margin: 0 }}>
+          {title}
+        </p>
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {children}
       </div>
@@ -56,12 +66,19 @@ function Select<T extends string>({
         borderRadius: 'var(--sc-radius-input)',
         color: 'var(--ui-text)',
         fontSize: 13,
+        fontWeight: 500,
         padding: '4px 8px',
         cursor: 'pointer',
+        WebkitAppearance: 'none',
+        appearance: 'none' as const,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'right 6px center',
+        paddingRight: 24,
       }}
     >
       {options.map((o) => (
-        <option key={o.value} value={o.value}>{o.label}</option>
+        <option key={o.value} value={o.value} style={{ color: 'var(--ui-text)', background: 'var(--ui-surface)' }}>{o.label}</option>
       ))}
     </select>
   )
@@ -151,7 +168,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
         {/* Body */}
         <div style={{ padding: '1.25rem', flex: 1 }}>
 
-          <Section title="Appearance">
+          <Section title="Appearance" icon={Palette}>
             <Row label="Theme">
               <Select
                 value={settings.theme}
@@ -163,6 +180,50 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 ]}
               />
             </Row>
+            {/* Font size — segmented buttons */}
+            <div>
+              <span style={{ fontSize: 13, color: 'var(--ui-text)', display: 'block', marginBottom: 8 }}>Interface size</span>
+              <div style={{
+                display: 'flex',
+                background: 'var(--ui-border)',
+                borderRadius: 8,
+                padding: 3,
+                gap: 0,
+              }}>
+                {FONT_SIZE_OPTIONS.map((opt) => {
+                  const active = settings.fontSize === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => update({ fontSize: opt.value })}
+                      style={{
+                        flex: 1,
+                        padding: '6px 4px',
+                        border: 'none',
+                        borderRadius: 6,
+                        background: active ? 'var(--ui-accent)' : 'transparent',
+                        color: active ? '#ffffff' : 'var(--ui-text2)',
+                        fontSize: 12,
+                        fontWeight: active ? 600 : 400,
+                        cursor: 'pointer',
+                        transition: 'background 0.15s, color 0.15s',
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <p style={{
+                fontSize: FONT_SIZE_PX[settings.fontSize],
+                color: 'var(--ui-text2)',
+                marginTop: 8,
+                transition: 'font-size 150ms ease-out',
+                lineHeight: 1.5,
+              }}>
+                The quick brown fox jumps over the lazy dog
+              </p>
+            </div>
             <Toggle
               checked={settings.reduceMotion}
               onChange={(v) => update({ reduceMotion: v })}
@@ -171,7 +232,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             />
           </Section>
 
-          <Section title="Embedding Defaults">
+          <Section title="Embedding Defaults" icon={SlidersHorizontal}>
             <Row label="Default cipher">
               <Select<Cipher>
                 value={settings.defaultCipher}
@@ -203,7 +264,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             />
           </Section>
 
-          <Section title="Security">
+          <Section title="Security" icon={Shield}>
             <Row label="Min passphrase length">
               <NumberInput value={settings.passphraseMinLen} onChange={(v) => update({ passphraseMinLen: v })} min={1} max={64} />
             </Row>
@@ -221,12 +282,13 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             />
           </Section>
 
-          <Section title="Analysis Defaults">
+          <Section title="Analysis Defaults" icon={BarChart3}>
             <Row label="Report format">
               <Select
                 value={settings.defaultReportFormat}
                 onChange={(v) => update({ defaultReportFormat: v })}
                 options={[
+                  { value: 'pdf',  label: 'PDF' },
                   { value: 'html', label: 'HTML' },
                   { value: 'json', label: 'JSON' },
                   { value: 'csv',  label: 'CSV' },
@@ -235,7 +297,16 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             </Row>
           </Section>
 
-          <Section title="About">
+          <Section title="Inspiration" icon={BookOpen}>
+            <Toggle
+              checked={settings.bibleVerses}
+              onChange={(v) => update({ bibleVerses: v })}
+              label="Bible verses"
+              description="Show a rotating NLT verse in the footer. Cycles every 10 minutes."
+            />
+          </Section>
+
+          <Section title="About" icon={Info}>
             <div style={{ fontSize: 13, color: 'var(--ui-text2)', lineHeight: 1.7 }}>
               <p><strong style={{ color: 'var(--ui-text)' }}>Stegcore</strong> v3.0.0-dev</p>
               <p>Licence: AGPL-3.0</p>

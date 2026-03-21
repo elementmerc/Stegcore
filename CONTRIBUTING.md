@@ -2,46 +2,92 @@
 
 ## Dev environment
 
-```bash
-python -m venv stegcore_venv
-source stegcore_venv/bin/activate      # Linux / macOS
-stegcore_venv\Scripts\activate         # Windows
-
-pip install -r requirements.txt
-```
-
-## Running the project
+**Prerequisites:** Rust 1.70+, Node.js 20+ (24 recommended), npm.
 
 ```bash
-python main.py           # GUI
-python cli.py wizard     # CLI wizard
+git clone https://github.com/elementmerc/Stegcore.git
+cd Stegcore
+
+# Install frontend dependencies
+cd frontend && npm install && cd ..
+
+# Run in development mode (GUI + hot reload)
+cargo tauri dev
+
+# Or build release binaries
+cargo build --release
 ```
+
+**Linux dependencies:**
+```bash
+sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev \
+  libayatana-appindicator3-dev librsvg2-dev libglib2.0-dev
+```
+
+**Node.js version (this machine):**
+```bash
+export NVM_DIR="$HOME/.nvm" && source "$NVM_DIR/nvm.sh" && nvm use 24
+```
+
+---
+
+## Project structure
+
+```
+Cargo.toml              — workspace root
+crates/core/            — public library (errors, wrappers, keyfile, utils)
+crates/cli/             — CLI binary (clap v4)
+src-tauri/              — Tauri v2 app shell + IPC commands
+frontend/               — React + TypeScript + Vite + Tailwind
+libstegcore/            — private engine (not in this repo)
+```
+
+---
 
 ## Code style
 
-- PEP 8, 100-character line limit
-- Every `.py` file — including empty package markers (`__init__.py`) — must open with the AGPL-3.0 header block:
+**Rust:**
+- `cargo fmt --all` before every commit
+- `cargo clippy --workspace -- -D warnings` must pass
 
-```python
-# Copyright (C) 2026 Daniel Iwugo
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Affero General Public License as published
-# by the Free Software Foundation, either version 3 of the License.
-# See <https://www.gnu.org/licenses/> for details.
+**TypeScript:**
+- `npx tsc --noEmit` from `frontend/` must pass
+- Inline styles using `--ui-*` / `--sc-*` CSS variables
+- CSS hover classes (not inline JS style mutations)
+- `React.memo()` for heavy sub-components
+
+---
+
+## Architecture rules
+
+- **No modals.** Toasts only for notifications.
+- **Two repos:** `stegcore` (public, AGPL) + `libstegcore` (private).
+  Do not suggest merging them.
+- **All Tauri commands** must be `async` with `spawn_blocking` for
+  CPU-heavy work to prevent UI freezes.
+
+---
+
+## Testing
+
+```bash
+# Run all tests
+cargo test --workspace
+
+# With engine (if libstegcore is available)
+cargo test --workspace --features engine
+
+# TypeScript type check
+cd frontend && npx tsc --noEmit
+
+# Format check
+cargo fmt --all --check
 ```
 
-The CI licence-check job will fail the build if any tracked `.py` file is missing this header.
+---
 
-## Submitting a pull request
+## Pull requests
 
-1. Fork the repo and branch off `dev`
-2. Keep each PR to one logical change
-3. Describe what changed and why in the PR body
-4. Open the PR against `dev`, not `main`
-
-## Branch conventions
-
-| Branch | Purpose |
-|--------|---------|
-| `main` | Stable releases only — do not PR directly to `main` |
-| `dev`  | Integration branch — target all PRs here |
+- One logical change per PR
+- Include a description of what changed and why
+- Ensure all checks pass (`clippy`, `fmt`, `tsc`)

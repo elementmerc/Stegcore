@@ -18,12 +18,8 @@ pub fn run(interrupted: Arc<AtomicBool>) -> ! {
 
     eprintln!();
     output::print_info("Welcome to the Stegcore wizard.");
-    output::print_info(
-        "This guided mode walks you through hiding or retrieving a message.",
-    );
-    output::print_info(
-        "At any point press Ctrl-C to cancel without saving anything.",
-    );
+    output::print_info("This guided mode walks you through hiding or retrieving a message.");
+    output::print_info("At any point press Ctrl-C to cancel without saving anything.");
     eprintln!();
 
     let choice = prompt::read_menu(
@@ -37,12 +33,12 @@ pub fn run(interrupted: Arc<AtomicBool>) -> ! {
     match choice {
         Some(0) => run_embed(interrupted),
         Some(1) => run_extract(interrupted),
-        None    => {
+        None => {
             eprintln!();
             output::print_warn("Cancelled.");
             std::process::exit(130);
         }
-        _      => unreachable!(),
+        _ => unreachable!(),
     }
 }
 
@@ -58,11 +54,7 @@ fn run_embed(interrupted: Arc<AtomicBool>) -> ! {
     output::print_info(
         "Select the file whose contents you want to hide. Any file type is accepted.",
     );
-    let payload = pick_existing_file(
-        "Message file",
-        &[("All files", &["*"])],
-        &interrupted,
-    );
+    let payload = pick_existing_file("Message file", &[("All files", &["*"])], &interrupted);
 
     // Validate: not empty.
     let meta = match std::fs::metadata(&payload) {
@@ -89,9 +81,7 @@ fn run_embed(interrupted: Arc<AtomicBool>) -> ! {
     eprintln!();
     check_interrupt(&interrupted);
     output::print_info("Step 2 of 7 — Cover file");
-    output::print_info(
-        "Select the image or audio file that will carry the hidden message.",
-    );
+    output::print_info("Select the image or audio file that will carry the hidden message.");
     output::print_info(
         "Supported formats: PNG, BMP, JPEG, WAV, WebP. \
          Use photos with varied texture for best concealment.",
@@ -100,7 +90,7 @@ fn run_embed(interrupted: Arc<AtomicBool>) -> ! {
         "Cover file",
         &[
             ("Images", &["png", "bmp", "jpg", "jpeg", "webp"]),
-            ("Audio",  &["wav"]),
+            ("Audio", &["wav"]),
         ],
         &interrupted,
     );
@@ -112,14 +102,17 @@ fn run_embed(interrupted: Arc<AtomicBool>) -> ! {
     output::print_info("Step 3 of 7 — Cover quality");
     let spinner = Spinner::new("Scoring cover file…", Arc::clone(&interrupted));
     let score = match steg::assess(&cover) {
-        Ok(s) => { spinner.success("Cover scored"); s }
+        Ok(s) => {
+            spinner.success("Cover scored");
+            s
+        }
         Err(e) => {
             spinner.fail(&e.to_string());
             output::print_error(&e.to_string(), None);
             std::process::exit(output::exit_code(&e));
         }
     };
-    let pct   = (score * 100.0).round() as u32;
+    let pct = (score * 100.0).round() as u32;
     let label = cover_label(pct);
     output::print_info(&format!("Score: {pct}/100 — {label}"));
 
@@ -141,9 +134,7 @@ fn run_embed(interrupted: Arc<AtomicBool>) -> ! {
     eprintln!();
     check_interrupt(&interrupted);
     output::print_info("Step 4 of 7 — Encryption cipher");
-    output::print_info(
-        "Choose the cipher used to encrypt your message before hiding it.",
-    );
+    output::print_info("Choose the cipher used to encrypt your message before hiding it.");
     let cipher_idx = prompt::read_menu(
         "Cipher",
         &[
@@ -167,9 +158,7 @@ fn run_embed(interrupted: Arc<AtomicBool>) -> ! {
     eprintln!();
     check_interrupt(&interrupted);
     output::print_info("Step 5 of 7 — Embedding mode");
-    output::print_info(
-        "Adaptive mode offers higher resistance to detection and is the default.",
-    );
+    output::print_info("Adaptive mode offers higher resistance to detection and is the default.");
     output::print_info(
         "Standard mode fits more data but is easier to detect with specialist tools.",
     );
@@ -182,8 +171,8 @@ fn run_embed(interrupted: Arc<AtomicBool>) -> ! {
     );
     let mode = match mode_idx {
         Some(0) | None => "adaptive",
-        Some(1)        => "sequential",
-        _              => unreachable!(),
+        Some(1) => "sequential",
+        _ => unreachable!(),
     };
     if mode_idx.is_none() {
         output::print_warn("Cancelled.");
@@ -194,41 +183,26 @@ fn run_embed(interrupted: Arc<AtomicBool>) -> ! {
     eprintln!();
     check_interrupt(&interrupted);
     output::print_info("Step 6 of 7 — Passphrase");
-    output::print_info(
-        "Your passphrase encrypts the message. You will need it to extract later.",
-    );
-    output::print_info(
-        "Use at least 12 characters. A mix of words, numbers, and symbols is best.",
-    );
+    output::print_info("Your passphrase encrypts the message. You will need it to extract later.");
+    output::print_info("Use at least 12 characters. A mix of words, numbers, and symbols is best.");
     let passphrase = prompt::prompt_passphrase_confirmed("Passphrase", &interrupted);
 
     // Deniable mode option.
     eprintln!();
     check_interrupt(&interrupted);
-    output::print_info(
-        "Deniable mode hides a second decoy message in the same file.",
-    );
+    output::print_info("Deniable mode hides a second decoy message in the same file.");
     output::print_info(
         "You can reveal the decoy under pressure while keeping your real message safe.",
     );
-    let deniable = prompt::read_yes_no(
-        "Enable deniable mode?",
-        Some(false),
-    ).unwrap_or(false);
+    let deniable = prompt::read_yes_no("Enable deniable mode?", Some(false)).unwrap_or(false);
 
     let (decoy_path, decoy_passphrase) = if deniable {
         check_interrupt(&interrupted);
         output::print_info("Deniable mode — decoy file");
-        let dp = pick_existing_file(
-            "Decoy message file",
-            &[("All files", &["*"])],
-            &interrupted,
-        );
+        let dp = pick_existing_file("Decoy message file", &[("All files", &["*"])], &interrupted);
         check_interrupt(&interrupted);
         output::print_info("Deniable mode — decoy passphrase");
-        output::print_info(
-            "This passphrase must be different from your real passphrase.",
-        );
+        output::print_info("This passphrase must be different from your real passphrase.");
         let dpass = prompt_decoy_passphrase(&passphrase, &interrupted);
         (Some(dp), Some(dpass))
     } else {
@@ -240,7 +214,8 @@ fn run_embed(interrupted: Arc<AtomicBool>) -> ! {
     let export_key = prompt::read_yes_no(
         "Export a key file (optional backup for out-of-band sharing)?",
         Some(false),
-    ).unwrap_or(false);
+    )
+    .unwrap_or(false);
 
     // Step 7 — output path.
     eprintln!();
@@ -319,9 +294,10 @@ fn run_embed(interrupted: Arc<AtomicBool>) -> ! {
                         .unwrap_or_default()
                         .to_string_lossy()
                         .into_owned();
-                    let parent =
-                        out_path.parent().unwrap_or_else(|| std::path::Path::new("."));
-                    write_keyfile(&real_kf,  &parent.join(format!("{stem}.real.json")));
+                    let parent = out_path
+                        .parent()
+                        .unwrap_or_else(|| std::path::Path::new("."));
+                    write_keyfile(&real_kf, &parent.join(format!("{stem}.real.json")));
                     write_keyfile(&decoy_kf, &parent.join(format!("{stem}.decoy.json")));
                 }
             }
@@ -333,9 +309,23 @@ fn run_embed(interrupted: Arc<AtomicBool>) -> ! {
         }
     } else {
         let result = if mode == "adaptive" {
-            steg::embed_adaptive(&cover, &payload_bytes, &passphrase, cipher, &out_path, export_key)
+            steg::embed_adaptive(
+                &cover,
+                &payload_bytes,
+                &passphrase,
+                cipher,
+                &out_path,
+                export_key,
+            )
         } else {
-            steg::embed_sequential(&cover, &payload_bytes, &passphrase, cipher, &out_path, export_key)
+            steg::embed_sequential(
+                &cover,
+                &payload_bytes,
+                &passphrase,
+                cipher,
+                &out_path,
+                export_key,
+            )
         };
         match result {
             Ok(maybe_kf) => {
@@ -366,14 +356,12 @@ fn run_extract(interrupted: Arc<AtomicBool>) -> ! {
     // Step 1 — stego file.
     eprintln!();
     output::print_info("Step 1 of 3 — Stego file");
-    output::print_info(
-        "Select the image or audio file that contains the hidden message.",
-    );
+    output::print_info("Select the image or audio file that contains the hidden message.");
     let stego = pick_existing_file(
         "Stego file",
         &[
             ("Images", &["png", "bmp", "jpg", "jpeg", "webp"]),
-            ("Audio",  &["wav", "flac"]),
+            ("Audio", &["wav", "flac"]),
         ],
         &interrupted,
     );
@@ -383,16 +371,9 @@ fn run_extract(interrupted: Arc<AtomicBool>) -> ! {
     eprintln!();
     check_interrupt(&interrupted);
     output::print_info("Step 2 of 3 — Key file (optional)");
-    output::print_info(
-        "Most Stegcore files do not need a key file — just your passphrase.",
-    );
-    output::print_info(
-        "Only provide a key file if you were given one separately.",
-    );
-    let wants_key = prompt::read_yes_no(
-        "Do you have a key file?",
-        Some(false),
-    ).unwrap_or(false);
+    output::print_info("Most Stegcore files do not need a key file — just your passphrase.");
+    output::print_info("Only provide a key file if you were given one separately.");
+    let wants_key = prompt::read_yes_no("Do you have a key file?", Some(false)).unwrap_or(false);
 
     let key_file = if wants_key {
         check_interrupt(&interrupted);
@@ -457,7 +438,7 @@ fn run_extract(interrupted: Arc<AtomicBool>) -> ! {
 
     let result = match key_file {
         Some(ref kf) => steg::extract_with_keyfile(&stego, kf, &passphrase),
-        None         => steg::extract(&stego, &passphrase),
+        None => steg::extract(&stego, &passphrase),
     };
 
     match result {
@@ -516,7 +497,10 @@ fn pick_existing_file(
                 );
             }
             Some(p) if !p.exists() => {
-                output::print_warn(&format!("File not found: {}. Please try again.", p.display()));
+                output::print_warn(&format!(
+                    "File not found: {}. Please try again.",
+                    p.display()
+                ));
             }
             Some(p) if p.is_dir() => {
                 output::print_warn("That is a directory, not a file. Please select a file.");
@@ -528,15 +512,11 @@ fn pick_existing_file(
 
 /// Prompt for an output file path. Accepts the default on empty input.
 /// Warns if the destination already exists.
-fn pick_output_path(
-    title: &str,
-    default: &Path,
-    interrupted: &Arc<AtomicBool>,
-) -> PathBuf {
+fn pick_output_path(title: &str, default: &Path, interrupted: &Arc<AtomicBool>) -> PathBuf {
     loop {
         check_interrupt(interrupted);
         let raw = match prompt::read_line(&format!("{title} (Enter for default)")) {
-            None    => return default.to_path_buf(),
+            None => return default.to_path_buf(),
             Some(s) => s,
         };
         let path = if raw.is_empty() {
@@ -567,10 +547,7 @@ fn pick_output_path(
 }
 
 /// Prompt for a decoy passphrase, rejecting any that match the real one.
-fn prompt_decoy_passphrase(
-    real: &[u8],
-    interrupted: &Arc<AtomicBool>,
-) -> Vec<u8> {
+fn prompt_decoy_passphrase(real: &[u8], interrupted: &Arc<AtomicBool>) -> Vec<u8> {
     loop {
         check_interrupt(interrupted);
         let dp = prompt::prompt_passphrase_confirmed("Decoy passphrase", interrupted);
@@ -594,18 +571,15 @@ fn default_output_path(cover: &Path) -> PathBuf {
 fn cover_label(pct: u32) -> &'static str {
     match pct {
         75..=100 => "Excellent",
-        50..=74  => "Good",
-        25..=49  => "Fair",
-        _        => "Poor",
+        50..=74 => "Good",
+        25..=49 => "Fair",
+        _ => "Poor",
     }
 }
 
 fn write_keyfile(kf: &stegcore_core::keyfile::KeyFile, path: &Path) {
     match stegcore_core::keyfile::write_key_file(path, kf) {
         Ok(()) => output::print_success(&format!("Key file saved → {}", path.display())),
-        Err(e) => output::print_warn(&format!(
-            "Could not save key file {}: {e}",
-            path.display()
-        )),
+        Err(e) => output::print_warn(&format!("Could not save key file {}: {e}", path.display())),
     }
 }

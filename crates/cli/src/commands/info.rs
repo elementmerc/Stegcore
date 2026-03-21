@@ -26,19 +26,17 @@ pub fn run(
     interrupted: Arc<std::sync::atomic::AtomicBool>,
 ) -> ! {
     if !args.file.exists() {
-        let e = stegcore_core::errors::StegError::FileNotFound(
-            args.file.display().to_string(),
-        );
-        if json { output::emit_json(&JsonOut::<()>::failure(&e.to_string()), 3); }
+        let e = stegcore_core::errors::StegError::FileNotFound(args.file.display().to_string());
+        if json {
+            output::emit_json(&JsonOut::<()>::failure(&e.to_string()), 3);
+        }
         output::die(&e, verbose);
     }
 
     let passphrase = match &args.passphrase {
         Some(p) => p.as_bytes().to_vec(),
-        None    => {
-            output::print_info(
-                "The passphrase is required to read embedded metadata.",
-            );
+        None => {
+            output::print_info("The passphrase is required to read embedded metadata.");
             prompt::prompt_passphrase("Passphrase", &interrupted)
         }
     };
@@ -57,22 +55,33 @@ pub fn run(
                 for (k, v) in map {
                     let val_str = match v {
                         serde_json::Value::String(s) => s.clone(),
-                        serde_json::Value::Bool(b)   => b.to_string(),
-                        serde_json::Value::Null       => "(none)".into(),
-                        other                         => other.to_string(),
+                        serde_json::Value::Bool(b) => b.to_string(),
+                        serde_json::Value::Null => "(none)".into(),
+                        other => other.to_string(),
                     };
                     output::print_info(&format!("  {k:<width$}  {val_str}"));
                 }
             } else {
-                println!("{}", serde_json::to_string_pretty(&meta).unwrap_or_default());
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&meta).unwrap_or_default()
+                );
             }
             std::process::exit(0);
         }
         Err(e) => {
             spinner.fail(&e.to_string());
-            if json { output::emit_json(&JsonOut::<()>::failure(&e.to_string()), output::exit_code(&e)); }
-            if verbose { output::print_error(&e.to_string(), Some(&format!("{e:#}"))); }
-            else { output::print_error(&e.to_string(), None); }
+            if json {
+                output::emit_json(
+                    &JsonOut::<()>::failure(&e.to_string()),
+                    output::exit_code(&e),
+                );
+            }
+            if verbose {
+                output::print_error(&e.to_string(), Some(&format!("{e:#}")));
+            } else {
+                output::print_error(&e.to_string(), None);
+            }
             std::process::exit(output::exit_code(&e));
         }
     }

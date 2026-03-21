@@ -1,165 +1,84 @@
 # Changelog
 
-All notable changes to Stegcore are documented here.
-
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [3.0.0-dev] — 2026-03-20
+
+Complete rewrite. Rust + Tauri v2 replaces Python + PyInstaller.
+
+- Full Rust engine with three AEAD ciphers + Argon2id
+- Tauri v2 desktop app (~10 MB native binary)
+- React + TypeScript frontend with step-by-step wizards
+- Built-in steganalysis suite (Chi-Squared, SPA, RS, LSB Entropy, tool fingerprinting)
+- Progressive two-phase analysis (fast preliminary + background full)
+- Interactive scatter plots, radar charts, and entropy heatmaps
+- WebP and JPEG DCT (JSteg) embedding support
+- First-run installer wizard
+- Keyboard shortcuts (E/X/A/L/R/?)
+- Interface size scaling, reduce-motion, clipboard auto-clear
+- PDF/HTML/JSON/CSV export from cached reports
+- Parallel per-test analysis (~3-4x speedup)
+- Async Tauri commands (no UI freezes)
+- Release profile: LTO + codegen-units=1
+
+Bug fixes and improvements.
 
 ---
 
 ## [2.0.12] — 2026-03-12
 
-### Security
+- Passphrase memory hardening (zeroed after use)
+- Full pytest suite (64 tests, 93.73% coverage)
+- CI test job on every push
 
-- **Passphrase memory hardening** — CLI passphrase converted to `bytearray`
-  immediately after prompt; zeroed with `buf[:] = b"\x00" * len(buf)` after
-  use. `_derive_key`, `encrypt`, `decrypt`, and `derive_key` in `core/crypto.py`
-  now accept `str | bytes | bytearray` to support this pattern.
-- **Bandit B110 fixed** — `except Exception: pass` in `core/utils.py` `asset()`
-  narrowed to `except (ImportError, ModuleNotFoundError)` with explanatory comment.
-- **Temp file security documented** — `temp_file()` docstring now explicitly states
-  `mkstemp` mode 0o600, guaranteed `finally` cleanup, and that plaintext is never
-  written to the temp file.
-- **Key file audit** — `write_key_file` docstring updated to enumerate stored fields
-  and explicitly state the passphrase and derived key are never persisted.
-- **`bandit -r core/`** reports zero findings (Undefined/Low/Medium/High all 0).
-
-### Added
-
-- **Full pytest test suite** — 64 tests across `tests/test_crypto.py`,
-  `tests/test_steg.py`, `tests/test_key_file.py`, and `tests/test_integration.py`.
-  Coverage enforced at ≥ 90% (actual: 93.73%).
-- **CI test job** — `.github/workflows/ci.yml` runs the full test suite on every
-  push and pull request to `main` (Python 3.11, ubuntu-latest).
+Bug fixes and improvements.
 
 ---
 
 ## [2.0.11] — 2026-03
 
-### Fixed
+- Asset path resolution fix for pip installs
+- Lazy imports in GUI (eliminates 3-5s startup delay)
+- CONTRIBUTING.md and CI licence check
 
-- **Asset path resolution for pip installs** — `asset()` in `core/utils.py` now uses a
-  three-tier lookup: PyInstaller `_MEIPASS` → `importlib.resources.files("assets")` →
-  source-tree fallback. `assets/__init__.py` added so setuptools packages the directory and
-  `importlib.resources` can address it. Resolves broken icon path after `pip install .`.
-- **Stale `jpegio` runtime dependency removed** — `jpegio` was listed in `pyproject.toml`
-  but is not imported anywhere; JPEG support has used the pixel-domain LSB pipeline since 2.0.6.
-
-### Changed
-
-- **Lazy imports in GUI flows** — `embed_flow.py` and `extract_flow.py` now defer
-  `from core import crypto, steg, utils` until the first flow is constructed. Same pattern
-  as the CLI lazy-import fix in 2.0.10. Eliminates the 3–5 s startup delay caused by
-  numpy and cryptography loading at import time before the window appears.
-
-### Added
-
-- **CONTRIBUTING.md** — developer contribution guide: environment setup, code style,
-  AGPL header requirement, PR process, and branch conventions.
-- **CI licence check** — `.github/workflows/licence-check.yml` verifies every tracked
-  `.py` file carries the AGPL-3.0 header. Build fails if any file is missing it.
+Bug fixes and improvements.
 
 ---
 
 ## [2.0.10] — 2026-03
 
-### Changed
+- Unified binary (CLI + GUI from single entrypoint)
+- `--onedir` distribution (no per-launch extraction overhead)
+- Lazy core imports in CLI (near-instant startup)
+- Comparison table in README
 
-- **Unified binary** — `cli.py` and `main.py` merged into a single entrypoint. `stegcore` runs the CLI; `stegcore-gui` (symlink on Linux/macOS, copy on Windows) runs the GUI. Both entry points in `pyproject.toml` now point to `main:main`, which routes by `argv[0]` name detection.
-- **`--onedir` distribution** — all platform builds switched from `--onefile` to `--onedir`. Eliminates the per-launch extraction overhead of the single-file bundle. Binaries are zipped for distribution.
-- **Lazy core imports in `cli.py`** — `core.crypto`, `core.steg`, and `core.utils` are now imported inside the functions that use them rather than at module load time. `stegcore --help`, `stegcore ciphers`, and `stegcore wizard` (before an operation is chosen) no longer load numpy, Pillow, or cryptography. CLI startup is now near-instant.
-- **Console suppression for GUI mode** — on Windows, `FreeConsole()` is called before the GUI launches; on Linux/macOS, `os.setsid()` detaches from the controlling terminal so the shell prompt returns immediately.
-
-### Documentation
-
-- **Comparison table added to README** — side-by-side feature comparison against Steghide, OpenPuff, and Invisible Secrets covering encryption, key derivation, AEAD, deniable mode, platform support, and steganalysis detectability.
+Bug fixes and improvements.
 
 ---
 
 ## [2.0.6] — 2026-02
 
-### Changed
-
-- **JPEG support restored without `jpegio`** — JPEG covers now use the same pixel-domain LSB pipeline as PNG and BMP. No additional dependencies required. The stego output is saved as PNG (JPEG recompression destroys LSBs); the output filename is auto-corrected to `.png` if needed. Users can use their `.jpg` photos directly without any prior conversion.
-
-### Removed
-
-- DCT-domain JPEG embedding (`jpegio`) dropped. `jpegio` does not install reliably on Windows and required native build tools. The pixel-domain approach is simpler, dependency-free, and produces lossless output.
+- JPEG support restored without `jpegio` (pixel-domain LSB, output as PNG)
 
 ---
 
 ## [2.0.0] — 2026-02
 
-Complete rewrite of Stegcore. Everything from the core cryptography to the
-GUI and CLI is new. There is no upgrade path from v1 and stego files produced
-by v1 cannot be extracted with v2.
+Complete rewrite of v1.
 
-### Added
-
-**Core**
-- `core/crypto.py` — encryption, decryption, Argon2id key derivation, and key file I/O
-- `core/steg.py` — multi-format steganographic embed and extract (PNG, BMP, JPEG, WAV)
-- `core/utils.py` — shared helpers (asset paths, temp files, dialog wrappers)
-- Ascon-128 cipher support (NIST lightweight standard, default)
-- ChaCha20-Poly1305 cipher support
-- AES-256-GCM cipher support
-- Argon2id key derivation (`time_cost=3`, `memory_cost=65536`, `parallelism=4`)
-- AEAD authenticated encryption on all ciphers — wrong passphrase exits cleanly with no partial output
-- Zstandard compression of payloads before encryption
-- Adaptive LSB steganography with spread spectrum (PNG/BMP)
-- Sequential LSB steganography (PNG/BMP, debugging/scripting)
-- Pixel-domain LSB embedding for JPEG covers (PNG/BMP pipeline reused; output is PNG)
-- Audio sample LSB embedding (WAV/PCM)
-- Deniable dual-payload mode — two independent encrypted payloads in one cover image, two structurally identical key files
-- Cover image scoring — entropy, texture density, resolution, 0–100 score with Excellent/Good/Fair/Poor label
-- `get_capacity()` — returns available bytes for a given cover and mode
-- Key file JSON schema with base64-encoded nonce, salt, cipher, steg mode, and deniable partition metadata
-
-**GUI**
-- `ui/app.py` — main CustomTkinter window with step-dot navigation indicator
-- `ui/embed_flow.py` — 4-step guided embed flow (source, cover, options, confirm)
-- `ui/extract_flow.py` — 3-step guided extract flow (image, key file, passphrase)
-- `ui/theme.py` — dark and light themes
-- Cover score shown inline during embed flow with colour-coded label
-- Passphrase strength hint during entry
-- Indeterminate progress bar during steg operations (runs in a background thread)
-- Success and error screens with file paths shown on completion
-- Stag.ico application icon
-
-**CLI**
-- `cli.py` — Typer application with `embed`, `extract`, `score`, `info`, `ciphers` commands
-- `wizard` command — guided interactive mode for users new to the terminal
-- Wizard embed flow: cover scoring inline, cipher picker, deniable option, passphrase strength hint, summary table, spinner during operation
-- Wizard extract flow: key metadata preview, passphrase prompt
-- Retry logic on all prompts (3 attempts before exit) with clear per-attempt messages
-- `_read_secret()` — uses `Prompt.ask(password=True)` on a real terminal; falls back to `sys.stdin.readline()` when stdin is a pipe or redirect, preventing the `/dev/tty` hang in automated test harnesses
-- `--force` flag to suppress all confirmation prompts for scripting
-- `--no-score` flag to skip cover scoring
-
-**Documentation**
-- `README.md` — project overview, quick start, format table, deniable mode, project structure
-- `USAGE.md` — full CLI reference, wizard walkthrough, cipher/mode selection, deniable mode, scripting, passphrase guidance, file management
-- `ARCHITECTURE.md` — layer overview, module responsibilities, data flow diagrams, dependency graph, design decisions
-- `SECURITY.md` — threat model, honest limitations, cryptographic decisions, deniable mode assessment, responsible use, reporting
-
----
-
-### Fixed
-
-- **`munmap_chunk(): invalid pointer` crash (Linux glibc)** — three separate root causes, all in `core/steg.py`:
-  - `ravel()`/`reshape()` on a C-contiguous array created two Python objects aliasing the same `malloc()` block; the second `free()` triggered the abort. Fixed by using `np.unravel_index` for all pixel access, writing directly into the original 3-D array.
-  - `Image.fromarray(img_array)` exposed numpy's heap allocation to PIL's `ImagingCore` C struct via the buffer protocol. PIL's encoder could reallocate that pointer in C; numpy's subsequent `free()` caused the same abort. Fixed by using `img_array.tobytes()` + `Image.frombytes()` so PIL and numpy never share an allocation.
-  - `np.array(pil_image)` — on modern Pillow, `__array_interface__` returns a raw C pointer into `ImagingCore`. If the data is already contiguous uint8, numpy skips the copy and creates a view. Fixed by `_load_img_array()`: calls `pil.tobytes()`, immediately `pil.close()` and `del pil`, then `np.frombuffer(...).copy()`. PIL's allocation is freed cleanly before numpy ever touches the data.
-
----
-
-### Changed
-
-- Copyright updated to 2026 Daniel Iwugo across all source files
-- Key file schema version bumped — v1 key files are not compatible
+- Three AEAD ciphers (Ascon-128, ChaCha20-Poly1305, AES-256-GCM)
+- Argon2id key derivation
+- Adaptive LSB steganography with spread spectrum
+- Deniable dual-payload mode
+- Cover image scoring
+- Desktop GUI (dark + light themes)
+- CLI with wizard and power modes
+- PNG, BMP, JPEG, WAV format support
 
 ---
 
 ## [1.0.0] — 2023
 
-Initial release. Basic LSB steganography, single cipher (AES-256), no GUI, no deniable mode.
+Initial release. Basic LSB, single cipher (AES-256), CLI only.

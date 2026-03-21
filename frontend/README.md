@@ -1,73 +1,42 @@
-# React + TypeScript + Vite
+# Stegcore Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite frontend for the Stegcore desktop application.
 
-Currently, two official plugins are available:
+## Setup
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Development
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Run alongside `cargo tauri dev` from the workspace root:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev    # Vite dev server on :1420
 ```
+
+## Type checking
+
+```bash
+npx tsc --noEmit
+```
+
+## Architecture
+
+- **Routes:** Home, Embed (4-step wizard), Extract (3-step), Analyse, Learn
+- **Components:** DropZone, ScoreCard, EntropyBar, Toggle, Settings,
+  Installer, ToastContainer, KeyboardShortcuts, AnalysisDetail
+- **State:** Zustand stores (embedStore, extractStore, settingsStore, dragStore)
+- **IPC:** Typed wrappers in `lib/ipc.ts` calling Tauri `invoke()`
+- **Design tokens:** `--sc-*` / `--ui-*` CSS custom properties
+- **Animations:** CSS transitions + staged SVG animations (scatter plots,
+  heatmaps, radar charts). Respect `reduce-motion` setting.
+
+## Key conventions
+
+- Inline styles using design token variables (no hardcoded hex)
+- CSS classes for hover states (no `onMouseEnter` style mutations)
+- `React.memo()` on heavy sub-components
+- Lazy route loading via `React.lazy()` + `Suspense`
+- `createPortal` for overlays that escape overflow containers

@@ -13,6 +13,8 @@ interface DropZoneProps {
   error?: string
   disabled?: boolean
   className?: string
+  /** Maximum file size in bytes. Files exceeding this are rejected. */
+  maxBytes?: number
 }
 
 function extOf(file: File): string {
@@ -31,6 +33,7 @@ export function DropZone({
   error,
   disabled = false,
   className = '',
+  maxBytes,
 }: DropZoneProps) {
   const [hovering, setHovering] = useState(false)
   const [rejected, setRejected] = useState(false)
@@ -38,9 +41,20 @@ export function DropZone({
   const inputRef = useRef<HTMLInputElement>(null)
 
   const validate = useCallback((files: File[]): File[] => {
-    const valid = files.filter((f) => accept.includes(extOf(f)))
+    const valid = files.filter((f) => {
+      if (!accept.includes(extOf(f))) return false
+      if (maxBytes && f.size > maxBytes) {
+        const sizeMB = Math.round(f.size / (1024 * 1024))
+        const maxMB = Math.round(maxBytes / (1024 * 1024))
+        setRejectMsg(`${f.name} is too large (${sizeMB} MB). Maximum: ${maxMB} MB`)
+        setRejected(true)
+        setTimeout(() => setRejected(false), 3000)
+        return false
+      }
+      return true
+    })
     return valid
-  }, [accept])
+  }, [accept, maxBytes])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()

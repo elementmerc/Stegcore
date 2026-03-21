@@ -1,0 +1,15 @@
+Package: stegcore
+Version: 3.0.0-1
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Daniel Iwugo <elementmerc@users.noreply.github.com>
+Homepage: https://github.com/elementmerc/Stegcore
+Description: Crypto-steganography toolkit
+ Stegcore combines encryption and steganography. It encrypts your
+ payload and hides the ciphertext inside ordinary image or audio files.
+ Features three AEAD ciphers (Ascon-128, ChaCha20-Poly1305, AES-256-GCM),
+ deniable dual-payload mode, built-in steganalysis suite with five
+ detectors, and both GUI and CLI interfaces.
+ .
+ Intended for journalists, activists, security researchers, and CTF players.

@@ -1,3 +1,29 @@
+// ── Native file picker — returns full filesystem paths ──────────────────
+
+export interface FilePickerOptions {
+  title?: string
+  multiple?: boolean
+  filters?: Array<{ name: string; extensions: string[] }>
+}
+
+/** Open a native file dialog via Tauri plugin-dialog. Returns full paths.
+ *  Falls back to empty array in browser dev mode. */
+export async function pickFiles(opts: FilePickerOptions = {}): Promise<string[]> {
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog')
+    const result = await open({
+      title: opts.title,
+      multiple: opts.multiple ?? false,
+      filters: opts.filters,
+    })
+    if (!result) return []
+    return Array.isArray(result) ? result : [result]
+  } catch {
+    // Browser dev mode — return mock paths
+    return opts.multiple ? ['/mock/file1.png', '/mock/file2.png'] : ['/mock/file.png']
+  }
+}
+
 // ── Safe invoke — degrades to mock when Tauri is unavailable (browser dev) ──
 
 async function safeInvoke<T>(cmd: string, args?: unknown, mock?: T): Promise<T> {
@@ -40,11 +66,24 @@ export interface ExtractOptions {
 export type TestConfidence = 'low' | 'medium' | 'high'
 export type Verdict = 'clean' | 'suspicious' | 'likely_stego'
 
+export interface DistBin {
+  label: string
+  expected: number
+  observed: number
+}
+
 export interface TestResult {
   name: string
   score: number
   confidence: TestConfidence
   detail: string
+  distribution?: DistBin[]
+}
+
+export interface BlockEntropy {
+  cols: number
+  rows: number
+  values: number[]
 }
 
 export interface AnalysisReport {
@@ -54,24 +93,32 @@ export interface AnalysisReport {
   verdict: Verdict
   overall_score: number
   tool_fingerprint: string | null
+  block_entropy?: BlockEntropy
 }
 
 // ── Typed invoke() wrappers ──────────────────────────────────────────────
 
 // ── Mock responses for dev mode ─────────────────────────────────────────
 
+const MOCK_DIST: DistBin[] = Array.from({ length: 16 }, (_, i) => ({
+  label: String(i * 16),
+  expected: 40 + Math.random() * 20,
+  observed: 38 + Math.random() * 24,
+}))
+
 const MOCK_REPORT: AnalysisReport = {
   file: '/mock/image.png',
   format: 'PNG',
   tests: [
-    { name: 'Chi-Squared', score: 0.12, confidence: 'high', detail: 'LSB histogram within expected range' },
-    { name: 'Sample Pair Analysis', score: 0.08, confidence: 'medium', detail: 'No fill ratio anomaly detected' },
-    { name: 'RS Analysis', score: 0.11, confidence: 'high', detail: 'R/S ratio ≈ 1.0 — no asymmetry' },
+    { name: 'Chi-Squared', score: 0.12, confidence: 'high', detail: 'LSB histogram within expected range', distribution: MOCK_DIST },
+    { name: 'Sample Pair Analysis', score: 0.08, confidence: 'medium', detail: 'No fill ratio anomaly detected', distribution: MOCK_DIST.map(b => ({ ...b, expected: b.expected * 0.8, observed: b.observed * 0.82 })) },
+    { name: 'RS Analysis', score: 0.11, confidence: 'high', detail: 'R/S ratio ≈ 1.0 — no asymmetry', distribution: [{ label: 'Regular', expected: 48, observed: 47 }, { label: 'Singular', expected: 48, observed: 49 }, { label: 'Unusable', expected: 4, observed: 4 }] },
     { name: 'LSB Entropy', score: 0.09, confidence: 'medium', detail: 'Entropy consistent with natural image noise' },
   ],
   verdict: 'clean',
   overall_score: 0.10,
   tool_fingerprint: null,
+  block_entropy: { cols: 8, rows: 6, values: Array.from({ length: 48 }, () => 0.3 + Math.random() * 0.4) },
 }
 
 // ── Typed invoke() wrappers ──────────────────────────────────────────────
@@ -111,15 +158,21 @@ export function extract(opts: ExtractOptions): Promise<Uint8Array> {
   }, new TextEncoder().encode('Hello from Stegcore (mock)'))
 }
 
-/** Analyze a single file for hidden content. */
-export function analyzeFile(path: string): Promise<AnalysisReport> {
-  return safeInvoke<AnalysisReport>('analyze_file', { path }, { ...MOCK_REPORT, file: path })
+/** Analyse a single file for hidden content. */
+export function analyseFile(path: string): Promise<AnalysisReport> {
+  return safeInvoke<AnalysisReport>('analyse_file', { path }, { ...MOCK_REPORT, file: path })
 }
 
-/** Analyze multiple files. */
-export function analyzeBatchFiles(paths: string[]): Promise<Array<AnalysisReport | string>> {
+/** Progressive analysis: returns fast preliminary results, full analysis runs in background.
+ *  Listen for 'analysis_complete' Tauri event for the full report. */
+export function analyseFileProgressive(path: string): Promise<AnalysisReport> {
+  return safeInvoke<AnalysisReport>('analyse_file_progressive', { path }, { ...MOCK_REPORT, file: path })
+}
+
+/** Analyse multiple files. */
+export function analyseBatchFiles(paths: string[]): Promise<Array<AnalysisReport | string>> {
   return safeInvoke<Array<AnalysisReport | string>>(
-    'analyze_batch_files',
+    'analyse_batch_files',
     { paths },
     paths.map((p) => ({ ...MOCK_REPORT, file: p })),
   )
@@ -134,6 +187,7 @@ export function exportHtmlReport(paths: string[]): Promise<string> {
 
 export interface Settings {
   theme?: 'dark' | 'light' | 'system'
+  fontSize?: 'small' | 'default' | 'large' | 'xl'
   reduceMotion?: boolean
   defaultCipher?: Cipher
   defaultMode?: EmbedMode
@@ -144,7 +198,8 @@ export interface Settings {
   clearClipboardSecs?: number
   sessionTimeoutMins?: number
   showTechnicalErrors?: boolean
-  defaultReportFormat?: 'html' | 'json' | 'csv'
+  bibleVerses?: boolean
+  defaultReportFormat?: 'pdf' | 'html' | 'json' | 'csv'
   reportOutputFolder?: string
 }
 
@@ -160,9 +215,40 @@ export function setSettings(partial: Partial<Settings>): Promise<void> {
 
 // ── Aliases for sprint naming consistency ────────────────────────────────
 
-export const analyzeBatch = analyzeBatchFiles
+export interface VerseData {
+  text: string
+  reference: string
+}
 
-export function exportReport(paths: string[], format: 'html' | 'json' | 'csv' = 'html'): Promise<string> {
-  if (format === 'html') return exportHtmlReport(paths)
-  return safeInvoke<string>('export_report', { paths, format }, `[mock ${format} report]`)
+export function getVerse(): Promise<VerseData> {
+  return safeInvoke<VerseData>('get_verse', undefined, {
+    text: 'For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.',
+    reference: 'John 3:16',
+  })
+}
+
+export interface PixelDiffResult {
+  totalPixels: number
+  changedPixels: number
+  percentChanged: number
+  maxDelta: number
+  lsbOnly: boolean
+}
+
+export function pixelDiff(original: string, stego: string): Promise<PixelDiffResult> {
+  return safeInvoke<PixelDiffResult>('pixel_diff', { original, stego }, {
+    totalPixels: 1920 * 1080, changedPixels: 12450, percentChanged: 0.6, maxDelta: 1, lsbOnly: true,
+  })
+}
+
+export function getFileSize(path: string): Promise<number> {
+  return safeInvoke<number>('file_size', { path }, 0)
+}
+
+export const analyseBatch = analyseBatchFiles
+
+export function exportReport(paths: string[], format: string = 'html'): Promise<string> {
+  if (format === 'csv') return safeInvoke<string>('export_csv_report', { paths }, 'File,Format,Verdict\nmock.png,PNG,Clean')
+  if (format === 'json') return safeInvoke<string>('export_json_report', { paths }, '[]')
+  return exportHtmlReport(paths)
 }
