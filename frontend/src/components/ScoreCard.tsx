@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Star } from 'lucide-react'
 
 interface ScoreCardProps {
@@ -15,7 +16,7 @@ function tier(score: number): ScoreTier {
   return               { label: 'Poor',       color: 'var(--ui-danger)',   showStar: false }
 }
 
-export function ScoreCard({ score, loading = false, className = '' }: ScoreCardProps) {
+export const ScoreCard = memo(function ScoreCard({ score, loading = false, className = '' }: ScoreCardProps) {
   if (loading) {
     return (
       <div
@@ -61,4 +62,4 @@ export function ScoreCard({ score, loading = false, className = '' }: ScoreCardP
       <span style={{ opacity: 0.75 }}>{pct}%</span>
     </div>
   )
-}
+})

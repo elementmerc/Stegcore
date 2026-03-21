@@ -1,6 +1,6 @@
+use crate::errors::StegError;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use crate::errors::StegError;
 
 // ── Types (mirrored from libstegcore) ─────────────────────────────────────────
 
@@ -26,6 +26,17 @@ pub struct TestResult {
     pub score: f64,
     pub confidence: Confidence,
     pub detail: String,
+    /// Distribution data for charting — varies by test type.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub distribution: Option<Vec<DistBin>>,
+}
+
+/// A single bin in a histogram or distribution chart.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DistBin {
+    pub label: String,
+    pub expected: f64,
+    pub observed: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,26 +47,49 @@ pub struct AnalysisReport {
     pub verdict: Verdict,
     pub overall_score: f64,
     pub tool_fingerprint: Option<String>,
+    /// Per-block entropy values for heatmap visualisation (row-major, 0.0–1.0).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub block_entropy: Option<BlockEntropy>,
+}
+
+/// Grid of per-block entropy values for heatmap rendering.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockEntropy {
+    pub cols: usize,
+    pub rows: usize,
+    pub values: Vec<f64>,
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /// Analyse a single file for steganographic content.
 #[cfg(engine)]
-pub fn analyze(path: &Path) -> Result<AnalysisReport, StegError> {
-    let json_str = stegcore_engine::analysis::analyze(path)
-        .map_err(StegError::from)?;
+pub fn analyse(path: &Path) -> Result<AnalysisReport, StegError> {
+    let json_str = stegcore_engine::analysis::analyse(path).map_err(StegError::from)?;
     serde_json::from_str::<AnalysisReport>(&json_str).map_err(StegError::Json)
 }
 
 #[cfg(not(engine))]
-pub fn analyze(_path: &Path) -> Result<AnalysisReport, StegError> {
+pub fn analyse(_path: &Path) -> Result<AnalysisReport, StegError> {
     Err(StegError::EngineAbsent)
 }
 
-/// Analyse multiple files.
-pub fn analyze_batch(paths: &[&Path]) -> Vec<Result<AnalysisReport, StegError>> {
-    paths.iter().map(|p| analyze(p)).collect()
+/// Fast preliminary analysis using 10% sampling.
+#[cfg(engine)]
+pub fn analyse_fast(path: &Path) -> Result<AnalysisReport, StegError> {
+    let json_str = stegcore_engine::analysis::analyse_fast(path).map_err(StegError::from)?;
+    serde_json::from_str::<AnalysisReport>(&json_str).map_err(StegError::Json)
+}
+
+#[cfg(not(engine))]
+pub fn analyse_fast(_path: &Path) -> Result<AnalysisReport, StegError> {
+    Err(StegError::EngineAbsent)
+}
+
+/// Analyse multiple files in parallel.
+pub fn analyse_batch(paths: &[&Path]) -> Vec<Result<AnalysisReport, StegError>> {
+    use rayon::prelude::*;
+    paths.par_iter().map(|p| analyse(p)).collect()
 }
 
 /// Generate a self-contained HTML report from a set of analysis results.
@@ -105,16 +139,17 @@ pub fn generate_html_report(reports: &[AnalysisReport]) -> String {
 
 fn render_report_row(r: &AnalysisReport) -> String {
     let verdict_class = match r.verdict {
-        Verdict::Clean       => "verdict-clean",
-        Verdict::Suspicious  => "verdict-suspicious",
+        Verdict::Clean => "verdict-clean",
+        Verdict::Suspicious => "verdict-suspicious",
         Verdict::LikelyStego => "verdict-stego",
     };
     let verdict_label = match r.verdict {
-        Verdict::Clean       => "✓ Clean",
-        Verdict::Suspicious  => "⚠ Suspicious",
+        Verdict::Clean => "✓ Clean",
+        Verdict::Suspicious => "⚠ Suspicious",
         Verdict::LikelyStego => "✗ Likely Stego",
     };
-    let fp = r.tool_fingerprint
+    let fp = r
+        .tool_fingerprint
         .as_deref()
         .map(|s| format!("<p class=\"fingerprint\">Signature: {}</p>", html_escape(s)))
         .unwrap_or_default();
@@ -132,12 +167,12 @@ fn render_report_row(r: &AnalysisReport) -> String {
     {test_rows}
   </table>
 </div>"#,
-        file   = html_escape(&r.file.display().to_string()),
-        fmt    = html_escape(&r.format),
-        score  = r.overall_score,
+        file = html_escape(&r.file.display().to_string()),
+        fmt = html_escape(&r.format),
+        score = r.overall_score,
         vclass = verdict_class,
         vlabel = verdict_label,
-        fp     = fp,
+        fp = fp,
         test_rows = test_rows,
     )
 }
@@ -146,15 +181,23 @@ fn render_test_row(t: &TestResult) -> String {
     let score_pct = (t.score * 100.0).round() as u32;
     let bar_colour = score_colour(t.score);
     let conf_class = match t.confidence {
-        Confidence::Low    => "conf-low",
+        Confidence::Low => "conf-low",
         Confidence::Medium => "conf-med",
-        Confidence::High   => "conf-high",
+        Confidence::High => "conf-high",
     };
     let conf_label = match t.confidence {
-        Confidence::Low    => "Low",
+        Confidence::Low => "Low",
         Confidence::Medium => "Medium",
-        Confidence::High   => "High",
+        Confidence::High => "High",
     };
+
+    // Distribution chart SVG (if data available)
+    let dist_svg = if let Some(ref bins) = t.distribution {
+        render_dist_chart(bins)
+    } else {
+        String::new()
+    };
+
     format!(
         r#"<tr>
   <td>{name}</td>
@@ -166,13 +209,65 @@ fn render_test_row(t: &TestResult) -> String {
   </td>
   <td class="{cclass}">{clabel}</td>
   <td style="color:#4a5568">{detail}</td>
-</tr>"#,
-        name   = html_escape(&t.name),
-        pct    = score_pct,
+</tr>{dist_row}"#,
+        name = html_escape(&t.name),
+        pct = score_pct,
         colour = bar_colour,
         cclass = conf_class,
         clabel = conf_label,
         detail = html_escape(&t.detail),
+        dist_row = if dist_svg.is_empty() {
+            String::new()
+        } else {
+            format!(
+                r#"<tr><td colspan="4" style="padding:8px 0">{}</td></tr>"#,
+                dist_svg
+            )
+        },
+    )
+}
+
+fn render_dist_chart(bins: &[DistBin]) -> String {
+    if bins.is_empty() {
+        return String::new();
+    }
+    let max_val = bins
+        .iter()
+        .flat_map(|b| [b.expected, b.observed])
+        .fold(1.0_f64, f64::max);
+    let n = bins.len();
+    let w = 100.0 / n as f64;
+    let bar_w = w * 0.35;
+
+    let mut bars = String::new();
+    for (i, b) in bins.iter().enumerate() {
+        let x = i as f64 * w;
+        let eh = (b.expected / max_val) * 45.0;
+        let oh = (b.observed / max_val) * 45.0;
+        let obs_colour = score_colour(b.observed / max_val);
+        bars.push_str(&format!(
+            "<rect x=\"{x1}\" y=\"{y1}\" width=\"{bw}\" height=\"{eh}\" \
+             fill=\"#2a7fff\" opacity=\"0.4\"/>\
+             <rect x=\"{x2}\" y=\"{y2}\" width=\"{bw}\" height=\"{oh}\" \
+             fill=\"{oc}\"/>",
+            x1 = x + w * 0.1,
+            y1 = 50.0 - eh,
+            bw = bar_w,
+            eh = eh,
+            x2 = x + w * 0.1 + bar_w + 1.0,
+            y2 = 50.0 - oh,
+            oh = oh,
+            oc = obs_colour,
+        ));
+    }
+
+    format!(
+        "<svg viewBox=\"0 0 100 50\" width=\"100%\" \
+         style=\"max-height:80px;display:block\" preserveAspectRatio=\"none\">\
+         {bars}\
+         <line x1=\"0\" y1=\"50\" x2=\"100\" y2=\"50\" stroke=\"#1a2535\" \
+         stroke-width=\"0.3\"/></svg>",
+        bars = bars,
     )
 }
 
@@ -188,7 +283,76 @@ fn score_colour(score: f64) -> &'static str {
 
 fn html_escape(s: &str) -> String {
     s.replace('&', "&amp;")
-     .replace('<', "&lt;")
-     .replace('>', "&gt;")
-     .replace('"', "&quot;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
+// ── CSV export ──────────────────────────────────────────────────────────────
+
+/// Generate a CSV report with test scores and distribution data.
+pub fn generate_csv_report(reports: &[AnalysisReport]) -> String {
+    let mut out = String::from(
+        "File,Format,Verdict,Overall Score,Tool Fingerprint,Test,Score,Confidence,Detail\n",
+    );
+
+    for r in reports {
+        let verdict = match r.verdict {
+            Verdict::Clean => "Clean",
+            Verdict::Suspicious => "Suspicious",
+            Verdict::LikelyStego => "Likely Stego",
+        };
+        let fp = r.tool_fingerprint.as_deref().unwrap_or("");
+
+        for t in &r.tests {
+            let conf = match t.confidence {
+                Confidence::Low => "Low",
+                Confidence::Medium => "Medium",
+                Confidence::High => "High",
+            };
+            out.push_str(&format!(
+                "\"{}\",{},{},{:.4},{},{},{:.4},{},\"{}\"\n",
+                csv_escape(&r.file.display().to_string()),
+                r.format,
+                verdict,
+                r.overall_score,
+                fp,
+                csv_escape(&t.name),
+                t.score,
+                conf,
+                csv_escape(&t.detail),
+            ));
+        }
+
+        // Distribution data as separate rows
+        for t in &r.tests {
+            if let Some(ref bins) = t.distribution {
+                out.push_str(&format!(
+                    "\n# Distribution: {} — {}\n",
+                    r.file.display(),
+                    t.name
+                ));
+                out.push_str("Bin,Expected,Observed\n");
+                for b in bins {
+                    out.push_str(&format!(
+                        "{},{:.4},{:.4}\n",
+                        csv_escape(&b.label),
+                        b.expected,
+                        b.observed,
+                    ));
+                }
+            }
+        }
+    }
+
+    out
+}
+
+fn csv_escape(s: &str) -> String {
+    s.replace('"', "\"\"")
+}
+
+/// Generate a JSON report with full data including distributions.
+pub fn generate_json_report(reports: &[AnalysisReport]) -> String {
+    serde_json::to_string_pretty(reports).unwrap_or_else(|_| "[]".into())
 }

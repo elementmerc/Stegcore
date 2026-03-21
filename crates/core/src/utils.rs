@@ -1,5 +1,5 @@
-use std::path::Path;
 use crate::errors::StegError;
+use std::path::Path;
 
 /// All supported image file extensions (lowercase).
 pub fn supported_image_extensions() -> &'static [&'static str] {
@@ -11,19 +11,21 @@ pub fn supported_audio_extensions() -> &'static [&'static str] {
     &["wav", "flac"]
 }
 
-/// All supported extensions for embedding (FLAC is analyze/extract only).
+/// All supported extensions for embedding (FLAC is analyse/extract only).
 pub fn supported_embed_extensions() -> &'static [&'static str] {
     &["png", "bmp", "jpg", "jpeg", "webp", "wav"]
 }
 
-/// All extensions accepted by the application (embed + analyze).
+/// All extensions accepted by the application (embed + analyse).
 pub fn supported_extensions() -> Vec<&'static str> {
     let mut all: Vec<&'static str> = supported_image_extensions().to_vec();
     all.extend_from_slice(supported_audio_extensions());
     all
 }
 
-/// Detect canonical format string from file extension.
+/// Detect canonical format string from file extension, then verify the
+/// file header (magic bytes) matches. Returns an error if the extension
+/// is unsupported or the header disagrees with the declared type.
 pub fn detect_format(path: &Path) -> Result<String, StegError> {
     let ext = path
         .extension()
@@ -31,18 +33,94 @@ pub fn detect_format(path: &Path) -> Result<String, StegError> {
         .map(|e| e.to_lowercase())
         .ok_or_else(|| StegError::UnsupportedFormat("(no extension)".to_string()))?;
 
-    match ext.as_str() {
-        "png" => Ok("png".to_string()),
-        "bmp" => Ok("bmp".to_string()),
-        "jpg" | "jpeg" => Ok("jpeg".to_string()),
-        "webp" => Ok("webp".to_string()),
-        "wav" => Ok("wav".to_string()),
-        "flac" => Ok("flac".to_string()),
-        other => Err(StegError::UnsupportedFormat(other.to_string())),
+    let format = match ext.as_str() {
+        "png" => "png",
+        "bmp" => "bmp",
+        "jpg" | "jpeg" => "jpeg",
+        "webp" => "webp",
+        "wav" => "wav",
+        "flac" => "flac",
+        other => return Err(StegError::UnsupportedFormat(other.to_string())),
+    };
+
+    // Verify magic bytes if the file is readable
+    if path.exists() {
+        verify_magic_bytes(path, format)?;
     }
+
+    Ok(format.to_string())
+}
+
+/// Check the first few bytes of a file against expected magic signatures.
+fn verify_magic_bytes(path: &Path, expected_format: &str) -> Result<(), StegError> {
+    use std::io::Read;
+
+    let mut f = match std::fs::File::open(path) {
+        Ok(f) => f,
+        Err(_) => return Ok(()), // can't read — let the engine handle the error
+    };
+
+    let mut header = [0u8; 12];
+    let n = f.read(&mut header).unwrap_or(0);
+    if n < 2 {
+        return Ok(()); // too short to check
+    }
+
+    let ok = match expected_format {
+        "png" => n >= 8 && header[..8] == [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A],
+        "bmp" => header[..2] == [b'B', b'M'],
+        "jpeg" => n >= 3 && header[..3] == [0xFF, 0xD8, 0xFF],
+        "wav" => n >= 12 && &header[..4] == b"RIFF" && &header[8..12] == b"WAVE",
+        "webp" => n >= 12 && &header[..4] == b"RIFF" && &header[8..12] == b"WEBP",
+        "flac" => n >= 4 && &header[..4] == b"fLaC",
+        _ => true, // unknown format — skip check
+    };
+
+    if !ok {
+        return Err(StegError::CorruptedFile);
+    }
+
+    Ok(())
+}
+
+/// Validate a file before passing it to the engine.
+/// Checks existence, size limits, and emptiness.
+/// Uses direct metadata call to avoid TOCTOU race conditions.
+pub fn validate_file(path: &Path, max_bytes: u64) -> Result<(), StegError> {
+    let meta = std::fs::metadata(path).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            StegError::FileNotFound(path.display().to_string())
+        } else {
+            StegError::Io(e)
+        }
+    })?;
+    if meta.len() == 0 {
+        return Err(StegError::EmptyPayload);
+    }
+    if meta.len() > max_bytes {
+        return Err(StegError::FileTooLarge {
+            size_mb: meta.len() / (1024 * 1024),
+            max_mb: max_bytes / (1024 * 1024),
+        });
+    }
+    Ok(())
 }
 
 /// Create a temporary file with the given suffix. Permissions: owner-only (0o600).
-pub fn temp_file(_suffix: &str) -> Result<tempfile::NamedTempFile, StegError> {
-    todo!("Session 3: implement temp_file")
+pub fn temp_file(suffix: &str) -> Result<tempfile::NamedTempFile, StegError> {
+    let file = tempfile::Builder::new()
+        .prefix("stegcore-")
+        .suffix(suffix)
+        .tempfile()
+        .map_err(StegError::Io)?;
+
+    // Set owner-only permissions on Unix
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let perms = std::fs::Permissions::from_mode(0o600);
+        std::fs::set_permissions(file.path(), perms).map_err(StegError::Io)?;
+    }
+
+    Ok(file)
 }

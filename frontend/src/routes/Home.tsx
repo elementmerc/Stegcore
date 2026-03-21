@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Lock, Unlock, ScanSearch, type LucideIcon } from 'lucide-react'
+import { Lock, Unlock, ScanSearch, BookOpen, type LucideIcon } from 'lucide-react'
 import { useDragStore } from '../lib/stores/dragStore'
 import { useEmbedStore } from '../lib/stores/embedStore'
+import { useExtractStore } from '../lib/stores/extractStore'
 
 const EMBED_EXTS = ['.png', '.bmp', '.jpg', '.jpeg', '.webp', '.wav']
 const EXTRACT_EXTS = [...EMBED_EXTS, '.flac']
@@ -29,6 +30,7 @@ interface ColumnProps {
 function Column({ Icon, title, description, shortcut, iconBg, iconColor, iconBorder, onClick, isLast }: ColumnProps) {
   return (
     <button
+      className="sc-home-col"
       onClick={onClick}
       style={{
         flex: 1,
@@ -43,29 +45,26 @@ function Column({ Icon, title, description, shortcut, iconBg, iconColor, iconBor
         borderRight: isLast ? 'none' : '1px solid var(--ui-border)',
         cursor: 'pointer',
         textAlign: 'center',
-        transition: 'background var(--sc-t-base)',
         minHeight: '100%',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'var(--ui-surface)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'transparent'
       }}
     >
       {/* Icon box */}
-      <div style={{
-        width: 64,
-        height: 64,
-        borderRadius: 16,
-        background: iconBg,
-        border: `1px solid ${iconBorder}`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 20,
-        color: iconColor,
-      }}>
+      <div
+        className="sc-home-icon"
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: 16,
+          background: iconBg,
+          border: `1px solid ${iconBorder}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 20,
+          color: iconColor,
+          transition: 'transform .18s ease',
+        }}
+      >
         <Icon size={26} strokeWidth={1.8} />
       </div>
 
@@ -115,14 +114,23 @@ function Column({ Icon, title, description, shortcut, iconBg, iconColor, iconBor
 export default function Home() {
   const navigate = useNavigate()
   const { setDragging, reset: resetDrag } = useDragStore()
-  const { setCoverFile } = useEmbedStore()
+  const { setCoverFile, reset: resetEmbed } = useEmbedStore()
+  const { reset: resetExtract } = useExtractStore()
+
+  // Clean slate — clear any state from previous operations
+  useEffect(() => {
+    resetEmbed()
+    resetExtract()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return
       if (e.key === 'e' || e.key === 'E') navigate('/embed')
       if (e.key === 'x' || e.key === 'X') navigate('/extract')
-      if (e.key === 'a' || e.key === 'A') navigate('/analyze')
+      if (e.key === 'a' || e.key === 'A') navigate('/analyse')
+      if (e.key === 'l' || e.key === 'L') navigate('/learn')
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -142,7 +150,7 @@ export default function Home() {
     } else if (EXTRACT_EXTS.includes(ext)) {
       navigate('/extract')
     } else {
-      navigate('/analyze')
+      navigate('/analyse')
     }
   }
 
@@ -181,7 +189,17 @@ export default function Home() {
         iconBg="color-mix(in srgb, #f59e0b 12%, #04080f)"
         iconColor="#fbbf24"
         iconBorder="color-mix(in srgb, #f59e0b 25%, transparent)"
-        onClick={() => navigate('/analyze')}
+        onClick={() => navigate('/analyse')}
+      />
+      <Column
+        Icon={BookOpen}
+        title="Learn"
+        description="Understand steganography, threat models, and how Stegcore works."
+        shortcut="L"
+        iconBg="color-mix(in srgb, #a855f7 12%, #04080f)"
+        iconColor="#c084fc"
+        iconBorder="color-mix(in srgb, #a855f7 25%, transparent)"
+        onClick={() => navigate('/learn')}
         isLast
       />
     </div>

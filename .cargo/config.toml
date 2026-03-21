@@ -1,0 +1,12 @@
+# ── Build acceleration ────────────────────────────────────────────────────────
+# Use sccache if available for faster incremental builds.
+# Install: cargo install sccache
+# The RUSTC_WRAPPER env var is set automatically if sccache is in PATH.
+
+[build]
+# Uncomment to use sccache:
+# rustc-wrapper = "sccache"
+
+[target.x86_64-unknown-linux-gnu]
+# Link with mold if available (faster linking)
+# rustflags = ["-C", "link-arg=-fuse-ld=mold"]

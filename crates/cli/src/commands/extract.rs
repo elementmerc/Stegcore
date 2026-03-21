@@ -15,8 +15,9 @@ pub struct ExtractArgs {
     #[arg(long)]
     pub key_file: Option<PathBuf>,
 
-    /// Passphrase (omit to be prompted securely)
-    #[arg(long, env = "STEGCORE_PASSPHRASE")]
+    /// Passphrase (omit to be prompted securely).
+    /// WARNING: env vars may be logged. Prefer the interactive prompt.
+    #[arg(long, env = "STEGCORE_PASSPHRASE", hide_env = true)]
     pub passphrase: Option<String>,
 
     /// Where to save the extracted payload (default: ./extracted.<stego-stem>)
@@ -36,16 +37,24 @@ pub fn run(
 ) -> ! {
     // ── Validate inputs ───────────────────────────────────────────────────────
     if !args.stego.exists() {
-        let e = stegcore_core::errors::StegError::FileNotFound(
-            args.stego.display().to_string(),
-        );
-        if json { output::emit_json(&JsonOut::<()>::failure(&e.to_string()), output::exit_code(&e)); }
+        let e = stegcore_core::errors::StegError::FileNotFound(args.stego.display().to_string());
+        if json {
+            output::emit_json(
+                &JsonOut::<()>::failure(&e.to_string()),
+                output::exit_code(&e),
+            );
+        }
         output::die(&e, verbose);
     }
     if let Some(kf) = &args.key_file {
         if !kf.exists() {
             let e = stegcore_core::errors::StegError::FileNotFound(kf.display().to_string());
-            if json { output::emit_json(&JsonOut::<()>::failure(&e.to_string()), output::exit_code(&e)); }
+            if json {
+                output::emit_json(
+                    &JsonOut::<()>::failure(&e.to_string()),
+                    output::exit_code(&e),
+                );
+            }
             output::die(&e, verbose);
         }
     }
@@ -53,7 +62,7 @@ pub fn run(
     // ── Passphrase ────────────────────────────────────────────────────────────
     let passphrase = match &args.passphrase {
         Some(p) => p.as_bytes().to_vec(),
-        None    => prompt::prompt_passphrase("Passphrase", &interrupted),
+        None => prompt::prompt_passphrase("Passphrase", &interrupted),
     };
 
     // ── Extract ───────────────────────────────────────────────────────────────
@@ -64,7 +73,12 @@ pub fn run(
             Ok(kf) => steg::extract_with_keyfile(&args.stego, &kf, &passphrase),
             Err(e) => {
                 drop(spinner);
-                if json { output::emit_json(&JsonOut::<()>::failure(&e.to_string()), output::exit_code(&e)); }
+                if json {
+                    output::emit_json(
+                        &JsonOut::<()>::failure(&e.to_string()),
+                        output::exit_code(&e),
+                    );
+                }
                 output::die(&e, verbose);
             }
         }
@@ -95,7 +109,9 @@ pub fn run(
                 }
                 if json {
                     #[derive(serde::Serialize)]
-                    struct Out { bytes: usize }
+                    struct Out {
+                        bytes: usize,
+                    }
                     output::emit_json(&JsonOut::success(Out { bytes: data.len() }), 0);
                 }
                 std::process::exit(0);
@@ -103,17 +119,15 @@ pub fn run(
 
             // Determine output path.
             let out_path = args.output.clone().unwrap_or_else(|| {
-                let stem = args
-                    .stego
-                    .file_stem()
-                    .unwrap_or_default()
-                    .to_string_lossy();
+                let stem = args.stego.file_stem().unwrap_or_default().to_string_lossy();
                 PathBuf::from(format!("extracted_{stem}"))
             });
 
             if let Err(e) = std::fs::write(&out_path, &data) {
                 let err = stegcore_core::errors::StegError::Io(e);
-                if json { output::emit_json(&JsonOut::<()>::failure(&err.to_string()), 3); }
+                if json {
+                    output::emit_json(&JsonOut::<()>::failure(&err.to_string()), 3);
+                }
                 output::die(&err, verbose);
             }
 
@@ -121,11 +135,14 @@ pub fn run(
 
             if json {
                 #[derive(serde::Serialize)]
-                struct Out { output: String, bytes: usize }
+                struct Out {
+                    output: String,
+                    bytes: usize,
+                }
                 output::emit_json(
                     &JsonOut::success(Out {
                         output: out_path.display().to_string(),
-                        bytes:  data.len(),
+                        bytes: data.len(),
                     }),
                     0,
                 );
@@ -135,8 +152,17 @@ pub fn run(
         // Oracle-resistant: same message for wrong passphrase and no payload.
         Err(e) => {
             spinner.fail(&e.to_string());
-            if json { output::emit_json(&JsonOut::<()>::failure(&e.to_string()), output::exit_code(&e)); }
-            if verbose { output::print_error(&e.to_string(), Some(&format!("{e:#}"))); } else { output::print_error(&e.to_string(), None); }
+            if json {
+                output::emit_json(
+                    &JsonOut::<()>::failure(&e.to_string()),
+                    output::exit_code(&e),
+                );
+            }
+            if verbose {
+                output::print_error(&e.to_string(), Some(&format!("{e:#}")));
+            } else {
+                output::print_error(&e.to_string(), None);
+            }
             std::process::exit(output::exit_code(&e));
         }
     }

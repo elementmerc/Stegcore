@@ -51,6 +51,7 @@ pub fn exit_code(e: &StegError) -> i32 {
         | StegError::EmptyPayload
         | StegError::LegacyKeyFile
         | StegError::PoorCoverQuality { .. }
+        | StegError::FileTooLarge { .. }
         | StegError::EngineAbsent => 1,
 
         StegError::DecryptionFailed | StegError::NoPayloadFound => 2,
@@ -72,6 +73,9 @@ pub fn die(e: &StegError, verbose: bool) -> ! {
         None
     };
     print_error(&e.to_string(), chain.as_deref());
+    if let Some(hint) = e.suggestion() {
+        print_info(&format!("Suggestion: {hint}"));
+    }
     std::process::exit(exit_code(e));
 }
 
@@ -142,14 +146,25 @@ pub struct JsonOut<T: Serialize> {
 
 impl<T: Serialize> JsonOut<T> {
     pub fn success(data: T) -> Self {
-        JsonOut { ok: true, data: Some(data), error: None }
+        JsonOut {
+            ok: true,
+            data: Some(data),
+            error: None,
+        }
     }
     pub fn failure(msg: &str) -> JsonOut<T> {
-        JsonOut { ok: false, data: None, error: Some(msg.to_owned()) }
+        JsonOut {
+            ok: false,
+            data: None,
+            error: Some(msg.to_owned()),
+        }
     }
 }
 
 pub fn emit_json<T: Serialize>(v: &JsonOut<T>, code: i32) -> ! {
-    println!("{}", serde_json::to_string_pretty(v).unwrap_or_else(|_| "{}".into()));
+    println!(
+        "{}",
+        serde_json::to_string_pretty(v).unwrap_or_else(|_| "{}".into())
+    );
     std::process::exit(code);
 }

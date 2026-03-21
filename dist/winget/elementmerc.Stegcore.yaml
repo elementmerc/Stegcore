@@ -1,0 +1,36 @@
+# winget manifest for Stegcore
+# Submit to: https://github.com/microsoft/winget-pkgs
+# Test with: winget install --manifest .
+
+PackageIdentifier: elementmerc.Stegcore
+PackageVersion: 3.0.0
+PackageName: Stegcore
+Publisher: Daniel Iwugo
+PublisherUrl: https://github.com/elementmerc
+Author: Daniel Iwugo
+PackageUrl: https://github.com/elementmerc/Stegcore
+License: AGPL-3.0-only
+LicenseUrl: https://github.com/elementmerc/Stegcore/blob/main/LICENSE
+ShortDescription: Crypto-steganography toolkit — hide encrypted messages inside ordinary files
+Description: |-
+  Stegcore combines encryption and steganography into a single cross-platform
+  toolkit. It encrypts your payload and hides the ciphertext inside ordinary
+  image or audio files. Features three AEAD ciphers, deniable dual-payload mode,
+  built-in steganalysis suite, and both GUI and CLI interfaces.
+Tags:
+  - steganography
+  - encryption
+  - privacy
+  - security
+  - forensics
+  - cli
+Installers:
+  - Architecture: x64
+    InstallerType: zip
+    InstallerUrl: https://github.com/elementmerc/Stegcore/releases/download/v3.0.0/stegcore-v3.0.0-windows-x86_64.zip
+    InstallerSha256: PLACEHOLDER_SHA256
+    Commands:
+      - stegcore
+      - stegcore-gui
+ManifestType: singleton
+ManifestVersion: 1.6.0

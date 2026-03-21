@@ -3,30 +3,30 @@ use crate::output::{self, JsonOut};
 pub fn run(json: bool) -> ! {
     #[derive(serde::Serialize)]
     struct Cipher {
-        id:      &'static str,
-        name:    &'static str,
+        id: &'static str,
+        name: &'static str,
         default: bool,
-        note:    &'static str,
+        note: &'static str,
     }
 
     let ciphers = [
         Cipher {
-            id:      "chacha20-poly1305",
-            name:    "ChaCha20-Poly1305",
+            id: "chacha20-poly1305",
+            name: "ChaCha20-Poly1305",
             default: true,
-            note:    "Fast, authenticated stream cipher. Recommended for most uses.",
+            note: "Fast, authenticated stream cipher. Recommended for most uses.",
         },
         Cipher {
-            id:      "ascon-128",
-            name:    "Ascon-128",
+            id: "ascon-128",
+            name: "Ascon-128",
             default: false,
-            note:    "Lightweight AEAD cipher. Winner of the NIST lightweight crypto competition.",
+            note: "Lightweight AEAD cipher. Winner of the NIST lightweight crypto competition.",
         },
         Cipher {
-            id:      "aes-256-gcm",
-            name:    "AES-256-GCM",
+            id: "aes-256-gcm",
+            name: "AES-256-GCM",
             default: false,
-            note:    "Hardware-accelerated AES in Galois/Counter mode. Widely audited.",
+            note: "Hardware-accelerated AES in Galois/Counter mode. Widely audited.",
         },
     ];
 

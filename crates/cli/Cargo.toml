@@ -19,6 +19,7 @@ stegcore-core = { path = "../core", default-features = false }
 
 # CLI parsing
 clap = { version = "4", features = ["derive", "color", "env"] }
+clap_complete = "4"
 
 # Terminal UX
 crossterm = "0.28"
@@ -40,6 +41,16 @@ glob = "0.3"
 serde      = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# Image (for diff command)
+image = { version = "0.25", default-features = false, features = ["png", "bmp", "jpeg", "webp"] }
+
 # Logging
 log = "0.4"
 env_logger = "0.11"
+
+# Watch mode (directory monitoring)
+notify = "7"
+
+# Config file
+toml = "0.8"
+dirs = "6"

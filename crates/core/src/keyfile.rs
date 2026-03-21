@@ -1,6 +1,6 @@
+use crate::errors::StegError;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use crate::errors::StegError;
 
 /// Optional export format. Stego files are self-contained; this is only
 /// produced when the user explicitly requests key file export.

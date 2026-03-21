@@ -96,14 +96,12 @@ jobs:
         if: matrix.platform != 'macos-latest'
         uses: tauri-apps/tauri-action@v0
         with:
-          tauriScript: npx tauri
           args: -- --no-default-features --features custom-protocol
 
       - name: Build Tauri app (macOS universal)
         if: matrix.platform == 'macos-latest'
         uses: tauri-apps/tauri-action@v0
         with:
-          tauriScript: npx tauri
           args: --target universal-apple-darwin -- --no-default-features --features custom-protocol
 
       - name: Upload artefacts

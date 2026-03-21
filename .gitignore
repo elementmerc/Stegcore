@@ -21,10 +21,10 @@ crates/core/lib/**/*.lib
 /frontend/node_modules/
 /frontend/dist/
 
-# Project reference (contains developer context — never commit)
+# Project reference
 CLAUDE.md
 
-# Private engine repo — separate git repo, never tracked here
+# Private engine
 /libstegcore/
 
 # IDE
@@ -36,3 +36,6 @@ CLAUDE.md
 .DS_Store
 Thumbs.db
 
+# Personal
+/scripts/
+/tests/
