@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { KeyRound, Eye, EyeOff, FolderOpen, Copy, Lock } from 'lucide-react'
-import { DropZone } from '../components/DropZone'
+// DropZone replaced by native file pickers for full filesystem paths
 import { ScoreCard } from '../components/ScoreCard'
 import { EntropyBar } from '../components/EntropyBar'
 import { Toggle } from '../components/Toggle'
@@ -472,13 +472,37 @@ function Step3() {
         {deniable && (
           <div style={{ marginTop: 12, padding: '14px', borderRadius: 10, background: 'color-mix(in srgb, var(--ui-accent) 5%, var(--ui-surface))', border: '1px solid var(--ui-border)' }}>
             <p style={{ fontSize: 12, color: 'var(--ui-text2)', marginBottom: 10 }}>Decoy message file</p>
-            <DropZone
-              accept={['.txt', '.md', '.pdf', '.doc', '.docx', '.zip', '.bin']}
-              onFiles={(files) => setOptions({ decoyFile: files[0] })}
-              label="Drop decoy file"
-              fileName={decoyFile?.name}
-              onRemove={() => setOptions({ decoyFile: null })}
-            />
+            <div
+              onClick={async () => {
+                const paths = await pickFiles({
+                  title: 'Select decoy file',
+                  multiple: false,
+                  filters: [{ name: 'All files', extensions: ['*'] }],
+                })
+                if (paths.length > 0) {
+                  const name = paths[0].split(/[/\\]/).pop() ?? paths[0]
+                  const f = new File([], name)
+                  setOptions({ decoyFile: f })
+                  useEmbedStore.setState({ decoyPath: paths[0] })
+                }
+              }}
+              className="sc-analyse-drop"
+              style={{ borderRadius: 8, padding: '1rem', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}
+            >
+              {decoyFile ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ui-text)' }}>{decoyFile.name}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setOptions({ decoyFile: null }); useEmbedStore.setState({ decoyPath: null }) }}
+                    style={{ fontSize: 11, color: 'var(--ui-accent)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <p style={{ color: 'var(--ui-text2)', fontSize: 12 }}>Click to select decoy file</p>
+              )}
+            </div>
             <div style={{ marginTop: 12 }}>
               <label style={{ fontSize: 12, color: 'var(--ui-text2)', display: 'block', marginBottom: 4 }}>Decoy passphrase</label>
               <PassField value={decoyPassphrase} show={showDecoyPass} onToggle={() => setShowDecoyPass(v => !v)} onChange={(v) => setOptions({ decoyPassphrase: v })} />
@@ -620,7 +644,7 @@ function Step4() {
       setError(msg)
       toast.error('Embedding failed', msg)
     }
-  }, [payloadFile, coverFile, coverPath, passphrase, cipher, mode, deniable, decoyFile, decoyPath, decoyPassphrase, exportKey, setEmbedding, setError, setResult])
+  }, [payloadFile, payloadPath, coverFile, coverPath, passphrase, cipher, mode, deniable, decoyFile, decoyPath, decoyPassphrase, exportKey, setEmbedding, setError, setResult])
 
   const { settings } = useSettingsStore()
 

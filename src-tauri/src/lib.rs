@@ -149,7 +149,7 @@ async fn score_cover(path: String) -> Result<f64, StegError> {
     .map_err(|e| StegError::Io(std::io::Error::other(e.to_string())))?
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 #[allow(clippy::too_many_arguments)]
 async fn embed(
     cover: String,
@@ -241,7 +241,7 @@ async fn embed(
     .map_err(|e| StegError::Io(std::io::Error::other(e.to_string())))?
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 async fn extract(
     stego: String,
     passphrase: String,
@@ -439,7 +439,7 @@ fn is_first_run(app: tauri::AppHandle) -> bool {
     !config_dir.join(".stegcore_configured").exists()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 fn complete_setup(
     app: tauri::AppHandle,
     theme: String,
