@@ -6,6 +6,12 @@ use stegcore_core::analysis::{self, AnalysisReport, Verdict};
 use crate::output::{self, JsonOut};
 
 #[derive(Debug, clap::Args)]
+#[command(after_long_help = "\x1b[36mExamples:\x1b[0m
+  stegcore analyse suspect.png
+  stegcore analyse suspect.png --verbose
+  stegcore analyse --batch \"*.png\" --json
+  stegcore analyse --watch /tmp/incoming/
+")]
 pub struct AnalyseArgs {
     /// File to analyse (omit when using --batch)
     pub file: Option<PathBuf>,
@@ -223,47 +229,79 @@ fn bar(score: f64, width: usize) -> String {
 fn print_table(reports: &[AnalysisReport]) {
     use crossterm::style::{Color, Print, ResetColor, SetForegroundColor};
     use crossterm::ExecutableCommand;
-    let mut stderr = std::io::stderr();
+    let mut s = std::io::stderr();
 
     for (ri, r) in reports.iter().enumerate() {
         if ri > 0 {
             eprintln!();
         }
 
-        // File header
-        let _ = stderr.execute(SetForegroundColor(Color::Cyan));
-        let _ = stderr.execute(Print(format!("  {}\n", r.file.display())));
-        let _ = stderr.execute(ResetColor);
-
-        let _ = stderr.execute(SetForegroundColor(Color::DarkGrey));
-        let _ = stderr.execute(Print(format!(
-            "  {} · overall {:.0}%\n",
+        let fname = r
+            .file
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| r.file.display().to_string());
+        let score_pct = format!("{:.0}%", r.overall_score * 100.0);
+        let header = format!(
+            "{}  ·  {}  ·  {}",
+            fname,
             r.format.to_uppercase(),
-            r.overall_score * 100.0
-        )));
-        let _ = stderr.execute(ResetColor);
+            score_pct
+        );
+
+        let width = 56.max(header.len() + 4);
+        let bar_line = "─".repeat(width);
+
+        // Top border
+        let _ = s.execute(SetForegroundColor(Color::DarkGrey));
+        let _ = s.execute(Print(format!("\n  ╭{bar_line}╮\n")));
+
+        // Header
+        let _ = s.execute(Print("  │  "));
+        let _ = s.execute(SetForegroundColor(Color::Cyan));
+        let _ = s.execute(Print(header.to_string()));
+        let pad = width - header.len() - 2;
+        let _ = s.execute(SetForegroundColor(Color::DarkGrey));
+        let _ = s.execute(Print(format!("{:pad$}│\n", "")));
+        let _ = s.execute(Print(format!("  ├{bar_line}┤\n")));
 
         // Per-test bars
         for t in &r.tests {
             let pct = (t.score * 100.0).round() as u32;
             let colour = score_colour(t.score);
-            let b = bar(t.score, 20);
+            let b = bar(t.score, 16);
 
-            let _ = stderr.execute(Print(format!("  {:22} ", t.name)));
-            let _ = stderr.execute(SetForegroundColor(colour));
-            let _ = stderr.execute(Print(format!("{b} {pct:3}%")));
-            let _ = stderr.execute(ResetColor);
-            let _ = stderr.execute(SetForegroundColor(Color::DarkGrey));
-            let _ = stderr.execute(Print(format!("  {}\n", t.detail)));
-            let _ = stderr.execute(ResetColor);
+            let _ = s.execute(Print("  │  "));
+            let _ = s.execute(SetForegroundColor(Color::Reset));
+            let _ = s.execute(Print(format!("{:20} ", t.name)));
+            let _ = s.execute(SetForegroundColor(colour));
+            let _ = s.execute(Print(format!("{b} {pct:3}%")));
+            let _ = s.execute(SetForegroundColor(Color::DarkGrey));
+
+            // Pad to fill the box width
+            let used = 20 + 1 + 16 + 1 + 4 + 2; // name+space+bar+space+pct%+borders
+            let rpad = width.saturating_sub(used);
+            let _ = s.execute(Print(format!("{:rpad$}│\n", "")));
         }
 
         // Tool fingerprint
         if let Some(fp) = &r.tool_fingerprint {
-            let _ = stderr.execute(SetForegroundColor(Color::Red));
-            let _ = stderr.execute(Print(format!("  Signature: {fp}\n")));
-            let _ = stderr.execute(ResetColor);
+            let _ = s.execute(Print("  │  "));
+            let _ = s.execute(SetForegroundColor(Color::Red));
+            let sig = format!("Signature: {fp}");
+            let _ = s.execute(Print(&sig));
+            let spad = if width > sig.len() + 2 {
+                width - sig.len() - 2
+            } else {
+                0
+            };
+            let _ = s.execute(SetForegroundColor(Color::DarkGrey));
+            let _ = s.execute(Print(format!("{:spad$}│\n", "")));
         }
+
+        // Separator
+        let _ = s.execute(SetForegroundColor(Color::DarkGrey));
+        let _ = s.execute(Print(format!("  ├{bar_line}┤\n")));
 
         // Verdict
         let verdict = verdict_str(&r.verdict);
@@ -277,9 +315,21 @@ fn print_table(reports: &[AnalysisReport]) {
             Verdict::Suspicious => "⚠",
             Verdict::LikelyStego => "✗",
         };
-        let _ = stderr.execute(SetForegroundColor(colour));
-        let _ = stderr.execute(Print(format!("  {icon} {verdict}\n")));
-        let _ = stderr.execute(ResetColor);
+        let _ = s.execute(Print("  │  "));
+        let _ = s.execute(SetForegroundColor(colour));
+        let vstr = format!("{icon} {verdict}");
+        let _ = s.execute(Print(&vstr));
+        let vpad = if width > vstr.len() + 2 {
+            width - vstr.len() - 2
+        } else {
+            0
+        };
+        let _ = s.execute(SetForegroundColor(Color::DarkGrey));
+        let _ = s.execute(Print(format!("{:vpad$}│\n", "")));
+
+        // Bottom border
+        let _ = s.execute(Print(format!("  ╰{bar_line}╯\n")));
+        let _ = s.execute(ResetColor);
     }
 }
 

@@ -76,7 +76,7 @@ export function SPAGauge({ data, replay, onReplayDone }: Props) {
     const textAlpha = easeOut(Math.max(0, (t - 50) / 30))
 
     // 2. "0" and "1" labels
-    ctx.font = '8px "Space Mono", monospace'
+    ctx.font = '10px "Space Mono", monospace'
     ctx.fillStyle = th.textMuted
     ctx.textAlign = 'center'
     ctx.globalAlpha = textAlpha
@@ -153,14 +153,11 @@ export function SPAGauge({ data, replay, onReplayDone }: Props) {
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(`${Math.round(currentValue * 100)}%`, cx, cy - 4)
-    ctx.font = '8px "Space Mono", monospace'
+    ctx.font = '10px "Space Mono", monospace'
     ctx.fillStyle = th.textMuted
     ctx.fillText('EMBEDDED', cx, cy + 14)
 
-    // 8. Confidence label
-    ctx.font = '7px "Space Mono", monospace'
-    ctx.fillStyle = 'rgba(77,159,255,0.55)'
-    ctx.fillText(`conf: ${Math.round(currentConf * 100)}%`, cx, s - 10)
+    // 8. Confidence label — removed, pill handles this
     ctx.textBaseline = 'alphabetic'
     ctx.globalAlpha = 1
   }, [frame, data, size])

@@ -31,7 +31,11 @@ async function safeInvoke<T>(cmd: string, args?: unknown, mock?: T): Promise<T> 
     const { invoke } = await import('@tauri-apps/api/core')
     return await invoke<T>(cmd, args as Record<string, unknown>)
   } catch (e) {
-    if (mock !== undefined) return mock
+    // Only use mock when Tauri is genuinely unavailable (browser dev mode).
+    // Backend errors (wrong passphrase, file not found, etc.) must propagate.
+    const msg = e instanceof Error ? e.message : String(e)
+    const isTauriMissing = msg.includes('__TAURI_INTERNALS__') || msg.includes('not a function') || msg.includes('Cannot find module')
+    if (isTauriMissing && mock !== undefined) return mock
     throw e
   }
 }

@@ -1,233 +1,177 @@
+<div align="center">
+
+<img src="icon.svg" alt="Stegcore logo" width="96" height="96">
+
 # Stegcore
 
-**Crypto-steganography toolkit. Hide encrypted messages inside ordinary files.**
+**Hide encrypted messages inside ordinary files**
 
-![Rust](https://img.shields.io/badge/Rust-2021-orange?style=flat-square)
-![Tauri](https://img.shields.io/badge/Tauri-v2-blue?style=flat-square)
-![Licence](https://img.shields.io/badge/Licence-AGPL--3.0-green?style=flat-square)
-![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=flat-square)
+[![CI](https://github.com/elementmerc/Stegcore/actions/workflows/ci.yml/badge.svg)](https://github.com/elementmerc/Stegcore/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/elementmerc/Stegcore)](https://github.com/elementmerc/Stegcore/releases/latest)
+[![License: AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-blue)](LICENSE)
 
----
+<img src="docs/demo.gif" alt="Stegcore GUI demo" width="720">
 
-## What is Stegcore?
-
-Stegcore combines **encryption** and **steganography** into a single
-cross-platform toolkit. It encrypts your payload and hides the
-ciphertext inside an ordinary image or audio file. The result looks and
-sounds completely normal. Only someone with the correct passphrase can
-recover what's inside.
-
-Unlike basic steganography tools that hide data without encrypting it,
-Stegcore ensures the payload is unreadable even if someone extracts it.
-Unlike basic encryption tools, Stegcore ensures the payload isn't even
-visible.
+</div>
 
 ---
 
-## Key features
-
-- **Three authenticated ciphers** — Ascon-128 (NIST lightweight
-  standard), ChaCha20-Poly1305, AES-256-GCM. All use Argon2id key
-  derivation.
-- **Adaptive LSB steganography** — Payload bits are scattered across
-  high-entropy regions using texture-aware embedding, significantly
-  harder to detect than standard LSB.
-- **Deniable dual payload** — Embed two separately encrypted messages
-  in one cover file. Two passphrases, two messages. Neither key file
-  identifies which is real.
-- **Built-in steganalysis suite** — Chi-squared, Sample Pair Analysis,
-  RS Analysis, LSB Entropy, and tool fingerprinting. Detects Steghide,
-  OpenStego, OutGuess, and generic LSB.
-- **Multiple formats** — PNG, BMP, JPEG (JSteg DCT), WebP, WAV for
-  embedding. FLAC for analysis and extraction.
-- **Cover scoring** — Scores your cover file before embedding. Poor
-  covers are flagged before you commit.
-- **Progressive analysis** — Preliminary results in under a second,
-  full accuracy analysis runs in the background.
-- **Desktop GUI** — Step-by-step wizards for embed, extract, and
-  analyse. Dark and light themes. Interface size scaling.
-- **Full CLI** — Wizard mode for beginners, power-user flags for
-  scripting. JSON output on all commands.
+Stegcore encrypts your payload and hides it inside an image or audio file. The result looks and sounds completely normal. Only the correct passphrase recovers what's inside. Three authenticated ciphers (Ascon-128, ChaCha20-Poly1305, AES-256-GCM), adaptive LSB steganography, deniable dual-payload mode, and a full steganalysis detection suite. Desktop GUI and CLI. Completely offline — no network connections, no telemetry, no account.
 
 ---
 
-## Installation
+## Install
 
-### Pre-built binaries (recommended)
+```bash
+curl -fsSL https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.sh | sh
+```
 
-Download from the [releases page](https://github.com/elementmerc/Stegcore/releases).
-Available for Windows, Linux, and macOS. No runtime required.
+### Platform grid
 
-Pre-built binaries include the full steganographic engine. This is the
-recommended way to install Stegcore.
+| Platform | CLI | GUI |
+|---|---|---|
+| **Linux x86_64** | `.tar.gz` | `.AppImage` / `.deb` |
+| **macOS (Intel + Apple Silicon)** | Universal binary | `.dmg` |
+| **Windows x86_64** | `.zip` | `.msi` |
+
+### Package managers
+
+```bash
+# Homebrew (macOS / Linux)
+brew install elementmerc/tap/stegcore
+
+# Winget (Windows)
+winget install elementmerc.Stegcore
+```
 
 ### Building from source
 
-The public repository compiles without the proprietary engine, but
-steganographic operations will be unavailable (the binary returns a
-message directing you to download a pre-built release). This is intentional 🙃,
-and by design. See [Architecture](#architecture) for details.
+Building from source is **not supported** for public users. Stegcore relies
+on a private engine that is not included in this repository. Use the
+install script or pre-built releases above.
 
-If you want to build the UI shell or contribute to the public codebase:
-
-```bash
-git clone https://github.com/elementmerc/Stegcore.git
-cd Stegcore
-cd frontend && npm install && cd ..
-cargo build --release --no-default-features
-```
-
-**Linux dependencies:**
-```bash
-sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
-```
+The public repository compiles cleanly without the engine — steganographic
+operations return a message directing you to download a release build.
 
 ---
 
-## Quick start
+## CLI usage
 
-**GUI:**
 ```bash
-stegcore          # launches the desktop application
-```
-
-**CLI wizard (guided):**
-```bash
-stegcore-cli wizard
-```
-
-**CLI power mode:**
-```bash
-# Score a cover
-stegcore-cli score cover.png
+# Guided wizard (recommended for new users)
+stegcore wizard
 
 # Embed
-stegcore-cli embed cover.png secret.txt -o stego.png
+stegcore embed cover.png secret.txt -o stego.png
 
 # Extract
-stegcore-cli extract stego.png -o recovered.txt
+stegcore extract stego.png -o recovered.txt
 
 # Analyse for hidden content
-stegcore-cli analyse suspect.png
+stegcore analyse suspect.png
 
-# Batch analyse
-stegcore-cli analyse *.png --json
+# Batch analyse with progress
+stegcore analyse *.png --json
 
-# List ciphers
-stegcore-cli ciphers
+# Pipe support
+echo "secret" | stegcore embed cover.png - -o stego.png
+stegcore extract stego.png --raw | xxd
 ```
 
-See [USAGE.md](USAGE.md) for the complete CLI reference.
+### Additional commands
+
+```bash
+# Score a cover file's suitability
+stegcore score cover.png
+
+# Compare original vs stego (pixel diff)
+stegcore diff cover.png stego.png
+
+# System health check
+stegcore doctor
+
+# Benchmark cipher throughput
+stegcore benchmark
+
+# Generate shell completions
+stegcore completions bash > ~/.local/share/bash-completion/completions/stegcore
+
+# Bible verse
+stegcore verse
+```
+
+Full flag reference: `stegcore --help`
 
 ---
 
-## How it works
+## GUI
 
-```
-secret.txt
-    |
-    v
-[ Argon2id key derivation (passphrase + random salt) ]
-    |
-    v
-[ Zstandard compression ]
-    |
-    v
-[ Encrypt: Ascon-128 / ChaCha20-Poly1305 / AES-256-GCM ]
-    |
-    v
-[ Score cover — entropy, texture, capacity ]
-    |
-    v
-[ Adaptive LSB / DCT / WAV sample embedding ]
-    |
-    v
-stego.png  (+ optional key file)
-```
+Launch Stegcore, then follow the step-by-step wizards for embedding,
+extracting, or analysing files. Drag and drop works everywhere.
 
-Extraction requires the stego file and passphrase. No key file needed
-by default — metadata is embedded in the payload. The key file is an
-optional export for out-of-band sharing or backup.
+| Feature | What it does |
+|---|---|
+| Embed wizard | 4-step guided flow: message → cover → options → confirm |
+| Extract wizard | 3-step flow: stego file → passphrase → recovered payload |
+| Steganalysis dashboard | Animated charts: Chi-Squared, RS Analysis, SPA gauge, LSB heatmap |
+| Audio analysis | Oscilloscope trace with suspicious region highlighting |
+| Pixel diff | Before/after comparison on embed success |
+| Export | Copy dashboard to clipboard, export as PDF/HTML/JSON/CSV |
+
+**Keyboard shortcuts** — E (embed), X (extract), A (analyse), L (learn), R (reload), ? (shortcuts overlay).
+
+**First-run wizard** walks new users through the acceptable use policy,
+licence, and preferences (theme, default cipher).
+
+**Settings** — theme (dark/light), interface size (small/default/large/xl),
+default cipher, embedding mode, auto-score, clipboard auto-clear, reduce
+motion.
+
+Analysis history stays local. Nothing leaves your device.
 
 ---
 
 ## Supported formats
 
 | Format | Embed | Extract | Analyse | Notes |
-|--------|-------|---------|---------|-------|
-| PNG    | Yes   | Yes     | Yes     | Best capacity and concealment |
-| BMP    | Yes   | Yes     | Yes     | Lossless, same as PNG |
-| JPEG   | Yes   | Yes     | Yes     | JSteg DCT coefficient LSB |
-| WebP   | Yes   | Yes     | Yes     | Lossless WebP |
-| WAV    | Yes   | Yes     | Yes     | PCM audio sample LSB |
-| FLAC   | No    | Yes     | Yes     | Decode-only (no mature Rust encoder) |
+|---|---|---|---|---|
+| PNG | ✓ | ✓ | ✓ | Best capacity and concealment |
+| BMP | ✓ | ✓ | ✓ | Lossless |
+| JPEG | ✓ | ✓ | ✓ | JSteg DCT coefficient LSB |
+| WebP | ✓ | ✓ | ✓ | Lossless WebP |
+| WAV | ✓ | ✓ | ✓ | PCM audio sample LSB |
+| FLAC | — | ✓ | ✓ | Decode-only |
 
 ---
 
-## Steganalysis
+## Why Stegcore?
 
-Stegcore includes a built-in detection suite:
-
-- **Chi-Squared** — Tests LSB pair-of-values distribution uniformity
-- **Sample Pair Analysis (SPA)** — Measures adjacent pixel correlation
-- **RS Analysis** — Detects Regular/Singular group asymmetry
-- **LSB Entropy** — Measures randomness of the least significant bits
-- **Tool Fingerprinting** — Identifies Steghide, OpenStego, OutGuess signatures
-
-Ensemble verdict: Clean / Suspicious / Likely Stego.
-
-Interactive scatter plots and entropy heatmaps in the GUI detail view.
-Export as PDF, HTML, JSON, or CSV.
-
----
-
-## Comparison
-
-| Feature | Stegcore | Steghide | OpenStego |
-|---|---|---|---|
-| Licence | AGPL-3.0 | GPL | GPL |
-| Platform | Windows, Linux, macOS | Linux, Windows | Java (cross-platform) |
-| Encryption | 3 AEAD ciphers + Argon2id | Rijndael + MD5 | AES-128 |
-| Deniable mode | Yes | No | No |
-| Built-in steganalysis | Yes | No | No |
-| Cover scoring | Yes | No | No |
-| GUI + CLI | Yes | CLI only | GUI only |
-| Active development | Yes (2026) | No (2003) | No (2016) |
+| | Stegcore | Steghide | OpenStego | OpenPuff |
+|---|---|---|---|---|
+| Offline | ✓ | ✓ | ✓ | ✓ |
+| Modern encryption | 3 AEAD + Argon2id | Rijndael + MD5 | AES-128 | AES-256 |
+| Deniable mode | ✓ | ✗ | ✗ | ✓ |
+| Built-in steganalysis | ✓ | ✗ | ✗ | ✗ |
+| Cover scoring | ✓ | ✗ | ✗ | ✗ |
+| Pixel diff | ✓ | ✗ | ✗ | ✗ |
+| GUI + CLI | ✓ | CLI only | GUI only | GUI only |
+| Pipe support | ✓ | ✗ | ✗ | ✗ |
+| Active development | ✓ (2026) | ✗ (2003) | ✗ (2016) | ✗ (2018) |
 
 ---
 
-## Architecture
+## Docs
 
-Stegcore is a multi-crate Rust workspace:
-
-```
-Cargo.toml                    — workspace root
-crates/core/                  — public library: errors, crypto wrappers, FFI
-crates/cli/                   — CLI binary (clap v4)
-src-tauri/                    — Tauri v2 desktop app
-frontend/                     — React + TypeScript + Vite
-libstegcore/                  — private engine (proprietary, not published)
-```
-
-The steganographic engine (`libstegcore`) is a separate private
-repository linked as a Rust crate dependency. Public builds without the
-engine compile cleanly and return user-friendly error messages.
-
----
-
-## Security
-
-Stegcore is a defensive privacy tool for journalists, activists,
-security researchers, and CTF players. See [SECURITY.md](SECURITY.md)
-for the threat model and responsible use guidance.
+- [CLI reference](USAGE.md)
+- [Architecture](ARCHITECTURE.md)
+- [Changelog](CHANGELOG.md)
+- [Security & threat model](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
 
 ---
 
 ## Licence
 
-[GNU Affero General Public Licence v3.0](LICENSE)
+AGPL-3.0-or-later. See [LICENSE](LICENSE).
 
-Free to use, modify, and distribute. If you deploy a modified version
-as a network service, you must make the modified source available.
-Commercial licensing available for organisations that cannot comply with
-AGPL terms.
+Commercial licensing: daniel@themalwarefiles.com

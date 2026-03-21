@@ -2,7 +2,7 @@
 
 ## Dev environment
 
-**Prerequisites:** Rust 1.70+, Node.js 20+ (24 recommended), npm.
+**Prerequisites:** Rust 1.77+, Node.js 20+ (24 recommended), npm.
 
 ```bash
 git clone https://github.com/elementmerc/Stegcore.git
@@ -35,11 +35,17 @@ export NVM_DIR="$HOME/.nvm" && source "$NVM_DIR/nvm.sh" && nvm use 24
 
 ```
 Cargo.toml              — workspace root
-crates/core/            — public library (errors, wrappers, keyfile, utils)
-crates/cli/             — CLI binary (clap v4)
+crates/core/            — public library (errors, wrappers, keyfile, utils, verses)
+crates/cli/             — CLI binary (clap v4, completions, config)
 src-tauri/              — Tauri v2 app shell + IPC commands
 frontend/               — React + TypeScript + Vite + Tailwind
+  src/components/       — reusable UI (DropZone, ScoreCard, EntropyBar, etc.)
+  src/components/steganalysis/ — analysis dashboard charts (canvas-based)
+  src/routes/           — page components (Home, Embed, Extract, Analyse, Learn)
+  src/lib/              — stores (Zustand), IPC wrappers, theme, sound, toast
 libstegcore/            — private engine (not in this repo)
+scripts/                — test scripts, integration harness
+dist/                   — packaging (Homebrew, winget, Kali, SourceForge)
 ```
 
 ---
@@ -49,12 +55,14 @@ libstegcore/            — private engine (not in this repo)
 **Rust:**
 - `cargo fmt --all` before every commit
 - `cargo clippy --workspace -- -D warnings` must pass
+- British English in all user-facing strings and comments
 
 **TypeScript:**
 - `npx tsc --noEmit` from `frontend/` must pass
 - Inline styles using `--ui-*` / `--sc-*` CSS variables
 - CSS hover classes (not inline JS style mutations)
 - `React.memo()` for heavy sub-components
+- All canvas chart animations use `requestAnimationFrame` loops, not CSS
 
 ---
 
@@ -65,13 +73,20 @@ libstegcore/            — private engine (not in this repo)
   Do not suggest merging them.
 - **All Tauri commands** must be `async` with `spawn_blocking` for
   CPU-heavy work to prevent UI freezes.
+- **UX impact awareness:** Every code change must be evaluated for
+  its impact on the user interface and workflow. Backend changes can
+  affect response times, error messages, and data shapes.
+- **Completely offline.** No network calls, no telemetry, no external
+  font loading. Everything must be bundled.
+- **Privacy-first.** Config dir created with 0o700. Passphrases cleared
+  from memory after use. No logging of sensitive data.
 
 ---
 
 ## Testing
 
 ```bash
-# Run all tests
+# Run all Rust tests
 cargo test --workspace
 
 # With engine (if libstegcore is available)
@@ -82,6 +97,12 @@ cd frontend && npx tsc --noEmit
 
 # Format check
 cargo fmt --all --check
+
+# Integration test suite (123 tests, requires built binary)
+./scripts/test_integration.sh --binary ./target/release/stegcore
+
+# System health check
+cargo run -p stegcore-cli -- doctor
 ```
 
 ---
@@ -90,4 +111,7 @@ cargo fmt --all --check
 
 - One logical change per PR
 - Include a description of what changed and why
+- Consider UX impact — present pros and cons of significant changes
 - Ensure all checks pass (`clippy`, `fmt`, `tsc`)
+- Test in both dark and light themes
+- Respect the `prefers-reduced-motion` setting

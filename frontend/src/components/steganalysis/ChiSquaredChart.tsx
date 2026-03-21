@@ -58,7 +58,7 @@ export function ChiSquaredChart({ data, replay, onReplayDone }: Props) {
     }
 
     // X axis labels (fade in)
-    ctx.font = '8px "Space Mono", monospace'
+    ctx.font = '10px "Space Mono", monospace'
     ctx.fillStyle = th.textMuted
     ctx.textAlign = 'center'
     ctx.globalAlpha = textAlpha
@@ -105,7 +105,7 @@ export function ChiSquaredChart({ data, replay, onReplayDone }: Props) {
 
       // p-value text (fade in after bars + text delay)
       if (progress > 0.15) {
-        ctx.font = '8px "Space Mono", monospace'
+        ctx.font = '10px "Space Mono", monospace'
         ctx.fillStyle = th.textPrimary
         ctx.textAlign = 'left'
         ctx.globalAlpha = textAlpha * Math.min(1, (progress - 0.15) / 0.3)
@@ -125,7 +125,7 @@ export function ChiSquaredChart({ data, replay, onReplayDone }: Props) {
       ctx.beginPath(); ctx.moveTo(thresholdX, PAD.top); ctx.lineTo(thresholdX, PAD.top + ch); ctx.stroke()
       ctx.setLineDash([])
 
-      ctx.font = '8px "Space Mono", monospace'
+      ctx.font = '10px "Space Mono", monospace'
       ctx.fillStyle = 'rgba(255,90,90,0.9)'
       ctx.textAlign = 'center'
       ctx.fillText('p=0.05', thresholdX, PAD.top - 7)

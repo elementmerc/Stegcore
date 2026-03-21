@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { RotateCcw } from 'lucide-react'
 import { THEME, easeOut, scoreColor } from './analysisTheme'
 import { ChiSquaredChart } from './ChiSquaredChart'
@@ -88,7 +88,7 @@ function ChartCard({ title, children, onReplay, badge }: {
   badge?: { text: string; color: string }
 }) {
   return (
-    <div style={{
+    <div className="sc-chart-card" style={{
       background: THEME.surface,
       border: `1px solid ${THEME.border}`,
       borderRadius: 10,
@@ -97,10 +97,11 @@ function ChartCard({ title, children, onReplay, badge }: {
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
+      minHeight: 220,
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{
-          fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+          fontSize: 12, fontWeight: 700, letterSpacing: '0.08em',
           textTransform: 'uppercase', color: THEME.textMuted,
           fontFamily: "'Space Mono', monospace",
         }}>
@@ -124,15 +125,16 @@ function ChartCard({ title, children, onReplay, badge }: {
         {children}
       </div>
       {badge && (
-        <div style={{ marginTop: 6, flexShrink: 0 }}>
+        <div style={{ marginTop: 8, flexShrink: 0, overflow: 'hidden' }}>
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 5,
-            padding: '3px 10px', borderRadius: 12,
+            padding: '4px 10px', borderRadius: 12,
             background: `${badge.color}18`, color: badge.color,
-            fontSize: 9, fontWeight: 600, fontFamily: "'Space Mono', monospace",
+            fontSize: 10, fontWeight: 600, fontFamily: "'Space Mono', monospace",
             letterSpacing: '0.04em', textTransform: 'uppercase',
+            whiteSpace: 'nowrap', maxWidth: '100%',
           }}>
-            <span style={{ width: 5, height: 5, borderRadius: '50%', background: badge.color }} />
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: badge.color, flexShrink: 0 }} />
             {badge.text}
           </span>
         </div>
@@ -160,9 +162,14 @@ function spaVerdict(rate: number, conf: number): { text: string; color: string }
   return { text: `${Math.round(rate * 100)}% embedded · ${Math.round(conf * 100)}% conf`, color: '#ff5c5c' }
 }
 
-function lsbVerdict(grid: number[][]): { text: string; color: string } {
+function lsbVerdict(grid: number[][], isAudio: boolean): { text: string; color: string } {
   const flat = grid.flat()
   const hot = flat.filter(v => v > 0.65).length
+  if (isAudio) {
+    // Audio: single pill — clean (green) or anomalous (red)
+    if (hot === 0) return { text: 'No anomalous blocks detected', color: '#3dd6a3' }
+    return { text: `${hot} region${hot > 1 ? 's' : ''} — likely embedded`, color: '#ff5c5c' }
+  }
   if (hot === 0) return { text: 'No anomalous blocks detected', color: '#3dd6a3' }
   if (hot <= 3) return { text: `${hot} hot zone${hot > 1 ? 's' : ''} — uncertain`, color: '#f5c842' }
   return { text: `${hot} hot zones — likely embedded`, color: '#ff5c5c' }
@@ -174,6 +181,17 @@ export function SteganalysisReport({ data }: Props) {
   const [spaReplay, setSpaReplay] = useState(false)
   const [lsbReplay, setLsbReplay] = useState(false)
   const [scoreFrame, setScoreFrame] = useState(0)
+  const [dashWidth, setDashWidth] = useState(800)
+  const dashRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!dashRef.current) return
+    const obs = new ResizeObserver(entries => {
+      for (const e of entries) setDashWidth(e.contentRect.width)
+    })
+    obs.observe(dashRef.current)
+    return () => obs.disconnect()
+  }, [])
 
   const isAudio = data.format === 'wav' || data.format === 'flac'
 
@@ -209,18 +227,19 @@ export function SteganalysisReport({ data }: Props) {
   })
 
   return (
-    <div style={{ padding: '0 2px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div ref={dashRef} style={{ padding: '0 2px', display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Risk header */}
       <RiskHeader data={data} scoreFrame={scoreFrame} />
 
-      {/* Charts grid: always 2×2 on wide, single column on narrow */}
+      {/* Charts grid: 2×2 on wide (≥480px), vertical scroll on narrow */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
-        gridTemplateRows: '1fr 1fr',
+        gridTemplateColumns: dashWidth < 480 ? '1fr' : 'repeat(2, 1fr)',
+        gridTemplateRows: dashWidth < 480 ? 'auto' : '1fr 1fr',
         gap: 12,
         flex: 1,
         minHeight: 0,
+        overflowY: dashWidth < 480 ? 'auto' : undefined,
       }}>
         <ChartCard title="Chi-Squared" onReplay={() => setChiReplay(true)} badge={chiVerdict(data.chi_squared)}>
           <ChiSquaredChart data={data} replay={chiReplay} onReplayDone={() => setChiReplay(false)} />
@@ -231,7 +250,7 @@ export function SteganalysisReport({ data }: Props) {
         <ChartCard title="Sample Pair" onReplay={() => setSpaReplay(true)} badge={spaVerdict(data.sample_pair.estimated_rate, data.sample_pair.confidence)}>
           <SPAGauge data={data} replay={spaReplay} onReplayDone={() => setSpaReplay(false)} />
         </ChartCard>
-        <ChartCard title={isAudio ? 'Audio LSB' : 'LSB Entropy'} onReplay={() => setLsbReplay(true)} badge={lsbVerdict(data.lsb_entropy.grid)}>
+        <ChartCard title={isAudio ? 'Audio LSB' : 'LSB Entropy'} onReplay={() => setLsbReplay(true)} badge={lsbVerdict(data.lsb_entropy.grid, isAudio)}>
           {isAudio ? (
             <OscilloscopeTrace
               data={toAudioData(data)}

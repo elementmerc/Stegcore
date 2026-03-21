@@ -114,6 +114,26 @@ In the UK (where this software was developed), steganography is not illegal. The
 
 ---
 
+## Privacy by design
+
+Stegcore makes **no network connections whatsoever**. No telemetry, no
+analytics, no update checks, no CDN fonts, no external API calls.
+Everything runs locally on your machine.
+
+- All fonts are bundled (system font stack + local WOFF2)
+- No external dependencies loaded at runtime
+- Config stored locally in `~/.config/stegcore/` with restrictive
+  permissions (0o700 on Unix)
+- Passphrases are never written to disk — only held in memory during
+  the operation and cleared immediately after
+- Clipboard auto-clear after configurable timeout (default 30 seconds)
+- No logging of sensitive data (passphrases, payload content, file paths)
+
+Run `stegcore doctor` to verify the application has no unexpected
+dependencies or connections.
+
+---
+
 ## Reporting security issues
 
 If you discover a security vulnerability in Stegcore, please report it privately rather than opening a public issue. Use the repository's security advisory system or the contact address listed in the repository. And for the love of everything on God's green earth, please don't disclose vulnerabilities publicly until they've been assessed and a fix is available.
