@@ -56,7 +56,7 @@ export const useExtractStore = create<ExtractStore>((set) => ({
     } catch {
       resultText = null
     }
-    set({ result, resultText, error: null, extracting: false })
+    set({ result, resultText, error: null, extracting: false, passphrase: '' })
   },
 
   setError: (error) => set({ error, extracting: false }),

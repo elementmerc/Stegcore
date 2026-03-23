@@ -547,11 +547,14 @@ fn pick_output_path(title: &str, default: &Path, interrupted: &Arc<AtomicBool>) 
 }
 
 /// Prompt for a decoy passphrase, rejecting any that match the real one.
-fn prompt_decoy_passphrase(real: &[u8], interrupted: &Arc<AtomicBool>) -> Vec<u8> {
+fn prompt_decoy_passphrase(
+    real: &[u8],
+    interrupted: &Arc<AtomicBool>,
+) -> zeroize::Zeroizing<Vec<u8>> {
     loop {
         check_interrupt(interrupted);
         let dp = prompt::prompt_passphrase_confirmed("Decoy passphrase", interrupted);
-        if dp == real {
+        if dp.as_slice() == real {
             output::print_warn(
                 "The decoy passphrase must be different from your real passphrase. \
                  Please choose a different one.",
@@ -564,8 +567,9 @@ fn prompt_decoy_passphrase(real: &[u8], interrupted: &Arc<AtomicBool>) -> Vec<u8
 
 fn default_output_path(cover: &Path) -> PathBuf {
     let stem = cover.file_stem().unwrap_or_default().to_string_lossy();
+    let ext = cover.extension().and_then(|e| e.to_str()).unwrap_or("png");
     let parent = cover.parent().unwrap_or_else(|| std::path::Path::new("."));
-    parent.join(format!("{stem}_steg.png"))
+    parent.join(format!("{stem}_steg.{ext}"))
 }
 
 fn cover_label(pct: u32) -> &'static str {

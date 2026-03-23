@@ -20,10 +20,18 @@ pub struct KeyFile {
     pub partition_half: Option<u8>,
 }
 
-/// Write a key file to disk as JSON.
+/// Write a key file to disk as JSON with restricted permissions (0o600 on Unix).
 pub fn write_key_file(path: &Path, keyfile: &KeyFile) -> Result<(), StegError> {
     let json = serde_json::to_string_pretty(keyfile)?;
-    std::fs::write(path, json).map_err(StegError::Io)
+    std::fs::write(path, json).map_err(StegError::Io)?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let perms = std::fs::Permissions::from_mode(0o600);
+        std::fs::set_permissions(path, perms).map_err(StegError::Io)?;
+    }
+    Ok(())
 }
 
 /// Read a key file from disk, detecting legacy Python format.

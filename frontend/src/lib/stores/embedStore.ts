@@ -71,7 +71,7 @@ export const useEmbedStore = create<EmbedStore>((set) => ({
   setCoverFile: (coverFile, coverPreviewUrl, coverPath) => set({ coverFile, coverPreviewUrl, coverPath: coverPath ?? null, coverScore: null, coverSizeBytes: coverFile?.size ?? 0 }),
   setCoverScore: (coverScore, coverScoring = false) => set({ coverScore, coverScoring }),
   setOptions: (opts) => set(opts),
-  setResult: (result) => set({ result, error: null, embedding: false }),
+  setResult: (result) => set({ result, error: null, embedding: false, passphrase: '', decoyPassphrase: '' }),
   setError: (error) => set({ error, embedding: false }),
   setEmbedding: (embedding) => set({ embedding }),
 

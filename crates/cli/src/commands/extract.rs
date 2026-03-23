@@ -43,6 +43,7 @@ pub fn run(
     args: &ExtractArgs,
     verbose: bool,
     json: bool,
+    _quiet: bool,
     interrupted: Arc<std::sync::atomic::AtomicBool>,
 ) -> ! {
     // ── Validate inputs ───────────────────────────────────────────────────────
@@ -71,7 +72,7 @@ pub fn run(
 
     // ── Passphrase ────────────────────────────────────────────────────────────
     let passphrase = match &args.passphrase {
-        Some(p) => p.as_bytes().to_vec(),
+        Some(p) => zeroize::Zeroizing::new(p.as_bytes().to_vec()),
         None => prompt::prompt_passphrase("Passphrase", &interrupted),
     };
 

@@ -45,17 +45,22 @@ function scoreHex(s: number): string {
   return s < 0.25 ? '#22c55e' : s < 0.55 ? '#f59e0b' : '#ef4444'
 }
 
+/** Escape HTML special characters to prevent XSS in exported reports. */
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
 function generateHtmlReport(reports: AnalysisReport[]): string {
   const rows = reports.map(r => {
     const vClass = r.verdict === 'clean' ? 'verdict-clean' : r.verdict === 'suspicious' ? 'verdict-suspicious' : 'verdict-stego'
     const vLabel = r.verdict === 'clean' ? '✓ Clean' : r.verdict === 'suspicious' ? '⚠ Suspicious' : '✗ Likely Stego'
-    const fp = r.tool_fingerprint ? `<p style="font-size:0.8rem;color:#4a5568">Signature: ${r.tool_fingerprint}</p>` : ''
+    const fp = r.tool_fingerprint ? `<p style="font-size:0.8rem;color:#4a5568">Signature: ${esc(r.tool_fingerprint)}</p>` : ''
     const tests = r.tests.map(t => {
       const pct = Math.round(t.score * 100)
-      return `<tr><td>${t.name}</td><td><div style="background:#1a2535;border-radius:4px;height:6px;width:140px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${scoreHex(t.score)};border-radius:4px"></div></div> <span style="font-size:0.75rem;color:#4a5568">${pct}%</span></td><td style="color:${t.confidence === 'high' ? '#ef4444' : t.confidence === 'medium' ? '#f59e0b' : '#4a5568'}">${t.confidence}</td><td style="color:#4a5568">${t.detail}</td></tr>`
+      return `<tr><td>${esc(t.name)}</td><td><div style="background:#1a2535;border-radius:4px;height:6px;width:140px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${scoreHex(t.score)};border-radius:4px"></div></div> <span style="font-size:0.75rem;color:#4a5568">${pct}%</span></td><td style="color:${t.confidence === 'high' ? '#ef4444' : t.confidence === 'medium' ? '#f59e0b' : '#4a5568'}">${esc(t.confidence)}</td><td style="color:#4a5568">${esc(t.detail)}</td></tr>`
     }).join('')
-    const fileName = r.file.split(/[/\\]/).pop() ?? r.file
-    return `<div style="background:#0d1520;border:1px solid #1a2535;border-radius:12px;padding:1.5rem;margin-bottom:1.5rem"><div style="font-size:1rem;font-weight:600;margin-bottom:0.25rem">${fileName}</div><div style="font-size:0.8rem;color:#4a5568;margin-bottom:1rem">Format: ${r.format} | Overall: ${(r.overall_score * 100).toFixed(0)}%</div><div class="${vClass}" style="display:inline-flex;padding:0.3rem 0.8rem;border-radius:6px;font-size:0.85rem;font-weight:600;margin-bottom:1rem">${vLabel}</div>${fp}<table style="width:100%;border-collapse:collapse;font-size:0.85rem"><tr><th style="text-align:left;color:#4a5568;padding:0.4rem 0.5rem;border-bottom:1px solid #1a2535">Detector</th><th>Score</th><th>Confidence</th><th>Detail</th></tr>${tests}</table></div>`
+    const fileName = esc(r.file.split(/[/\\]/).pop() ?? r.file)
+    return `<div style="background:#0d1520;border:1px solid #1a2535;border-radius:12px;padding:1.5rem;margin-bottom:1.5rem"><div style="font-size:1rem;font-weight:600;margin-bottom:0.25rem">${fileName}</div><div style="font-size:0.8rem;color:#4a5568;margin-bottom:1rem">Format: ${esc(r.format)} | Overall: ${(r.overall_score * 100).toFixed(0)}%</div><div class="${vClass}" style="display:inline-flex;padding:0.3rem 0.8rem;border-radius:6px;font-size:0.85rem;font-weight:600;margin-bottom:1rem">${vLabel}</div>${fp}<table style="width:100%;border-collapse:collapse;font-size:0.85rem"><tr><th style="text-align:left;color:#4a5568;padding:0.4rem 0.5rem;border-bottom:1px solid #1a2535">Detector</th><th>Score</th><th>Confidence</th><th>Detail</th></tr>${tests}</table></div>`
   }).join('')
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Stegcore Analysis Report</title><style>body{font-family:-apple-system,sans-serif;background:#070d14;color:#e8eaf0;margin:0;padding:2rem}h1{font-size:1.5rem;font-weight:500;letter-spacing:0.1em;margin-bottom:2rem}th{text-align:left}.verdict-clean{background:rgba(34,197,94,0.15);color:#22c55e}.verdict-suspicious{background:rgba(245,158,11,0.15);color:#f59e0b}.verdict-stego{background:rgba(239,68,68,0.15);color:#ef4444}td{padding:0.5rem;border-bottom:1px solid #1a253544;vertical-align:middle}</style></head><body><h1>STEGCORE — Analysis Report</h1>${rows}</body></html>`
@@ -212,7 +217,9 @@ export default function Analyze() {
       const rows = ['File,Format,Verdict,Overall Score,Test,Score,Confidence,Detail']
       for (const r of reports) {
         for (const t of r.tests) {
-          rows.push(`"${r.file}",${r.format},${r.verdict},${r.overall_score},"${t.name}",${t.score},${t.confidence},"${t.detail}"`)
+          const csvEsc = (s: string) => s.replace(/"/g, '""')
+          rows.push(`"${csvEsc(r.file)}","${csvEsc(r.format)}","${csvEsc(r.verdict)}",${r.overall_score},"${csvEsc(t.name)}",${t.score},"${csvEsc(t.confidence)}","${csvEsc(t.detail)}"`)
+
         }
       }
       content = rows.join('\n')

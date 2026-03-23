@@ -171,11 +171,11 @@ async fn embed(
 
         if deniable {
             let decoy_path = decoy_payload.as_deref().ok_or(StegError::EmptyPayload)?;
-            let decoy_pass = decoy_passphrase
-                .as_deref()
-                .unwrap_or("")
-                .as_bytes()
-                .to_vec();
+            let decoy_pass_str = decoy_passphrase.as_deref().unwrap_or("");
+            if decoy_pass_str.is_empty() {
+                return Err(StegError::EmptyPayload);
+            }
+            let decoy_pass = decoy_pass_str.as_bytes().to_vec();
             let decoy_bytes = std::fs::read(Path::new(decoy_path)).map_err(StegError::Io)?;
 
             let (real_kf, decoy_kf) = steg::embed_deniable(
@@ -188,10 +188,16 @@ async fn embed(
                 out_path,
             )?;
 
-            let real_kf_path = format!("{}.real.json", output);
-            let decoy_kf_path = format!("{}.decoy.json", output);
-            stegcore_core::keyfile::write_key_file(Path::new(&real_kf_path), &real_kf)?;
-            stegcore_core::keyfile::write_key_file(Path::new(&decoy_kf_path), &decoy_kf)?;
+            // Only write key files if user explicitly requested export
+            let (real_kf_path, decoy_kf_path) = if export_key {
+                let rkp = format!("{}.real.json", output);
+                let dkp = format!("{}.decoy.json", output);
+                stegcore_core::keyfile::write_key_file(Path::new(&rkp), &real_kf)?;
+                stegcore_core::keyfile::write_key_file(Path::new(&dkp), &decoy_kf)?;
+                (Some(rkp), Some(dkp))
+            } else {
+                (None, None)
+            };
 
             return Ok(serde_json::json!({
                 "outputPath":     output,
@@ -494,7 +500,6 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             get_supported_formats,

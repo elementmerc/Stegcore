@@ -100,13 +100,20 @@ fn read_path_from_stdin(prompt: &str) -> Option<PathBuf> {
 /// Prompt for a passphrase securely (no echo).
 ///
 /// If `interrupted` is set (Ctrl-C handler) during the prompt, exits 130.
-pub fn prompt_passphrase(label: &str, interrupted: &Arc<AtomicBool>) -> Vec<u8> {
+pub fn prompt_passphrase(
+    label: &str,
+    interrupted: &Arc<AtomicBool>,
+) -> zeroize::Zeroizing<Vec<u8>> {
     if interrupted.load(Ordering::SeqCst) {
         eprintln!();
         std::process::exit(130);
     }
     match rpassword::prompt_password(format!("  {label}: ")) {
-        Ok(s) => s.into_bytes(),
+        Ok(mut s) => {
+            let bytes = zeroize::Zeroizing::new(s.as_bytes().to_vec());
+            zeroize::Zeroize::zeroize(&mut s);
+            bytes
+        }
         Err(e) => {
             eprintln!("✗ Failed to read passphrase: {e}");
             std::process::exit(1);
@@ -116,13 +123,16 @@ pub fn prompt_passphrase(label: &str, interrupted: &Arc<AtomicBool>) -> Vec<u8> 
 
 /// Prompt for a passphrase with confirmation (used during embed).
 /// Re-prompts until both entries match or the user hits Ctrl-C.
-pub fn prompt_passphrase_confirmed(label: &str, interrupted: &Arc<AtomicBool>) -> Vec<u8> {
+pub fn prompt_passphrase_confirmed(
+    label: &str,
+    interrupted: &Arc<AtomicBool>,
+) -> zeroize::Zeroizing<Vec<u8>> {
     loop {
         if interrupted.load(Ordering::SeqCst) {
             eprintln!();
             std::process::exit(130);
         }
-        let first = match rpassword::prompt_password(format!("  {label}: ")) {
+        let mut first = match rpassword::prompt_password(format!("  {label}: ")) {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("✗ Failed to read passphrase: {e}");
@@ -133,7 +143,7 @@ pub fn prompt_passphrase_confirmed(label: &str, interrupted: &Arc<AtomicBool>) -
             eprintln!("  ⚠  Passphrase cannot be empty. Please try again.");
             continue;
         }
-        let second = match rpassword::prompt_password(format!("  Confirm {label}: ")) {
+        let mut second = match rpassword::prompt_password(format!("  Confirm {label}: ")) {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("✗ Failed to read passphrase: {e}");
@@ -141,8 +151,13 @@ pub fn prompt_passphrase_confirmed(label: &str, interrupted: &Arc<AtomicBool>) -
             }
         };
         if first == second {
-            return first.into_bytes();
+            let bytes = zeroize::Zeroizing::new(first.as_bytes().to_vec());
+            zeroize::Zeroize::zeroize(&mut first);
+            zeroize::Zeroize::zeroize(&mut second);
+            return bytes;
         }
+        zeroize::Zeroize::zeroize(&mut first);
+        zeroize::Zeroize::zeroize(&mut second);
         eprintln!("  ✗ Passphrases do not match. Please try again.");
     }
 }

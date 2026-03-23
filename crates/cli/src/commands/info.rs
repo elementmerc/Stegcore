@@ -15,7 +15,7 @@ pub struct InfoArgs {
     ///
     /// The passphrase is required to read embedded metadata because slot
     /// selection is passphrase-seeded for all embedding modes.
-    #[arg(long, env = "STEGCORE_PASSPHRASE")]
+    #[arg(long, env = "STEGCORE_PASSPHRASE", hide_env = true)]
     pub passphrase: Option<String>,
 }
 
@@ -23,6 +23,7 @@ pub fn run(
     args: &InfoArgs,
     verbose: bool,
     json: bool,
+    _quiet: bool,
     interrupted: Arc<std::sync::atomic::AtomicBool>,
 ) -> ! {
     if !args.file.exists() {
@@ -34,7 +35,7 @@ pub fn run(
     }
 
     let passphrase = match &args.passphrase {
-        Some(p) => p.as_bytes().to_vec(),
+        Some(p) => zeroize::Zeroizing::new(p.as_bytes().to_vec()),
         None => {
             output::print_info("The passphrase is required to read embedded metadata.");
             prompt::prompt_passphrase("Passphrase", &interrupted)

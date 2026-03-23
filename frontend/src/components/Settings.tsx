@@ -152,8 +152,10 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
           overflowY: 'auto',
         }}
         role="dialog"
-        aria-modal="true"
+        aria-modal={isOpen}
+        aria-hidden={!isOpen}
         aria-label="Settings"
+        {...(!isOpen ? { inert: '' as unknown as boolean } : {})}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.25rem', borderBottom: '1px solid var(--ui-border)', flexShrink: 0 }}>

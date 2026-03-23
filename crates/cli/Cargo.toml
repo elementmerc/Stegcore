@@ -30,6 +30,7 @@ rfd = "0.15"
 
 # Passphrase input
 rpassword = "7"
+zeroize = "1"
 
 # Interrupt handling
 ctrlc = "3"

@@ -46,7 +46,12 @@ pub struct EmbedArgs {
     pub decoy: Option<PathBuf>,
 
     /// Decoy passphrase (omit to be prompted when --deniable is set)
-    #[arg(long, requires = "deniable", env = "STEGCORE_DECOY_PASSPHRASE")]
+    #[arg(
+        long,
+        requires = "deniable",
+        env = "STEGCORE_DECOY_PASSPHRASE",
+        hide_env = true
+    )]
     pub decoy_passphrase: Option<String>,
 
     /// Export a .json key file alongside the output
@@ -58,6 +63,7 @@ pub fn run(
     args: &EmbedArgs,
     verbose: bool,
     json: bool,
+    _quiet: bool,
     interrupted: Arc<std::sync::atomic::AtomicBool>,
 ) -> ! {
     // ── Smart output naming ───────────────────────────────────────────────────
@@ -137,7 +143,7 @@ pub fn run(
 
     // ── Passphrases ───────────────────────────────────────────────────────────
     let passphrase = match &args.passphrase {
-        Some(p) => p.as_bytes().to_vec(),
+        Some(p) => zeroize::Zeroizing::new(p.as_bytes().to_vec()),
         None => prompt::prompt_passphrase_confirmed("Passphrase", &interrupted),
     };
     if passphrase.is_empty() {
@@ -170,7 +176,7 @@ pub fn run(
             }
         };
         let decoy_pass = match &args.decoy_passphrase {
-            Some(p) => p.as_bytes().to_vec(),
+            Some(p) => zeroize::Zeroizing::new(p.as_bytes().to_vec()),
             None => prompt::prompt_passphrase_confirmed("Decoy passphrase", &interrupted),
         };
         if decoy_pass.is_empty() {
@@ -189,26 +195,37 @@ pub fn run(
             &output,
         ) {
             Ok((real_kf, decoy_kf)) => {
-                // Write both key files alongside output.
+                spinner.success(&format!("Embedded (deniable) → {}", output.display()));
                 let real_path = output.with_extension("real.json");
                 let decoy_path = output.with_extension("decoy.json");
-                let _ = stegcore_core::keyfile::write_key_file(&real_path, &real_kf);
-                let _ = stegcore_core::keyfile::write_key_file(&decoy_path, &decoy_kf);
-                spinner.success(&format!("Embedded (deniable) → {}", output.display()));
-                output::print_info(&format!("Real key file  → {}", real_path.display()));
-                output::print_info(&format!("Decoy key file → {}", decoy_path.display()));
+                // Only write key files if explicitly requested — their
+                // existence on disk confirms deniable stego was performed.
+                if args.export_key {
+                    let _ = stegcore_core::keyfile::write_key_file(&real_path, &real_kf);
+                    let _ = stegcore_core::keyfile::write_key_file(&decoy_path, &decoy_kf);
+                    output::print_info(&format!("Real key file  → {}", real_path.display()));
+                    output::print_info(&format!("Decoy key file → {}", decoy_path.display()));
+                }
                 if json {
                     #[derive(serde::Serialize)]
                     struct Out {
                         output: String,
-                        real_key: String,
-                        decoy_key: String,
+                        real_key: Option<String>,
+                        decoy_key: Option<String>,
                     }
                     output::emit_json(
                         &JsonOut::success(Out {
                             output: output.display().to_string(),
-                            real_key: real_path.display().to_string(),
-                            decoy_key: decoy_path.display().to_string(),
+                            real_key: if args.export_key {
+                                Some(real_path.display().to_string())
+                            } else {
+                                None
+                            },
+                            decoy_key: if args.export_key {
+                                Some(decoy_path.display().to_string())
+                            } else {
+                                None
+                            },
                         }),
                         0,
                     );

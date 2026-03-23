@@ -18,9 +18,15 @@ export async function pickFiles(opts: FilePickerOptions = {}): Promise<string[]>
     })
     if (!result) return []
     return Array.isArray(result) ? result : [result]
-  } catch {
-    // Browser dev mode — return mock paths
-    return opts.multiple ? ['/mock/file1.png', '/mock/file2.png'] : ['/mock/file.png']
+  } catch (e) {
+    // Only return mocks when Tauri is genuinely unavailable (browser dev mode).
+    // Real errors (permissions, plugin misconfiguration) must propagate.
+    const msg = e instanceof Error ? e.message : String(e)
+    const isTauriMissing = msg.includes('__TAURI_INTERNALS__') || msg.includes('not a function') || msg.includes('Cannot find module')
+    if (isTauriMissing) {
+      return opts.multiple ? ['/mock/file1.png', '/mock/file2.png'] : ['/mock/file.png']
+    }
+    return []
   }
 }
 

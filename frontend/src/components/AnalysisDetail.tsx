@@ -181,7 +181,7 @@ export function AnalysisDetail({ report, onClose, onExport }: AnalysisDetailProp
       <div style={{
         position: 'fixed', top: 0, right: 0, bottom: 0,
         width: 'calc(100% * 2 / 3)',
-        minWidth: 600,
+        minWidth: 'min(600px, calc(100% - 60px))',
         background: 'var(--ui-bg)',
         borderLeft: '1px solid var(--ui-border)',
         zIndex: 501,

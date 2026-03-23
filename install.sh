@@ -153,7 +153,7 @@ build_asset_name() {
 
 ASSET="$(build_asset_name)"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET}"
-CHECKSUM_URL="https://github.com/${REPO}/releases/download/${VERSION}/checksums.sha256"
+CHECKSUM_URL="https://github.com/${REPO}/releases/download/${VERSION}/stegcore-${VERSION}-checksums.sha256"
 
 # ── Download ─────────────────────────────────────────────────────────────────
 
