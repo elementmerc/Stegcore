@@ -12,7 +12,6 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Unlock, Key, KeyRound, Eye, EyeOff, FileDown } from 'lucide-react'
 import { ProcessingScreen } from '../components/ProcessingScreen'
-import { EntropyBar } from '../components/EntropyBar'
 import { useExtractStore } from '../lib/stores/extractStore'
 import { useFooter } from '../App'
 import { extract as ipcExtract, pickFiles } from '../lib/ipc'
@@ -291,7 +290,7 @@ function Step3() {
 
   const handleSave = useCallback(() => {
     if (!result) return
-    const blob = new Blob([result.buffer.slice(result.byteOffset, result.byteOffset + result.byteLength)])
+    const blob = new Blob([new Uint8Array(result)])
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
