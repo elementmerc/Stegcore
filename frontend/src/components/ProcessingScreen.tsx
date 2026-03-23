@@ -1,4 +1,15 @@
-import { useEffect, useState } from 'react'
+// Copyright (C) 2026 Daniel Iwugo — elementmerc
+// SPDX-License-Identifier: AGPL-3.0-or-later OR LicenseRef-Stegcore-Commercial
+//
+// This file is part of Stegcore. Stegcore is free software: you can
+// redistribute it and/or modify it under the terms of the GNU Affero
+// General Public License as published by the Free Software Foundation,
+// either version 3 of the License, or (at your option) any later version.
+//
+// Commercial licensing: daniel@themalwarefiles.com
+
+import { useEffect, useRef, useState } from 'react'
+import { playSuccess, playError } from '../lib/sound'
 
 interface ProcessingScreenProps {
   phase: string
@@ -138,6 +149,17 @@ export function ProcessingScreen({
   onComplete,
 }: ProcessingScreenProps) {
   const [dismissing, setDismissing] = useState(false)
+  const prevStatus = useRef(status)
+
+  // Play sound when status transitions to success or error
+  useEffect(() => {
+    if (prevStatus.current === 'processing' && status === 'success') {
+      playSuccess()
+    } else if (prevStatus.current === 'processing' && status === 'error') {
+      playError()
+    }
+    prevStatus.current = status
+  }, [status])
 
   // Auto-dismiss after success animation
   useEffect(() => {

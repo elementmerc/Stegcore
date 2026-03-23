@@ -1,3 +1,13 @@
+// Copyright (C) 2026 Daniel Iwugo — elementmerc
+// SPDX-License-Identifier: AGPL-3.0-or-later OR LicenseRef-Stegcore-Commercial
+//
+// This file is part of Stegcore. Stegcore is free software: you can
+// redistribute it and/or modify it under the terms of the GNU Affero
+// General Public License as published by the Free Software Foundation,
+// either version 3 of the License, or (at your option) any later version.
+//
+// Commercial licensing: daniel@themalwarefiles.com
+
 /**
  * Subtle success/error audio feedback using Web Audio API.
  * No external audio files needed — tones are synthesised.
@@ -39,21 +49,18 @@ export function playSuccess() {
   o2.stop(now + 0.3)
 }
 
-/** Short descending tone — error */
-export function playError() {
-  const c = getCtx()
-  if (!c) return
-  const now = c.currentTime
-  const gain = c.createGain()
-  gain.connect(c.destination)
-  gain.gain.setValueAtTime(0.06, now)
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25)
+/** Play the "fahhh" error sound from the bundled audio file */
+let errorAudio: HTMLAudioElement | null = null
 
-  const o = c.createOscillator()
-  o.type = 'sine'
-  o.frequency.setValueAtTime(440, now)
-  o.frequency.exponentialRampToValueAtTime(220, now + 0.2)
-  o.connect(gain)
-  o.start(now)
-  o.stop(now + 0.25)
+export function playError() {
+  try {
+    if (!errorAudio) {
+      errorAudio = new Audio('/sounds/error.mp3')
+      errorAudio.volume = 0.3
+    }
+    errorAudio.currentTime = 0
+    errorAudio.play().catch(() => {})
+  } catch {
+    // Silently fail — sound is optional UX, not critical
+  }
 }

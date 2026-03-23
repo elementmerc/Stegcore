@@ -227,6 +227,17 @@ button:disabled { cursor: not-allowed; }
   transform: translateY(-1px);
 }
 
+/* ── Typography utilities ─────────────────────────────────────────────── */
+.sc-path {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.8em;
+  opacity: 0.65;
+  color: var(--ui-text2);
+}
+h2, .sc-heading {
+  letter-spacing: -0.02em;
+}
+
 /* ── Page / step enter animation ────────────────────────────────────────── */
 @keyframes sc-screen-enter {
   from { opacity: 0; transform: translateX(16px); }
@@ -274,6 +285,10 @@ button:disabled { cursor: not-allowed; }
 }
 
 /* ── Processing screen animations ──────────────────────────────────────── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
 @keyframes sc-processing-enter {
   from { opacity: 0; }
   to   { opacity: 1; }
@@ -286,6 +301,12 @@ button:disabled { cursor: not-allowed; }
   0%   { opacity: 0; transform: scale(0.5); }
   60%  { opacity: 1; transform: scale(1.08); }
   100% { opacity: 1; transform: scale(1); }
+}
+@keyframes sc-check-circle {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes sc-check-tick {
+  to { stroke-dashoffset: 0; }
 }
 
 /* ── Interface size scaling ─────────────────────────────────────────────── */

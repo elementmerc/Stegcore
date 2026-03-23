@@ -1,3 +1,13 @@
+// Copyright (C) 2026 Daniel Iwugo — elementmerc
+// SPDX-License-Identifier: AGPL-3.0-or-later OR LicenseRef-Stegcore-Commercial
+//
+// This file is part of Stegcore. Stegcore is free software: you can
+// redistribute it and/or modify it under the terms of the GNU Affero
+// General Public License as published by the Free Software Foundation,
+// either version 3 of the License, or (at your option) any later version.
+//
+// Commercial licensing: daniel@themalwarefiles.com
+
 import { create } from 'zustand'
 import type { Cipher, EmbedMode, EmbedResult } from '../ipc'
 
@@ -71,7 +81,7 @@ export const useEmbedStore = create<EmbedStore>((set) => ({
   setCoverFile: (coverFile, coverPreviewUrl, coverPath) => set({ coverFile, coverPreviewUrl, coverPath: coverPath ?? null, coverScore: null, coverSizeBytes: coverFile?.size ?? 0 }),
   setCoverScore: (coverScore, coverScoring = false) => set({ coverScore, coverScoring }),
   setOptions: (opts) => set(opts),
-  setResult: (result) => set({ result, error: null, embedding: false, passphrase: '', decoyPassphrase: '' }),
+  setResult: (result) => set({ result, error: null, passphrase: '', decoyPassphrase: '' }),
   setError: (error) => set({ error, embedding: false }),
   setEmbedding: (embedding) => set({ embedding }),
 

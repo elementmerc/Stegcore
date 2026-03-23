@@ -1,3 +1,13 @@
+// Copyright (C) 2026 Daniel Iwugo — elementmerc
+// SPDX-License-Identifier: AGPL-3.0-or-later OR LicenseRef-Stegcore-Commercial
+//
+// This file is part of Stegcore. Stegcore is free software: you can
+// redistribute it and/or modify it under the terms of the GNU Affero
+// General Public License as published by the Free Software Foundation,
+// either version 3 of the License, or (at your option) any later version.
+//
+// Commercial licensing: daniel@themalwarefiles.com
+
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -77,6 +87,7 @@ pub fn run(
     };
 
     // ── Extract ───────────────────────────────────────────────────────────────
+    let start = std::time::Instant::now();
     let spinner = Spinner::new("Extracting…", Arc::clone(&interrupted));
 
     let result = if let Some(kf_path) = &args.key_file {
@@ -99,7 +110,11 @@ pub fn run(
 
     match result {
         Ok(data) => {
-            spinner.success("Extracted successfully");
+            let elapsed = start.elapsed();
+            spinner.success(&format!(
+                "Extracted successfully in {:.1}s",
+                elapsed.as_secs_f64()
+            ));
 
             // --raw: write raw bytes to stdout (for piping)
             if args.raw {
