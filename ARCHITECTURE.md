@@ -304,7 +304,6 @@ cargo fmt --all --check
 .
 ├── Cargo.toml                        workspace definition
 ├── Cargo.lock                        pinned dependency versions
-├── CLAUDE.md                         AI context document
 ├── README.md                         user-facing documentation
 ├── USAGE.md                          CLI reference
 ├── ARCHITECTURE.md                   this file
@@ -356,10 +355,6 @@ cargo fmt --all --check
 │       ├── components/               reusable UI + steganalysis charts
 │       └── lib/                      stores, IPC, toast, sound, theme
 │
-├── scripts/
-│   └── test_integration.sh           287-test comprehensive suite
-│
 ├── dist/                             packaging (Homebrew, winget, Kali)
-├── tests/assets/                     test files (covers + payloads)
 └── docs/                             demo gif placeholder
 ```

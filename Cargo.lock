@@ -5233,6 +5233,7 @@ dependencies = [
  "serde_json",
  "stegcore-core",
  "toml 0.8.2",
+ "zeroize",
 ]
 
 [[package]]
@@ -5289,7 +5290,6 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
- "tauri-plugin-fs",
  "tauri-plugin-log",
  "tauri-plugin-shell",
 ]

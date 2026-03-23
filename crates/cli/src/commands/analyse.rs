@@ -38,6 +38,7 @@ pub fn run(
     args: &AnalyseArgs,
     verbose: bool,
     json: bool,
+    _quiet: bool,
     interrupted: Arc<std::sync::atomic::AtomicBool>,
 ) -> ! {
     // ── Watch mode ────────────────────────────────────────────────────────────

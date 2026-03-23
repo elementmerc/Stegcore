@@ -15,6 +15,7 @@ pub fn run(
     args: &ScoreArgs,
     verbose: bool,
     json: bool,
+    _quiet: bool,
     interrupted: Arc<std::sync::atomic::AtomicBool>,
 ) -> ! {
     if !args.file.exists() {

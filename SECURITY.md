@@ -71,7 +71,7 @@ Stegcore hides data inside files. It doesn't protect the transmission of those f
 
 ## Cryptographic decisions
 
-**Key derivation:** Argon2id with `time_cost=2`, `memory_cost=65536 KiB` (64 MB), `parallelism=2`. The derived key length matches the cipher: 16 B for Ascon-128, 32 B for ChaCha20-Poly1305 and AES-256-GCM. These parameters meet the current OWASP minimum recommendations. A single password guess requires 64 MB of RAM. GPU cracking is constrained by the memory requirement.
+**Key derivation:** Argon2id with parameters that meet the current OWASP minimum recommendations. The derived key length matches the cipher requirements. A single passphrase guess requires significant RAM, constraining GPU-based cracking.
 
 **Ciphers:** All three ciphers are AEAD (Authenticated Encryption with Associated Data). The ciphertext includes an authentication tag. Decryption fails with an explicit error if the ciphertext has been modified or if the wrong passphrase is used. There's no "partial decryption" that produces garbled output. Only clean success, or clean failure.
 

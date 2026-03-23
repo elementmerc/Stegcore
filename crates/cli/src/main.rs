@@ -110,7 +110,7 @@ fn main() {
         ctrlc::set_handler(move || {
             flag.store(true, Ordering::SeqCst);
         })
-        .expect("Failed to install Ctrl-C handler");
+        .ok(); // Best-effort — some platforms may not support signal handlers
     }
 
     // ── Parse arguments ────────────────────────────────────────────────────────
@@ -130,19 +130,65 @@ fn main() {
         let _ = stderr.execute(ResetColor);
     }
 
+    // ── Apply config defaults where CLI flags were not explicitly provided ─────
+    let verbose = cli.verbose || cfg.verbose.unwrap_or(false);
+
     // ── Dispatch ───────────────────────────────────────────────────────────────
     match cli.command {
-        Command::Embed(args) => embed::run(&args, cli.verbose, cli.json, Arc::clone(&interrupted)),
-        Command::Extract(args) => {
-            extract::run(&args, cli.verbose, cli.json, Arc::clone(&interrupted))
+        Command::Embed(mut args) => {
+            // Config overrides for embed: only apply if user did not explicitly set the flag.
+            // clap always fills default_value, so we check if the value matches the default.
+            if let Some(ref c) = cfg.default_cipher {
+                if args.cipher == "chacha20-poly1305" {
+                    args.cipher = c.clone();
+                }
+            }
+            if let Some(ref m) = cfg.default_mode {
+                if args.mode == "adaptive" {
+                    args.mode = m.clone();
+                }
+            }
+            if cfg.export_key.unwrap_or(false) && !args.export_key {
+                args.export_key = true;
+            }
+            embed::run(
+                &args,
+                verbose,
+                cli.json,
+                cli.quiet,
+                Arc::clone(&interrupted),
+            )
         }
-        Command::Analyse(args) => {
-            analyse::run(&args, cli.verbose, cli.json, Arc::clone(&interrupted))
-        }
-        Command::Score(args) => score::run(&args, cli.verbose, cli.json, Arc::clone(&interrupted)),
-        Command::Info(args) => info::run(&args, cli.verbose, cli.json, Arc::clone(&interrupted)),
+        Command::Extract(args) => extract::run(
+            &args,
+            verbose,
+            cli.json,
+            cli.quiet,
+            Arc::clone(&interrupted),
+        ),
+        Command::Analyse(args) => analyse::run(
+            &args,
+            verbose,
+            cli.json,
+            cli.quiet,
+            Arc::clone(&interrupted),
+        ),
+        Command::Score(args) => score::run(
+            &args,
+            verbose,
+            cli.json,
+            cli.quiet,
+            Arc::clone(&interrupted),
+        ),
+        Command::Info(args) => info::run(
+            &args,
+            verbose,
+            cli.json,
+            cli.quiet,
+            Arc::clone(&interrupted),
+        ),
         Command::Ciphers => ciphers::run(cli.json),
-        Command::Diff(args) => commands::diff::run(&args),
+        Command::Diff(args) => commands::diff::run(&args, cli.json),
         Command::Wizard => wizard::run(Arc::clone(&interrupted)),
         Command::Doctor => {
             use crossterm::style::{Color, Print, ResetColor, SetForegroundColor};

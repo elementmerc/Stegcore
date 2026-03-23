@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from 'react'
+import { useState, useEffect, useCallback, useRef, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { KeyRound, Eye, EyeOff, FolderOpen, Copy, Lock } from 'lucide-react'
 // DropZone replaced by native file pickers for full filesystem paths
@@ -6,6 +6,7 @@ import { ScoreCard } from '../components/ScoreCard'
 import { EntropyBar } from '../components/EntropyBar'
 import { Toggle } from '../components/Toggle'
 import { SuccessCheck } from '../components/SuccessCheck'
+import { ProcessingScreen } from '../components/ProcessingScreen'
 import { useEmbedStore } from '../lib/stores/embedStore'
 import { useSettingsStore } from '../lib/stores/settingsStore'
 import { useFooter } from '../App'
@@ -589,6 +590,9 @@ function Step4() {
   const [copied, setCopied] = useState(false)
   const [diff, setDiff] = useState<PixelDiffResult | null>(null)
   const [diffLoading, setDiffLoading] = useState(false)
+  const [processingStatus, setProcessingStatus] = useState<'processing' | 'success' | 'error'>('processing')
+  const [pendingError, setPendingError] = useState<string | null>(null)
+  const pendingResultRef = useRef<{ outputPath: string } | null>(null)
 
   // Auto-run pixel diff when embed succeeds
   useEffect(() => {
@@ -612,18 +616,26 @@ function Step4() {
     currentStep: 4,
   })
 
+  const [embedPhase, setEmbedPhase] = useState('')
+
   const handleEmbed = useCallback(async () => {
     if (!payloadFile || !coverFile) return
     setEmbedding(true)
+    setEmbedPhase('Preparing…')
     setError(null)
+
+    // Force React to paint the spinner before the IPC call
+    await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)))
+
     try {
+      setEmbedPhase('Deriving key…')
       const coverArg = coverPath ?? coverFile.name
       const payloadArg = payloadPath ?? payloadFile.name
-      // Auto-generate output path from cover
       const coverStem = coverArg.replace(/\.[^.]+$/, '')
       const coverExt = coverArg.split('.').pop() ?? 'png'
       const outputArg = `${coverStem}_stego.${coverExt}`
 
+      setEmbedPhase('Embedding…')
       const res = await ipcEmbed({
         cover: coverArg,
         payload: payloadArg,
@@ -636,13 +648,13 @@ function Step4() {
         exportKey,
         output: outputArg,
       })
-      setResult(res)
-      toast.success('Embedded successfully')
-      playSuccess()
+      setProcessingStatus('success')
+      // Delay setResult so ProcessingScreen can show the checkmark animation
+      pendingResultRef.current = res
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Something went wrong. Please try again.'
-      setError(msg)
-      toast.error('Embedding failed', msg)
+      setPendingError(msg)
+      setProcessingStatus('error')
     }
   }, [payloadFile, payloadPath, coverFile, coverPath, passphrase, cipher, mode, deniable, decoyFile, decoyPath, decoyPassphrase, exportKey, setEmbedding, setError, setResult])
 
@@ -661,7 +673,35 @@ function Step4() {
     }
   }, [result, settings.clearClipboardSecs])
 
+  const handleProcessingComplete = useCallback(() => {
+    const res = pendingResultRef.current
+    if (res) {
+      setResult(res)
+      toast.success('Embedded successfully')
+      playSuccess()
+      pendingResultRef.current = null
+    }
+    setEmbedding(false)
+    setProcessingStatus('processing')
+  }, [setResult, setEmbedding])
+
+  const handleProcessingRetry = useCallback(() => {
+    setEmbedding(false)
+    setProcessingStatus('processing')
+    setPendingError(null)
+  }, [setEmbedding])
+
   return (
+    <>
+      {embedding && (
+        <ProcessingScreen
+          phase={embedPhase}
+          status={processingStatus}
+          errorMessage={pendingError ?? undefined}
+          onComplete={handleProcessingComplete}
+          onRetry={handleProcessingRetry}
+        />
+      )}
     <StepShell title="Review & Embed" subtitle="Check your selections and embed when ready." step={4} totalSteps={4}>
 
       {/* Summary */}
@@ -702,7 +742,7 @@ function Step4() {
           {embedding ? (
             <>
               <SpinnerIcon />
-              Embedding…
+              {embedPhase || 'Embedding…'}
             </>
           ) : (
             <>
@@ -715,15 +755,20 @@ function Step4() {
 
       {/* Progress bar (indeterminate while embedding) */}
       {embedding && (
-        <div style={{ marginTop: 12, height: 4, borderRadius: 2, background: 'var(--ui-border)', overflow: 'hidden' }}>
-          <div style={{
-            height: '100%',
-            width: '40%',
-            borderRadius: 2,
-            background: 'var(--ui-accent)',
-            animation: 'slide-indeterminate 1.2s linear infinite',
-          }} />
-        </div>
+        <>
+          <div style={{ marginTop: 12, height: 3, borderRadius: 2, background: 'var(--ui-border)', overflow: 'hidden' }}>
+            <div style={{
+              height: '100%',
+              width: '40%',
+              borderRadius: 2,
+              background: 'var(--ui-accent)',
+              animation: 'slide-indeterminate 1.2s linear infinite',
+            }} />
+          </div>
+          <p style={{ fontSize: 11, color: 'var(--ui-text2)', textAlign: 'center', marginTop: 6 }}>
+            {embedPhase}
+          </p>
+        </>
       )}
 
       {/* Error state */}
@@ -807,6 +852,7 @@ function Step4() {
         }
       `}</style>
     </StepShell>
+    </>
   )
 }
 

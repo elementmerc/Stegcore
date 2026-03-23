@@ -12,15 +12,26 @@ export function useAnimationFrame(maxFrames = 200): [number, () => void] {
   const resetFrame = useCallback(() => {
     frameRef.current = 0
     setFrame(0)
-  }, [])
+    // Restart the rAF loop since it stopped at maxFrames
+    cancelAnimationFrame(rafRef.current)
+    const tick = () => {
+      if (frameRef.current < maxFrames) {
+        frameRef.current += 1
+        setFrame(frameRef.current)
+        rafRef.current = requestAnimationFrame(tick)
+      }
+    }
+    rafRef.current = requestAnimationFrame(tick)
+  }, [maxFrames])
 
   useEffect(() => {
     const tick = () => {
       if (frameRef.current < maxFrames) {
         frameRef.current += 1
         setFrame(frameRef.current)
+        rafRef.current = requestAnimationFrame(tick)
       }
-      rafRef.current = requestAnimationFrame(tick)
+      // Stop requesting frames once maxFrames is reached — saves CPU/GPU
     }
     rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)

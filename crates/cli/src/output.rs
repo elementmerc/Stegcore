@@ -8,10 +8,20 @@ use crossterm::ExecutableCommand;
 use indicatif::{ProgressBar, ProgressStyle};
 use stegcore_core::errors::StegError;
 
+/// Check if stderr is a terminal — skip colour output when piped.
+fn is_tty() -> bool {
+    use std::io::IsTerminal;
+    std::io::stderr().is_terminal()
+}
+
 // ── Colours ───────────────────────────────────────────────────────────────────
 
 pub fn print_success(msg: &str) {
     let mut stderr = std::io::stderr();
+    if !is_tty() {
+        let _ = stderr.execute(Print(format!("✓ {msg}\n")));
+        return;
+    }
     let _ = stderr.execute(SetForegroundColor(Color::Green));
     let _ = stderr.execute(Print(format!("✓ {msg}\n")));
     let _ = stderr.execute(ResetColor);
@@ -19,6 +29,13 @@ pub fn print_success(msg: &str) {
 
 pub fn print_error(msg: &str, chain: Option<&str>) {
     let mut stderr = std::io::stderr();
+    if !is_tty() {
+        let _ = stderr.execute(Print(format!("✗ Error: {msg}\n")));
+        if let Some(c) = chain {
+            let _ = stderr.execute(Print(format!("  {c}\n")));
+        }
+        return;
+    }
     let _ = stderr.execute(SetForegroundColor(Color::Red));
     let _ = stderr.execute(Print(format!("✗ Error: {msg}\n")));
     let _ = stderr.execute(ResetColor);
@@ -31,6 +48,10 @@ pub fn print_error(msg: &str, chain: Option<&str>) {
 
 pub fn print_warn(msg: &str) {
     let mut stderr = std::io::stderr();
+    if !is_tty() {
+        let _ = stderr.execute(Print(format!("⚠  Warning: {msg}\n")));
+        return;
+    }
     let _ = stderr.execute(SetForegroundColor(Color::Yellow));
     let _ = stderr.execute(Print(format!("⚠  Warning: {msg}\n")));
     let _ = stderr.execute(ResetColor);

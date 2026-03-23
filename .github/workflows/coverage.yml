@@ -72,5 +72,5 @@ jobs:
       - name: Install cargo-llvm-cov
         run: cargo install cargo-llvm-cov --locked
 
-      - name: Enforce 90% threshold
-        run: cargo llvm-cov report --workspace --fail-under-lines 90
+      - name: Run tests with coverage and enforce 90% threshold
+        run: cargo llvm-cov --workspace --no-default-features --fail-under-lines 90

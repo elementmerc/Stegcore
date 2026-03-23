@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Unlock, Key, KeyRound, Eye, EyeOff, FileDown } from 'lucide-react'
 // DropZone replaced by native file pickers for full filesystem paths
 import { SuccessCheck } from '../components/SuccessCheck'
+import { ProcessingScreen } from '../components/ProcessingScreen'
 import { EntropyBar } from '../components/EntropyBar'
 import { useExtractStore } from '../lib/stores/extractStore'
 import { useFooter } from '../App'
@@ -228,6 +229,9 @@ function Step3() {
   const { stegoFile, stegoPath, keyFile, keyFilePath, passphrase, result, resultText, error, extracting, setPassphrase, setResult, setError, setExtracting, setStep } = useExtractStore()
   const navigate = useNavigate()
   const [showPass, setShowPass] = useState(false)
+  const [processingStatus, setProcessingStatus] = useState<'processing' | 'success' | 'error'>('processing')
+  const [pendingError, setPendingError] = useState<string | null>(null)
+  const pendingResultRef = useRef<Uint8Array | null>(null)
 
   useFooter({
     backLabel: 'Key file',
@@ -238,30 +242,37 @@ function Step3() {
     currentStep: 3,
   })
 
+  const [extractPhase, setExtractPhase] = useState('')
+
   const handleExtract = useCallback(async () => {
     if (!stegoFile) return
     setExtracting(true)
+    setExtractPhase('Preparing…')
     setError(null)
+
+    // Force React to paint the spinner before the IPC call
+    await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)))
+
     try {
+      setExtractPhase('Deriving key…')
       const bytes = await ipcExtract({
         stego: stegoPath ?? stegoFile.name,
         passphrase,
         keyFile: keyFilePath ?? keyFile?.name,
       })
-      setResult(bytes)
-      toast.success('Extracted successfully')
-      playSuccess()
+      setExtractPhase('Decrypting…')
+      pendingResultRef.current = bytes
+      setProcessingStatus('success')
     } catch (e) {
-      // Oracle-resistant: show generic message regardless of actual error type
       const detail = e instanceof Error ? e.message : undefined
-      setError(detail ?? 'Wrong passphrase or corrupted file.')
-      toast.error('Extraction failed', detail)
+      setPendingError(detail ?? 'Wrong passphrase or corrupted file.')
+      setProcessingStatus('error')
     }
   }, [stegoFile, stegoPath, passphrase, keyFile, keyFilePath, setExtracting, setError, setResult])
 
   const handleSave = useCallback(() => {
     if (!result) return
-    const blob = new Blob([result.buffer as ArrayBuffer])
+    const blob = new Blob([result])
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -270,7 +281,35 @@ function Step3() {
     URL.revokeObjectURL(url)
   }, [result])
 
+  const handleProcessingComplete = useCallback(() => {
+    const bytes = pendingResultRef.current
+    if (bytes) {
+      setResult(bytes)
+      toast.success('Extracted successfully')
+      playSuccess()
+      pendingResultRef.current = null
+    }
+    setExtracting(false)
+    setProcessingStatus('processing')
+  }, [setResult, setExtracting])
+
+  const handleProcessingRetry = useCallback(() => {
+    setExtracting(false)
+    setProcessingStatus('processing')
+    setPendingError(null)
+  }, [setExtracting])
+
   return (
+    <>
+      {extracting && (
+        <ProcessingScreen
+          phase={extractPhase}
+          status={processingStatus}
+          errorMessage={pendingError ?? undefined}
+          onComplete={handleProcessingComplete}
+          onRetry={handleProcessingRetry}
+        />
+      )}
     <StepShell title="Extract" subtitle="Enter your passphrase to reveal the hidden message." step={3} totalSteps={3}>
 
       {!result && (
@@ -335,8 +374,24 @@ function Step3() {
               transition: 'opacity var(--sc-t-fast)',
             }}
           >
-            {extracting ? <><SpinnerIcon /> Extracting…</> : <><Unlock size={16} /> Extract</>}
+            {extracting ? <><SpinnerIcon /> {extractPhase || 'Extracting…'}</> : <><Unlock size={16} /> Extract</>}
           </button>
+          {extracting && (
+            <>
+              <div style={{ marginTop: 10, height: 3, borderRadius: 2, background: 'var(--ui-border)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: '40%',
+                  borderRadius: 2,
+                  background: 'var(--ui-accent)',
+                  animation: 'slide-indeterminate 1.2s linear infinite',
+                }} />
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--ui-text2)', textAlign: 'center', marginTop: 6 }}>
+                {extractPhase}
+              </p>
+            </>
+          )}
         </>
       )}
 
@@ -391,6 +446,7 @@ function Step3() {
         </div>
       )}
     </StepShell>
+    </>
   )
 }
 

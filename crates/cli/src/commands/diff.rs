@@ -10,7 +10,7 @@ pub struct DiffArgs {
     pub stego: PathBuf,
 }
 
-pub fn run(args: &DiffArgs) -> ! {
+pub fn run(args: &DiffArgs, _json: bool) -> ! {
     use crossterm::style::{Color, Print, ResetColor, SetForegroundColor};
     use crossterm::ExecutableCommand;
 

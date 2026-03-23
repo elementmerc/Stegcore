@@ -165,6 +165,8 @@ function VerseBar() {
   }, [overflow, scrolling])
 
   // Animation loop when scrolling
+  const restartTimer = useRef<number>(0)
+
   useEffect(() => {
     if (!scrolling || overflow <= 0) return
     const el = innerRef.current
@@ -197,7 +199,7 @@ function VerseBar() {
           if (scrollPos.current <= 0) {
             scrollPhase.current = 'idle'
             // Pause, then restart
-            setTimeout(() => {
+            restartTimer.current = window.setTimeout(() => {
               if (scrolling) scrollPhase.current = 'scrollLeft'
             }, 5000)
           }
@@ -209,7 +211,10 @@ function VerseBar() {
     }
 
     rafId.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafId.current)
+    return () => {
+      cancelAnimationFrame(rafId.current)
+      clearTimeout(restartTimer.current)
+    }
   }, [scrolling, overflow])
 
   if (!verse) return <div style={{ flex: 1 }} />
