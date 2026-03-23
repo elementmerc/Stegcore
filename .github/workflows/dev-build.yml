@@ -59,15 +59,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p libstegcore/src
-          cat > libstegcore/Cargo.toml << 'STUB'
-          [package]
-          name = "stegcore-engine"
-          version = "0.1.0"
-          edition = "2021"
-
-          [lib]
-          name = "stegcore_engine"
-          STUB
+          printf '[package]\nname = "stegcore-engine"\nversion = "0.1.0"\nedition = "2021"\n\n[lib]\nname = "stegcore_engine"\n' > libstegcore/Cargo.toml
           touch libstegcore/src/lib.rs
 
       - name: Add macOS universal targets
@@ -102,27 +94,35 @@ jobs:
 
       - name: Build Tauri app (Linux/Windows)
         if: matrix.platform != 'macos-latest'
+        id: tauri-build
         uses: tauri-apps/tauri-action@v0
         with:
           args: -- --no-default-features --features custom-protocol
 
       - name: Build Tauri app (macOS universal)
         if: matrix.platform == 'macos-latest'
+        id: tauri-build-mac
         uses: tauri-apps/tauri-action@v0
         with:
           args: --target universal-apple-darwin -- --no-default-features --features custom-protocol
+
+      - name: Find build artefacts
+        id: find-artefacts
+        shell: bash
+        run: |
+          echo "Searching for bundles..."
+          find src-tauri/target -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" -o -name "*.rpm" -o -name "*.nsis.zip" \) 2>/dev/null | head -20
+          # Create a staging dir with all artefacts
+          mkdir -p artefacts
+          find src-tauri/target -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.dmg" -o -name "*.rpm" \) -exec cp {} artefacts/ \; 2>/dev/null || true
+          # Windows NSIS installer
+          find src-tauri/target -path "*/nsis/*" -name "*.exe" -exec cp {} artefacts/ \; 2>/dev/null || true
+          ls -la artefacts/ || echo "No artefacts found"
 
       - name: Upload artefacts
         uses: actions/upload-artifact@v4
         with:
           name: stegcore-dev-${{ matrix.os-label }}-${{ matrix.arch }}
-          path: |
-            src-tauri/target/release/bundle/**/*.deb
-            src-tauri/target/release/bundle/**/*.AppImage
-            src-tauri/target/release/bundle/**/*.msi
-            src-tauri/target/release/bundle/**/*.exe
-            src-tauri/target/release/bundle/**/*.dmg
-            src-tauri/target/release/bundle/**/*.app
-            src-tauri/target/release/bundle/**/*.rpm
+          path: artefacts/
           if-no-files-found: warn
           retention-days: 14

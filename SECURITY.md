@@ -32,16 +32,16 @@ Stegcore is designed to hold up against the following:
 
 ## What Stegcore doesn't protect against
 
-Let me be real with you about relying on this software for anything high-stakes
+Let me be real with you about relying on this software for anything high-stakes.
 
 **Dedicated steganalysis tools**
 
-Tools like StegExpose, zsteg, and ML-based detectors (SRM, SPAM, GFR) analyse the statistical properties of pixel distributions rather than looking for visible changes. Standard LSB steganography is reliably detected by these tools. Stegcore's adaptive mode with spread spectrum significantly raises the detection threshold, but doesn't make detection impossible - particularly at high payload density on low-quality covers. If your adversary is running automated ML-based steganalysis across a large corpus of files, Stegcore provides meaningful but not absolute resistance.
+Tools like StegExpose, zsteg, and ML-based detectors (SRM, SPAM, GFR) analyse the statistical properties of pixel distributions rather than looking for visible changes. Standard LSB steganography is reliably detected by these tools. Stegcore's adaptive mode significantly raises the detection threshold, but doesn't make detection impossible — particularly at high payload density on low-quality covers. If your adversary is running automated ML-based steganalysis across a large corpus of files, Stegcore provides meaningful but not absolute resistance.
 
 Stegcore includes a built-in steganalysis suite that runs five
 detectors against any file. You can test your own output before sharing
-it. The GUI shows interactive scatter plots and heatmaps of the
-detection results.
+it. The GUI shows interactive charts and heatmaps of the detection
+results.
 
 **Traffic analysis and metadata**
 
@@ -122,7 +122,7 @@ Stegcore makes **no network connections whatsoever**. No telemetry, no
 analytics, no update checks, no CDN fonts, no external API calls.
 Everything runs locally on your machine.
 
-- All fonts are bundled (system font stack + local WOFF2)
+- System font stack — no external font loading
 - No external dependencies loaded at runtime
 - Config stored locally in `~/.config/stegcore/` with restrictive
   permissions (0o700 on Unix)
@@ -138,4 +138,4 @@ dependencies or connections.
 
 ## Reporting security issues
 
-If you discover a security vulnerability in Stegcore, please report it privately rather than opening a public issue. Use the repository's security advisory system or the contact address listed in the repository. And for the love of everything on God's green earth, please don't disclose vulnerabilities publicly until they've been assessed and a fix is available.
+If you discover a security vulnerability in Stegcore, please report it privately rather than opening a public issue. Use the repository's security advisory system or email daniel@themalwarefiles.com. And for the love of everything on God's green earth, please don't disclose vulnerabilities publicly until they've been assessed and a fix is available.

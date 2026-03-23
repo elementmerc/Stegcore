@@ -13,12 +13,12 @@ A comparison of Stegcore with the most widely used open-source steganography too
 | **Key derivation** | 32-bit PRNG seed (crackable) | Undocumented | Argon2id (memory-hard) |
 | **Deniable mode** | None | None | Dual-payload |
 | **GUI** | CLI only | Java Swing | Native desktop (Windows, macOS, Linux) |
-| **Built-in steganalysis** | No | No | Yes (6 detectors + tool fingerprinting) |
+| **Built-in steganalysis** | No | No | Yes (5 detectors + tool fingerprinting) |
 | **Key file required** | Yes | N/A | No (optional export) |
 | **Active maintenance** | Abandoned 2008 | Active | Active |
 | **Runtime dependency** | C libraries | Java 11+ | None (native binary) |
 | **Docker** | No | No | Yes (multi-arch) |
-| **Licence** | GPL-2.0 | GPL-2.0 | AGPL-3.0 |
+| **Licence** | GPL-2.0 | GPL-2.0 | AGPL-3.0-or-later + commercial |
 
 ---
 
@@ -32,7 +32,7 @@ Steghide also predates modern authenticated encryption. It uses DES (deprecated)
 
 For historical research, CTF challenges where the challenge is intentionally solvable, or understanding the field: Steghide is fine. For any genuine operational use: do not use Steghide.
 
-Stegcore exists in part as a tribute to Steghide's legacy and as an answer to the question of what a secure replacement looks like in 2024.
+Stegcore exists in part as a tribute to Steghide's legacy and as an answer to the question of what a secure replacement looks like.
 
 ---
 
@@ -43,7 +43,7 @@ OpenStego is actively maintained and takes a more considered approach than Stegh
 Its limitations:
 
 - Requires Java 11 or later, adding a significant runtime dependency
-- Supports only BMP and PNG (no audio, no WebP)
+- Supports only BMP and PNG (no audio, no JPEG, no WebP)
 - No deniable mode
 - No built-in steganalysis
 - Key derivation function internals are not published, making independent security review difficult

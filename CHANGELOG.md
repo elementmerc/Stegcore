@@ -4,9 +4,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [3.0.0-dev] — 2026-03-21
+## [4.0.0-beta.1] — 2026-03-23
 
-Complete rewrite. Rust + Tauri v2 replaces Python + PyInstaller.
+Complete rewrite. Rust + Tauri v2 replaces the Python + PyInstaller codebase.
 
 ### Engine
 - Full Rust engine with three AEAD ciphers + Argon2id
@@ -53,6 +53,7 @@ Complete rewrite. Rust + Tauri v2 replaces Python + PyInstaller.
 - Stable footer (no layout shift between routes)
 
 ### CLI
+- Subcommands: embed, extract, analyse, score, diff, info, ciphers, wizard, doctor, benchmark, verse, completions
 - Shell completions (Bash, Zsh, Fish)
 - Config file (~/.config/stegcore/config.toml)
 - `stegcore doctor` — system health check
@@ -61,10 +62,12 @@ Complete rewrite. Rust + Tauri v2 replaces Python + PyInstaller.
 - `stegcore verse` — daily Bible verse
 - Pipe support (stdin payloads, `--raw` stdout for binary)
 - `--quiet` mode (exit code only)
+- `--json` on all commands
 - `--watch` mode (directory monitoring)
 - Coloured help output with clap styles
 - Progress ETA on batch operations
 - Elapsed time on all spinners
+- Box-drawing summary cards
 - Smart output naming (auto-generated when `-o` omitted)
 
 ### Security
@@ -74,7 +77,7 @@ Complete rewrite. Rust + Tauri v2 replaces Python + PyInstaller.
 - Config directory created with 0o700 permissions
 - TOCTOU fixes (direct file opens, no pre-checks)
 - Oracle-resistant error messages
-- CLI passphrase zeroization after use (Zeroizing<Vec<u8>>)
+- CLI passphrase zeroisation after use (Zeroizing<Vec<u8>>)
 - Key files written with 0o600 permissions (Unix)
 - Deniable metadata no longer reveals deniable mode (deniable field always false)
 - Deniable partition half randomised (adversary cannot infer which is real)
@@ -82,7 +85,6 @@ Complete rewrite. Rust + Tauri v2 replaces Python + PyInstaller.
 - Empty decoy passphrase rejected with clear error
 - Unused tauri-plugin-fs removed (reduced attack surface)
 - Passphrase cleared from Zustand stores after successful embed/extract
-- KDF parameters removed from public documentation
 - Decompression bomb capped at 256 MB
 - JPEG extract allocation capped to coefficient capacity
 

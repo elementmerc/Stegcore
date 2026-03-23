@@ -213,8 +213,7 @@ The user-facing interface.
   - Audio: oscilloscope trace (waveform bars with region highlighting)
 - **Design system**: CSS custom properties (`--sc-*` for brand,
   `--ui-*` for semantic). Dark/light themes via `data-theme` attribute.
-  Interface size scaling via CSS `zoom`. System font stack + Space Mono
-  for monospace elements.
+  Interface size scaling via CSS `zoom`. System font stack.
 - **IPC layer** (`lib/ipc.ts`): Typed wrappers around Tauri `invoke`.
   `safeInvoke` provides mock fallbacks for browser-only dev mode but
   propagates all backend errors in production.
@@ -353,5 +352,5 @@ cargo fmt --all --check
 │       └── lib/                      stores, IPC, toast, sound, theme
 │
 ├── dist/                             packaging (Homebrew, winget, Kali)
-└── docs/                             demo gif placeholder
+└── docs/                             additional documentation
 ```

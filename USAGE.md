@@ -109,6 +109,8 @@ stegcore analyse <file>... [options]
 
 | Flag | Default | Description |
 |---|---|---|
+| `--report` | `table` | Output format: `table`, `html`, `json`, `csv` |
+| `-o, --output` | — | Report output path (required for html/csv) |
 | `--watch <dir>` | off | Monitor a directory for new files and analyse them automatically |
 | `--json` | off | Output results as JSON |
 | `--verbose` | off | Show per-test details |
@@ -127,6 +129,9 @@ stegcore analyse *.png --json
 
 # Watch a directory for new files
 stegcore analyse --watch /tmp/incoming/
+
+# Generate an HTML report
+stegcore analyse suspect.png --report html -o report.html
 
 # Verbose with per-test breakdown
 stegcore analyse suspect.png --verbose
@@ -149,6 +154,15 @@ stegcore diff <original> <stego>
 
 Reports changed pixels, maximum delta, and whether modifications are
 LSB-only (visually identical). Useful for verifying embedding quality.
+
+### `info` — Read embedded metadata
+
+```bash
+stegcore info <stego> [--json]
+```
+
+Displays the cipher, mode, and format info embedded in a stego file.
+Requires the passphrase (slot selection is passphrase-seeded).
 
 ### `ciphers` — List available ciphers
 

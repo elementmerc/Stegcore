@@ -104,6 +104,15 @@ cargo run -p stegcore-cli -- doctor
 
 ---
 
+## Licence
+
+Stegcore is dual-licensed under AGPL-3.0-or-later and a commercial licence.
+Contributions to this repository are licensed under the same terms.
+
+Commercial licensing: daniel@themalwarefiles.com
+
+---
+
 ## Pull requests
 
 - One logical change per PR

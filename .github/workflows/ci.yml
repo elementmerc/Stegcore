@@ -53,15 +53,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p libstegcore/src
-          cat > libstegcore/Cargo.toml << 'STUB'
-          [package]
-          name = "stegcore-engine"
-          version = "0.1.0"
-          edition = "2021"
-
-          [lib]
-          name = "stegcore_engine"
-          STUB
+          printf '[package]\nname = "stegcore-engine"\nversion = "0.1.0"\nedition = "2021"\n\n[lib]\nname = "stegcore_engine"\n' > libstegcore/Cargo.toml
           touch libstegcore/src/lib.rs
 
       - name: Use Node.js 24
@@ -103,15 +95,7 @@ jobs:
       - name: Create engine stub
         run: |
           mkdir -p libstegcore/src
-          cat > libstegcore/Cargo.toml << 'STUB'
-          [package]
-          name = "stegcore-engine"
-          version = "0.1.0"
-          edition = "2021"
-
-          [lib]
-          name = "stegcore_engine"
-          STUB
+          printf '[package]\nname = "stegcore-engine"\nversion = "0.1.0"\nedition = "2021"\n\n[lib]\nname = "stegcore_engine"\n' > libstegcore/Cargo.toml
           touch libstegcore/src/lib.rs
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
