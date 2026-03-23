@@ -5211,7 +5211,7 @@ dependencies = [
 
 [[package]]
 name = "stegcore-cli"
-version = "0.1.0"
+version = "4.0.0-beta.1"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -5238,7 +5238,7 @@ dependencies = [
 
 [[package]]
 name = "stegcore-core"
-version = "0.1.0"
+version = "4.0.0-beta.1"
 dependencies = [
  "base64 0.22.1",
  "log",
@@ -5252,7 +5252,7 @@ dependencies = [
 
 [[package]]
 name = "stegcore-engine"
-version = "0.1.0"
+version = "4.0.0-beta.1"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -5279,7 +5279,7 @@ dependencies = [
 
 [[package]]
 name = "stegcore-tauri"
-version = "0.1.0"
+version = "4.0.0-beta.1"
 dependencies = [
  "image",
  "log",

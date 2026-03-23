@@ -9,13 +9,13 @@ Stegcore hides encrypted data inside ordinary image and audio files. Only someon
 ### Linux / macOS
 
 ```bash
-curl -fsSL https://github.com/elementmerc/Stegcore/releases/latest/download/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.sh | sh
 ```
 
 Or download the script and inspect it first:
 
 ```bash
-curl -fsSL https://github.com/elementmerc/Stegcore/releases/latest/download/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.sh -o install.sh
 less install.sh
 bash install.sh
 ```
@@ -30,7 +30,8 @@ irm https://github.com/elementmerc/Stegcore/releases/latest/download/install.ps1
 
 ```bash
 docker pull ghcr.io/elementmerc/stegcore:latest
-docker run --rm -v $(pwd)/files:/data ghcr.io/elementmerc/stegcore embed /data/cover.png /data/message.txt /data/output.png
+docker run --rm -v $(pwd)/files:/data ghcr.io/elementmerc/stegcore \
+  embed /data/cover.png /data/message.txt -o /data/output.png
 ```
 
 ### Manual download
@@ -44,14 +45,14 @@ Download the binary for your platform from the [releases page](https://github.co
 **Hide a message:**
 
 ```bash
-stegcore embed cover.png message.txt output.png
+stegcore embed cover.png message.txt -o output.png
 # Enter passphrase when prompted
 ```
 
 **Recover it:**
 
 ```bash
-stegcore extract output.png
+stegcore extract output.png -o recovered.txt
 # Enter passphrase when prompted
 ```
 
@@ -69,7 +70,6 @@ JPEG embedding operates in the DCT coefficient domain — the output is a valid 
 
 Supported formats for extraction and analysis: **PNG, BMP, JPEG, WAV, WebP, FLAC**
 
-
 ---
 
 ## Embedding modes
@@ -77,7 +77,7 @@ Supported formats for extraction and analysis: **PNG, BMP, JPEG, WAV, WebP, FLAC
 | Mode | When to use |
 |------|-------------|
 | **Adaptive** (default) | More resistant to detection. Use this unless you need extra capacity. |
-| **Standard** | Fits more data. Use when your message is large and you trust the distribution channel. |
+| **Sequential** | Fits more data. Use when your message is large and you trust the distribution channel. |
 
 Select the mode with `--mode adaptive` or `--mode sequential`. The GUI offers both with a toggle.
 
@@ -102,7 +102,7 @@ The cipher used during embedding is stored inside the output file. You do not ne
 Deniable mode lets you embed two separate messages in one file, each protected by a different passphrase.
 
 ```bash
-stegcore embed cover.png real_message.txt output.png \
+stegcore embed cover.png real_message.txt -o output.png \
   --passphrase "real-passphrase" \
   --deniable \
   --decoy decoy_message.txt \
@@ -120,13 +120,13 @@ By default, all information needed for extraction is embedded in the output file
 If you need to share the metadata separately — for example, over a different channel — you can export a key file:
 
 ```bash
-stegcore embed cover.png message.txt output.png --export-key output.json
+stegcore embed cover.png message.txt -o output.png --export-key
 ```
 
 The recipient can then use:
 
 ```bash
-stegcore extract output.png --key-file output.json
+stegcore extract output.png --key-file output.key.json
 ```
 
 ---
@@ -153,6 +153,9 @@ Drop a cover image or audio file directly onto the application window to start e
 | `E` | Go to Embed |
 | `X` | Go to Extract |
 | `A` | Go to Analyse |
+| `L` | Go to Learn |
+| `R` | Reload analysis |
+| `?` | Show shortcuts overlay |
 
 ---
 
@@ -161,7 +164,7 @@ Drop a cover image or audio file directly onto the application window to start e
 The built-in analysis suite checks a file for signs of hidden content and, where possible, identifies which tool was used to embed it.
 
 ```bash
-stegcore analyze suspicious.png
+stegcore analyse suspicious.png
 ```
 
 Output includes a score for each detector and an overall verdict: **Clean**, **Suspicious**, or **Likely contains hidden data**.
@@ -169,14 +172,14 @@ Output includes a score for each detector and an overall verdict: **Clean**, **S
 To save a report:
 
 ```bash
-stegcore analyze suspicious.png --report html -o report.html
-stegcore analyze suspicious.png --report json -o report.json
+stegcore analyse suspicious.png --report html -o report.html
+stegcore analyse suspicious.png --report json -o report.json
 ```
 
 Batch scanning:
 
 ```bash
-stegcore analyze --batch "*.png" --report html -o report.html
+stegcore analyse *.png --report html -o report.html
 ```
 
 ---
@@ -186,12 +189,12 @@ stegcore analyze --batch "*.png" --report html -o report.html
 All commands support `--json` output for machine-readable results:
 
 ```bash
-stegcore embed cover.png message.txt output.png --passphrase "..." --json
+stegcore embed cover.png message.txt -o output.png --passphrase "..." --json
 stegcore extract output.png --passphrase "..." --json
-stegcore analyze output.png --json
+stegcore analyse output.png --json
 ```
 
-Exit codes: `0` success · `1` user error · `2` crypto error · `3` I/O error · `4` format error
+Exit codes: `0` success / `1` user error / `2` crypto error / `3` I/O error / `4` format error
 
 ---
 

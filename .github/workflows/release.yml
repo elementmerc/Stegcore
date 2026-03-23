@@ -9,6 +9,10 @@ permissions:
   contents: write
   packages: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   CARGO_TERM_COLOR: always
   REGISTRY: ghcr.io
@@ -17,6 +21,7 @@ env:
 jobs:
   # ── Tauri desktop builds ──────────────────────────────────────────────────
   tauri:
+    timeout-minutes: 60
     name: Tauri (${{ matrix.platform }})
     strategy:
       fail-fast: false
@@ -58,15 +63,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p libstegcore/src
-          cat > libstegcore/Cargo.toml << 'STUB'
-          [package]
-          name = "stegcore-engine"
-          version = "0.1.0"
-          edition = "2021"
-
-          [lib]
-          name = "stegcore_engine"
-          STUB
+          printf '[package]\nname = "stegcore-engine"\nversion = "0.1.0"\nedition = "2021"\n\n[lib]\nname = "stegcore_engine"\n' > libstegcore/Cargo.toml
           touch libstegcore/src/lib.rs
 
       - name: Add macOS universal targets
@@ -129,6 +126,7 @@ jobs:
 
   # ── Docker multi-arch image ───────────────────────────────────────────────
   docker:
+    timeout-minutes: 30
     name: Docker (amd64 + arm64)
     runs-on: ubuntu-latest
     permissions:

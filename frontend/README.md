@@ -26,12 +26,16 @@ npx tsc --noEmit
 
 - **Routes:** Home, Embed (4-step wizard), Extract (3-step), Analyse, Learn
 - **Components:** DropZone, ScoreCard, EntropyBar, Toggle, Settings,
-  Installer, ToastContainer, KeyboardShortcuts, AnalysisDetail
+  Installer, ToastContainer, KeyboardShortcuts, AnalysisDetail,
+  ProcessingScreen, SuccessCheck, StepTrack, IconButton
+- **Steganalysis charts:** Chi-Squared, RS Analysis, SPA Gauge,
+  LSB Heatmap, Audio Oscilloscope (all canvas-based with
+  `requestAnimationFrame` loops)
 - **State:** Zustand stores (embedStore, extractStore, settingsStore, dragStore)
 - **IPC:** Typed wrappers in `lib/ipc.ts` calling Tauri `invoke()`
 - **Design tokens:** `--sc-*` / `--ui-*` CSS custom properties
-- **Animations:** CSS transitions + staged SVG animations (scatter plots,
-  heatmaps, radar charts). Respect `reduce-motion` setting.
+- **Animations:** CSS transitions + canvas chart animations. Respect
+  `reduce-motion` setting.
 
 ## Key conventions
 
@@ -40,3 +44,6 @@ npx tsc --noEmit
 - `React.memo()` on heavy sub-components
 - Lazy route loading via `React.lazy()` + `Suspense`
 - `createPortal` for overlays that escape overflow containers
+- Icons from lucide-react exclusively
+- System font stack — no external font loading
+- British English in all user-facing strings

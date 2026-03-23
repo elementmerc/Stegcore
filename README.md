@@ -87,6 +87,12 @@ stegcore score cover.png
 # Compare original vs stego (pixel diff)
 stegcore diff cover.png stego.png
 
+# Read embedded metadata (requires passphrase)
+stegcore info stego.png
+
+# List available ciphers
+stegcore ciphers
+
 # System health check
 stegcore doctor
 
@@ -172,6 +178,6 @@ Analysis history stays local. Nothing leaves your device.
 
 ## Licence
 
-AGPL-3.0-or-later. See [LICENSE](LICENSE).
+Dual-licensed under AGPL-3.0-or-later and a commercial licence. See [LICENSE](LICENSE).
 
 Commercial licensing: daniel@themalwarefiles.com

@@ -36,7 +36,7 @@ Your data is encrypted before it is hidden. If the hidden data were somehow extr
 
 Stegcore uses authenticated encryption: the passphrase not only encrypts your data but also authenticates it. Any modification to the stego file — even a single bit — will cause extraction to fail with an error rather than returning corrupted data.
 
-Your passphrase is processed through a memory-hard key derivation function before use. This makes brute-force attacks significantly harder than attacking a simple password hash.
+Your passphrase is processed through a memory-hard key derivation function (Argon2id) before use. This makes brute-force attacks significantly harder than attacking a simple password hash.
 
 ---
 
@@ -59,6 +59,20 @@ All three ciphers provide authenticated encryption with additional data (AEAD). 
 | ChaCha20-Poly1305 | Default. Fast on all hardware including devices without AES acceleration. |
 | Ascon-128 | Compact. Designed for constrained environments. |
 | AES-256-GCM | Standard. Hardware-accelerated on most modern CPUs. |
+
+---
+
+## Steganalysis suite
+
+Stegcore includes a built-in steganalysis suite with the following detectors:
+
+- **Chi-Squared** — tests LSB pair distribution uniformity
+- **Sample Pair Analysis (SPA)** — measures adjacent pixel correlation
+- **RS Analysis** — Regular/Singular group asymmetry detection
+- **LSB Entropy** — measures randomness of least significant bits
+- **Tool Fingerprinting** — identifies likely embedder (Steghide, OutGuess, OpenStego, generic LSB)
+
+Results are combined into an ensemble verdict: Clean (<0.25), Suspicious (0.25–0.55), or Likely Stego (>0.55).
 
 ---
 
