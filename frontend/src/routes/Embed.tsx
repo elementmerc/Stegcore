@@ -15,13 +15,12 @@ import { KeyRound, Eye, EyeOff, FolderOpen, Copy, Lock } from 'lucide-react'
 import { ScoreCard } from '../components/ScoreCard'
 import { EntropyBar } from '../components/EntropyBar'
 import { Toggle } from '../components/Toggle'
-import { SuccessCheck } from '../components/SuccessCheck'
 import { ProcessingScreen } from '../components/ProcessingScreen'
 import { useEmbedStore } from '../lib/stores/embedStore'
 import { useSettingsStore } from '../lib/stores/settingsStore'
 import { useFooter } from '../App'
 import { scoreCover, embed as ipcEmbed, pickFiles, getFileSize, pixelDiff, type PixelDiffResult } from '../lib/ipc'
-import { toast } from '../lib/toast'
+import { convertFileSrc } from '@tauri-apps/api/core'
 // Sound is now handled by ProcessingScreen
 import type { Cipher, EmbedMode } from '../lib/ipc'
 
@@ -91,12 +90,6 @@ function Step1() {
     }
   }, [setPayloadFile])
 
-  // Also accept browser drag-drop (path won't be available for IPC, but
-  // native picker is the primary flow)
-  const handleFiles = useCallback((files: File[]) => {
-    setPayloadFile(files[0])
-  }, [setPayloadFile])
-
   useFooter({
     backLabel: 'Cancel',
     backAction: () => navigate('/'),
@@ -160,8 +153,6 @@ function Step2() {
   const { coverFile, coverPath, coverSizeBytes, coverPreviewUrl, coverScore, coverScoring, setCoverFile, setCoverScore, setStep } = useEmbedStore()
   const { settings } = useSettingsStore()
 
-  const isJpeg = coverFile ? /\.(jpg|jpeg)$/i.test(coverFile.name) : false
-
   // Native file picker for real filesystem path
   const handlePick = useCallback(async () => {
     const paths = await pickFiles({
@@ -188,13 +179,6 @@ function Step2() {
       }
     }
   }, [settings.autoScoreOnDrop, setCoverFile, setCoverScore])
-
-  // Browser drag-drop fallback
-  const handleFiles = useCallback(async (files: File[]) => {
-    const f = files[0]
-    const url = URL.createObjectURL(f)
-    setCoverFile(f, url)
-  }, [setCoverFile])
 
   const handleManualScore = useCallback(async () => {
     const path = coverPath
@@ -239,13 +223,14 @@ function Step2() {
         {coverFile ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
             {/* Thumbnail preview for image files */}
-            {(() => {
-              const isImage = /\.(png|bmp|jpg|jpeg|webp)$/i.test(coverFile.name)
-              const src = coverPreviewUrl ?? (coverPath && isImage ? (() => { try { const { convertFileSrc } = require('@tauri-apps/api/core'); return convertFileSrc(coverPath) } catch { return null } })() : null)
-              return isImage && src ? (
-                <img src={src} alt="Cover preview" style={{ maxHeight: 100, maxWidth: '100%', borderRadius: 8, objectFit: 'contain', marginBottom: 4 }} />
-              ) : null
-            })()}
+            {/\.(png|bmp|jpg|jpeg|webp)$/i.test(coverFile.name) && (coverPreviewUrl || coverPath) && (
+              <img
+                src={coverPreviewUrl ?? convertFileSrc(coverPath!)}
+                alt="Cover preview"
+                style={{ maxHeight: 100, maxWidth: '100%', borderRadius: 8, objectFit: 'contain', marginBottom: 4 }}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+              />
+            )}
             <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ui-text)' }}>{coverFile.name}</span>
             {coverPath && (
               <span className="sc-path" style={{ wordBreak: 'break-all' }}>

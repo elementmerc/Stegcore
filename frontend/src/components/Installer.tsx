@@ -10,7 +10,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Check } from 'lucide-react'
-import { effectiveTheme } from '../lib/theme'
 import './Installer.css'
 
 interface InstallerProps {

@@ -24,7 +24,7 @@ jobs:
         run: |
           fail=0
           while IFS= read -r f; do
-            if ! grep -q "GNU Affero General Public License" "$f"; then
+            if ! grep -q "AGPL-3.0-or-later" "$f"; then
               echo "MISSING AGPL header: $f"
               fail=1
             fi
