@@ -285,9 +285,6 @@ cargo build --release --no-default-features
 # Run tests
 cargo test --workspace --features engine
 
-# Integration test suite (287 tests)
-./scripts/test_integration.sh --binary ./target/release/stegcore
-
 # Type check frontend
 cd frontend && npx tsc --noEmit
 

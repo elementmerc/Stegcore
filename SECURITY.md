@@ -75,8 +75,8 @@ Stegcore hides data inside files. It doesn't protect the transmission of those f
 
 **Ciphers:** All three ciphers are AEAD (Authenticated Encryption with Associated Data). The ciphertext includes an authentication tag. Decryption fails with an explicit error if the ciphertext has been modified or if the wrong passphrase is used. There's no "partial decryption" that produces garbled output. Only clean success, or clean failure.
 
-**Nonces:** Generated with `rand::ChaCha8Rng` per operation, never
-reused, stored in the key file for extraction.
+**Nonces:** Generated with OS-provided cryptographic randomness (`OsRng`)
+per operation, never reused, stored in the embedded metadata for extraction.
 
 **No passphrase storage:** The passphrase is never written to disk,
 logged, or included in the key file. It exists only in memory for the
@@ -89,7 +89,9 @@ after use.
 
 Deniable mode provides **technical deniability**, not legal immunity. A few things worth thinking through honestly:
 
-The existence of two key files for one stego image may itself raise suspicion with a sophisticated adversary. Deniable mode works best when:
+The embedded metadata does not reveal whether deniable mode was used — both payloads appear as standard single-payload embeds. Partition assignments are randomised so neither half is structurally identifiable as "real" or "decoy". Key files are only written when explicitly requested (`--export-key`), since their existence on disk confirms steganographic activity.
+
+Deniable mode works best when:
 - The decoy content is genuinely plausible (not obviously fabricated)
 - The decoy passphrase is as strong as the real one
 - The adversary doesn't already know the real content exists

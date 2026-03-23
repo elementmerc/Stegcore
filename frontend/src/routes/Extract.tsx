@@ -245,8 +245,9 @@ function Step3() {
   const [extractPhase, setExtractPhase] = useState('')
 
   const handleExtract = useCallback(async () => {
-    if (!stegoFile) return
+    if (!stegoFile || extracting) return
     setExtracting(true)
+    setProcessingStatus('processing')
     setExtractPhase('Preparing…')
     setError(null)
 
@@ -300,7 +301,7 @@ function Step3() {
   }, [setExtracting])
 
   return (
-    <>
+    <div style={{ position: 'relative', height: '100%' }}>
       {extracting && (
         <ProcessingScreen
           phase={extractPhase}
@@ -446,7 +447,7 @@ function Step3() {
         </div>
       )}
     </StepShell>
-    </>
+    </div>
   )
 }
 
