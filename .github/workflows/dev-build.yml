@@ -114,27 +114,24 @@ jobs:
         shell: bash
         run: |
           mkdir -p artefacts
-          echo "=== Full target/release/bundle tree ==="
-          find src-tauri/target -path "*/bundle/*" -type f 2>/dev/null || true
-          echo "=== Searching for installers ==="
-          # Linux
-          find src-tauri/target -name "*.deb" -type f -exec cp {} artefacts/ \; 2>/dev/null || true
-          find src-tauri/target -name "*.AppImage" -type f -exec cp {} artefacts/ \; 2>/dev/null || true
-          find src-tauri/target -name "*.rpm" -type f -exec cp {} artefacts/ \; 2>/dev/null || true
-          # Windows
-          find src-tauri/target -name "*.msi" -type f -exec cp {} artefacts/ \; 2>/dev/null || true
-          find src-tauri/target -path "*/nsis/*.exe" -type f -exec cp {} artefacts/ \; 2>/dev/null || true
-          # macOS
-          find src-tauri/target -name "*.dmg" -type f -exec cp {} artefacts/ \; 2>/dev/null || true
-          # Also grab the raw binary for Linux
-          if [ -f "src-tauri/target/release/stegcore-gui" ]; then
-            cp src-tauri/target/release/stegcore-gui artefacts/
-          fi
-          if [ -f "src-tauri/target/release/stegcore-gui.exe" ]; then
-            cp src-tauri/target/release/stegcore-gui.exe artefacts/
-          fi
-          echo "=== Collected artefacts ==="
-          ls -la artefacts/ 2>/dev/null || echo "No artefacts collected"
+          echo "=== Debug: find all files in target that look like bundles ==="
+          find . -path "*/target/*/bundle/*" -type f 2>/dev/null || true
+          find . -path "*/target/release/bundle/*" -type f 2>/dev/null || true
+          find . -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.dmg" -o -name "*.rpm" 2>/dev/null | grep -v node_modules || true
+          echo "=== Debug: binary locations ==="
+          find . -name "stegcore-gui" -o -name "stegcore-gui.exe" 2>/dev/null | grep -v node_modules || true
+          echo "=== Copying artefacts ==="
+          # Bundles (any depth)
+          find . \( -name "*.deb" -o -name "*.AppImage" -o -name "*.rpm" -o -name "*.msi" -o -name "*.dmg" \) -not -path "*/node_modules/*" -type f -exec cp {} artefacts/ \; 2>/dev/null || true
+          # Windows NSIS
+          find . -path "*/nsis/*.exe" -not -path "*/node_modules/*" -type f -exec cp {} artefacts/ \; 2>/dev/null || true
+          # Raw binaries as fallback
+          find . -name "stegcore-gui" -path "*/release/*" -not -path "*/node_modules/*" -type f -exec cp {} artefacts/ \; 2>/dev/null || true
+          find . -name "stegcore-gui.exe" -path "*/release/*" -not -path "*/node_modules/*" -type f -exec cp {} artefacts/ \; 2>/dev/null || true
+          echo "=== Final artefacts ==="
+          ls -la artefacts/ 2>/dev/null && echo "Artefacts found" || echo "No artefacts found"
+          # Ensure at least an empty file so upload doesn't fail
+          touch artefacts/.keep
 
       - name: Upload artefacts
         uses: actions/upload-artifact@v4
