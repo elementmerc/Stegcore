@@ -96,6 +96,8 @@ jobs:
         if: matrix.platform != 'macos-latest'
         id: tauri-build
         uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: -- --no-default-features --features custom-protocol
 
@@ -103,21 +105,36 @@ jobs:
         if: matrix.platform == 'macos-latest'
         id: tauri-build-mac
         uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: --target universal-apple-darwin -- --no-default-features --features custom-protocol
 
-      - name: Find build artefacts
-        id: find-artefacts
+      - name: Collect artefacts
         shell: bash
         run: |
-          echo "Searching for bundles..."
-          find src-tauri/target -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" -o -name "*.rpm" -o -name "*.nsis.zip" \) 2>/dev/null | head -20
-          # Create a staging dir with all artefacts
           mkdir -p artefacts
-          find src-tauri/target -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.msi" -o -name "*.dmg" -o -name "*.rpm" \) -exec cp {} artefacts/ \; 2>/dev/null || true
-          # Windows NSIS installer
-          find src-tauri/target -path "*/nsis/*" -name "*.exe" -exec cp {} artefacts/ \; 2>/dev/null || true
-          ls -la artefacts/ || echo "No artefacts found"
+          echo "=== Full target/release/bundle tree ==="
+          find src-tauri/target -path "*/bundle/*" -type f 2>/dev/null || true
+          echo "=== Searching for installers ==="
+          # Linux
+          find src-tauri/target -name "*.deb" -type f -exec cp {} artefacts/ \; 2>/dev/null || true
+          find src-tauri/target -name "*.AppImage" -type f -exec cp {} artefacts/ \; 2>/dev/null || true
+          find src-tauri/target -name "*.rpm" -type f -exec cp {} artefacts/ \; 2>/dev/null || true
+          # Windows
+          find src-tauri/target -name "*.msi" -type f -exec cp {} artefacts/ \; 2>/dev/null || true
+          find src-tauri/target -path "*/nsis/*.exe" -type f -exec cp {} artefacts/ \; 2>/dev/null || true
+          # macOS
+          find src-tauri/target -name "*.dmg" -type f -exec cp {} artefacts/ \; 2>/dev/null || true
+          # Also grab the raw binary for Linux
+          if [ -f "src-tauri/target/release/stegcore-gui" ]; then
+            cp src-tauri/target/release/stegcore-gui artefacts/
+          fi
+          if [ -f "src-tauri/target/release/stegcore-gui.exe" ]; then
+            cp src-tauri/target/release/stegcore-gui.exe artefacts/
+          fi
+          echo "=== Collected artefacts ==="
+          ls -la artefacts/ 2>/dev/null || echo "No artefacts collected"
 
       - name: Upload artefacts
         uses: actions/upload-artifact@v4
