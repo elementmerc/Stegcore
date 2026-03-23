@@ -103,7 +103,7 @@ function VerseBar() {
   const innerRef = useRef<HTMLSpanElement>(null)
   const [scrolling, setScrolling] = useState(false)
   const [overflow, setOverflow] = useState(0) // pixels of overflow
-  const idleTimer = useRef<ReturnType<typeof setTimeout>>()
+  const idleTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const scrollPhase = useRef<'idle' | 'scrollLeft' | 'pauseLeft' | 'scrollBack'>('idle')
   const scrollPos = useRef(0)
   const rafId = useRef(0)

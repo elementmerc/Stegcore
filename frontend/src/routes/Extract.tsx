@@ -8,18 +8,14 @@
 //
 // Commercial licensing: daniel@themalwarefiles.com
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Unlock, Key, KeyRound, Eye, EyeOff, FileDown } from 'lucide-react'
-// DropZone replaced by native file pickers for full filesystem paths
-import { SuccessCheck } from '../components/SuccessCheck'
 import { ProcessingScreen } from '../components/ProcessingScreen'
 import { EntropyBar } from '../components/EntropyBar'
 import { useExtractStore } from '../lib/stores/extractStore'
 import { useFooter } from '../App'
 import { extract as ipcExtract, pickFiles } from '../lib/ipc'
-import { toast } from '../lib/toast'
-// Sound is now handled by ProcessingScreen
 
 const EXTRACT_STEPS = ['Stego file', 'Key file', 'Extract']
 
@@ -295,7 +291,7 @@ function Step3() {
 
   const handleSave = useCallback(() => {
     if (!result) return
-    const blob = new Blob([result])
+    const blob = new Blob([result.buffer.slice(result.byteOffset, result.byteOffset + result.byteLength)])
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url

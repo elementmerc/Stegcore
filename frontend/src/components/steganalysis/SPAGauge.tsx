@@ -8,7 +8,7 @@
 //
 // Commercial licensing: daniel@themalwarefiles.com
 
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect } from 'react'
 import { getTheme, easeOut, clamp } from './analysisTheme'
 import { useAnimationFrame, useContainerSize } from './useAnimationFrame'
 import type { SteganalysisResult } from './types'

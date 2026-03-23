@@ -99,9 +99,6 @@ function toStegResult(r: AnalysisReport): SteganalysisResult {
   }
 }
 
-function scoreColor(s: number): string {
-  return s < 0.25 ? 'var(--ui-success)' : s < 0.55 ? 'var(--ui-warn)' : 'var(--ui-danger)'
-}
 
 // ── Main sidebar ────────────────────────────────────────────────────────
 
