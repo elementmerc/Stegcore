@@ -1,3 +1,13 @@
+// Copyright (C) 2026 Daniel Iwugo — elementmerc
+// SPDX-License-Identifier: AGPL-3.0-or-later OR LicenseRef-Stegcore-Commercial
+//
+// This file is part of Stegcore. Stegcore is free software: you can
+// redistribute it and/or modify it under the terms of the GNU Affero
+// General Public License as published by the Free Software Foundation,
+// either version 3 of the License, or (at your option) any later version.
+//
+// Commercial licensing: daniel@themalwarefiles.com
+
 // Coloured terminal output, RAII spinner, exit-code mapping.
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -215,30 +225,36 @@ pub fn print_summary(title: &str, title_color: Color, rows: &[(&str, &str)]) {
     let width = inner.max(title_w) + 2;
 
     let bar = "─".repeat(width);
+
+    // Top border
     let _ = s.execute(SetForegroundColor(Color::DarkGrey));
     let _ = s.execute(Print(format!("\n  ╭{bar}╮\n")));
 
-    // Title row
-    let _ = s.execute(Print("  │  "));
+    // Title row — coloured left border
+    let _ = s.execute(Print("  "));
     let _ = s.execute(SetForegroundColor(title_color));
-    let _ = s.execute(Print(title.to_string()));
+    let _ = s.execute(Print("┃"));
+    let _ = s.execute(Print(format!("  {title}")));
     let _ = s.execute(SetForegroundColor(Color::DarkGrey));
     let pad = width - title_w;
     let _ = s.execute(Print(format!("{:pad$}  │\n", "")));
     let _ = s.execute(Print(format!("  ├{bar}┤\n")));
 
-    // Data rows
+    // Data rows — coloured left border, bright values
     for (label, value) in rows {
-        let _ = s.execute(Print("  │  "));
+        let _ = s.execute(Print("  "));
+        let _ = s.execute(SetForegroundColor(title_color));
+        let _ = s.execute(Print("┃"));
         let _ = s.execute(SetForegroundColor(Color::DarkGrey));
-        let _ = s.execute(Print(format!("{label:label_w$}  ")));
-        let _ = s.execute(SetForegroundColor(Color::Reset));
+        let _ = s.execute(Print(format!("  {label:label_w$}  ")));
+        let _ = s.execute(SetForegroundColor(Color::White));
         let vpad = width - label_w - 4;
         let _ = s.execute(Print(format!("{value:vpad$}")));
         let _ = s.execute(SetForegroundColor(Color::DarkGrey));
         let _ = s.execute(Print("│\n"));
     }
 
+    // Bottom border
     let _ = s.execute(Print(format!("  ╰{bar}╯\n\n")));
     let _ = s.execute(ResetColor);
 }

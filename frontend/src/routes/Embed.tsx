@@ -1,3 +1,13 @@
+// Copyright (C) 2026 Daniel Iwugo — elementmerc
+// SPDX-License-Identifier: AGPL-3.0-or-later OR LicenseRef-Stegcore-Commercial
+//
+// This file is part of Stegcore. Stegcore is free software: you can
+// redistribute it and/or modify it under the terms of the GNU Affero
+// General Public License as published by the Free Software Foundation,
+// either version 3 of the License, or (at your option) any later version.
+//
+// Commercial licensing: daniel@themalwarefiles.com
+
 import { useState, useEffect, useCallback, useRef, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { KeyRound, Eye, EyeOff, FolderOpen, Copy, Lock } from 'lucide-react'
@@ -12,7 +22,7 @@ import { useSettingsStore } from '../lib/stores/settingsStore'
 import { useFooter } from '../App'
 import { scoreCover, embed as ipcEmbed, pickFiles, getFileSize, pixelDiff, type PixelDiffResult } from '../lib/ipc'
 import { toast } from '../lib/toast'
-import { playSuccess } from '../lib/sound'
+// Sound is now handled by ProcessingScreen
 import type { Cipher, EmbedMode } from '../lib/ipc'
 
 const EMBED_STEPS = ['Message', 'Cover', 'Options', 'Embed']
@@ -28,15 +38,15 @@ const CIPHER_INFO: Record<Cipher, { label: string; desc: string }> = {
 function StepShell({ title, subtitle, step, totalSteps, children }: {
   title: string
   subtitle?: string
-  step: number
-  totalSteps: number
+  step?: number
+  totalSteps?: number
   children: React.ReactNode
 }) {
   const pad = (n: number) => String(n).padStart(2, '0')
   return (
     <div style={{ padding: '48px 40px 32px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
       <div style={{ marginBottom: '1.5rem' }}>
-        <span style={{
+        {step != null && totalSteps != null && <span style={{
           display: 'block',
           fontSize: 11,
           fontFamily: "'Space Mono', monospace",
@@ -45,8 +55,8 @@ function StepShell({ title, subtitle, step, totalSteps, children }: {
           textTransform: 'uppercase' as const,
           marginBottom: 8,
         }}>
-          {pad(step)} / {pad(totalSteps)}
-        </span>
+          {pad(step!)} / {pad(totalSteps!)}
+        </span>}
         <h2 style={{ fontSize: 28, fontWeight: 600, color: 'var(--ui-text)', letterSpacing: '-0.02em', marginBottom: subtitle ? 6 : 0 }}>
           {title}
         </h2>
@@ -227,16 +237,26 @@ function Step2() {
         }}
       >
         {coverFile ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            {/* Thumbnail preview for image files */}
+            {(() => {
+              const isImage = /\.(png|bmp|jpg|jpeg|webp)$/i.test(coverFile.name)
+              const src = coverPreviewUrl ?? (coverPath && isImage ? (() => { try { const { convertFileSrc } = require('@tauri-apps/api/core'); return convertFileSrc(coverPath) } catch { return null } })() : null)
+              return isImage && src ? (
+                <img src={src} alt="Cover preview" style={{ maxHeight: 100, maxWidth: '100%', borderRadius: 8, objectFit: 'contain', marginBottom: 4 }} />
+              ) : null
+            })()}
             <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ui-text)' }}>{coverFile.name}</span>
             {coverPath && (
-              <span style={{ fontSize: 10, color: 'var(--ui-text2)', fontFamily: "'Space Mono', monospace", wordBreak: 'break-all' }}>
+              <span className="sc-path" style={{ wordBreak: 'break-all' }}>
                 {coverPath}
               </span>
             )}
             {coverSizeBytes > 0 && (
               <span style={{ fontSize: 11, color: 'var(--ui-text2)' }}>
-                {(coverSizeBytes / 1024).toFixed(1)} KB
+                {coverSizeBytes > 1024 * 1024
+                  ? `${(coverSizeBytes / (1024 * 1024)).toFixed(1)} MB`
+                  : `${(coverSizeBytes / 1024).toFixed(1)} KB`}
               </span>
             )}
             <button
@@ -590,6 +610,7 @@ function Step4() {
   const [copied, setCopied] = useState(false)
   const [diff, setDiff] = useState<PixelDiffResult | null>(null)
   const [diffLoading, setDiffLoading] = useState(false)
+  const [showProcessing, setShowProcessing] = useState(false)
   const [processingStatus, setProcessingStatus] = useState<'processing' | 'success' | 'error'>('processing')
   const [pendingError, setPendingError] = useState<string | null>(null)
   const pendingResultRef = useRef<{ outputPath: string } | null>(null)
@@ -619,7 +640,8 @@ function Step4() {
   const [embedPhase, setEmbedPhase] = useState('')
 
   const handleEmbed = useCallback(async () => {
-    if (!payloadFile || !coverFile || embedding) return
+    if (!payloadFile || !coverFile || showProcessing) return
+    setShowProcessing(true)
     setEmbedding(true)
     setProcessingStatus('processing')
     setEmbedPhase('Preparing…')
@@ -678,23 +700,23 @@ function Step4() {
     const res = pendingResultRef.current
     if (res) {
       setResult(res)
-      toast.success('Embedded successfully')
-      playSuccess()
       pendingResultRef.current = null
     }
+    setShowProcessing(false)
     setEmbedding(false)
     setProcessingStatus('processing')
   }, [setResult, setEmbedding])
 
   const handleProcessingRetry = useCallback(() => {
+    setShowProcessing(false)
     setEmbedding(false)
     setProcessingStatus('processing')
     setPendingError(null)
   }, [setEmbedding])
 
   return (
-    <div style={{ position: 'relative', height: '100%' }}>
-      {embedding && (
+    <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {showProcessing && (
         <ProcessingScreen
           phase={embedPhase}
           status={processingStatus}
@@ -703,7 +725,7 @@ function Step4() {
           onRetry={handleProcessingRetry}
         />
       )}
-    <StepShell title="Review & Embed" subtitle="Check your selections and embed when ready." step={4} totalSteps={4}>
+    <StepShell title="Review & Embed" subtitle="Check your selections and embed when ready." step={result ? undefined : 4} totalSteps={result ? undefined : 4}>
 
       {/* Summary */}
       {!result && (
@@ -786,10 +808,7 @@ function Step4() {
       {/* Success state */}
       {result && (
         <div style={{ padding: '1.25rem', borderRadius: 10, background: 'color-mix(in srgb, var(--ui-success) 10%, var(--ui-surface))', border: '1px solid color-mix(in srgb, var(--ui-success) 30%, transparent)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-            <SuccessCheck size={28} />
-            <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--ui-success)' }}>Hidden successfully</p>
-          </div>
+          <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--ui-success)', marginBottom: 8 }}>Embedded successfully</p>
           <p style={{ fontSize: 12, color: 'var(--ui-text2)', fontFamily: "'Space Mono', monospace", wordBreak: 'break-all', marginBottom: 12 }}>
             {result.outputPath}
           </p>
@@ -818,31 +837,33 @@ function Step4() {
           {diffLoading && (
             <div className="sc-skeleton" style={{ height: 48, marginTop: 12 }} />
           )}
-          {diff && (
-            <div style={{
-              marginTop: 12, padding: '10px 14px', borderRadius: 8,
-              background: 'var(--ui-surface)', border: '1px solid var(--ui-border)',
-            }}>
-              <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--ui-text2)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                Before / After
-              </p>
-              <div style={{ display: 'flex', gap: 16, fontSize: 12 }}>
-                <div>
-                  <span style={{ color: 'var(--ui-text2)' }}>Changed: </span>
-                  <span style={{ color: diff.percentChanged < 1 ? 'var(--ui-success)' : 'var(--ui-warn)', fontWeight: 500, fontFamily: "'Space Mono', monospace" }}>
-                    {diff.changedPixels.toLocaleString()} px ({diff.percentChanged.toFixed(2)}%)
-                  </span>
-                </div>
-                <div>
-                  <span style={{ color: 'var(--ui-text2)' }}>Max Δ: </span>
-                  <span style={{ fontFamily: "'Space Mono', monospace", color: 'var(--ui-text)' }}>{diff.maxDelta}</span>
-                </div>
-                <div style={{ color: diff.lsbOnly ? 'var(--ui-success)' : 'var(--ui-warn)', fontWeight: 500 }}>
-                  {diff.lsbOnly ? '✓ LSB-only — visually identical' : '⚠ Changes exceed LSB'}
-                </div>
-              </div>
-            </div>
-          )}
+          {diff && (() => {
+            const ext = (coverFile?.name ?? '').split('.').pop()?.toLowerCase() ?? ''
+            const isJpeg = ext === 'jpg' || ext === 'jpeg'
+            const isWav = ext === 'wav'
+            const pct = diff.percentChanged.toFixed(2)
+
+            // Format-aware friendly summary
+            const summary = isJpeg
+              ? `DCT coefficients modified — output is a valid JPEG, visually indistinguishable from the original.`
+              : isWav
+                ? `${diff.changedPixels.toLocaleString()} audio samples modified (LSB only) — sounds identical to the original.`
+                : diff.lsbOnly
+                  ? `${diff.changedPixels.toLocaleString()} pixels modified (LSB only) — visually identical to the original.`
+                  : `${diff.changedPixels.toLocaleString()} pixels modified — visually indistinguishable from the original.`
+
+            const colour = (isJpeg || diff.lsbOnly) ? 'var(--ui-success)' : 'var(--ui-success)'
+
+            return (
+              <PixelDiffCard
+                summary={summary}
+                colour={colour}
+                pct={pct}
+                diff={diff}
+                isJpeg={isJpeg}
+              />
+            )
+          })()}
         </div>
       )}
 
@@ -853,6 +874,41 @@ function Step4() {
         }
       `}</style>
     </StepShell>
+    </div>
+  )
+}
+
+function PixelDiffCard({ summary, colour, pct, diff, isJpeg }: {
+  summary: string; colour: string; pct: string; diff: PixelDiffResult; isJpeg: boolean
+}) {
+  const [showDetail, setShowDetail] = useState(false)
+  return (
+    <div style={{
+      marginTop: 12, padding: '10px 14px', borderRadius: 8,
+      background: 'var(--ui-surface)', border: '1px solid var(--ui-border)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: showDetail ? 8 : 0 }}>
+        <span style={{ fontSize: 12, color: colour, fontWeight: 500, flex: 1 }}>
+          {summary}
+        </span>
+        <button
+          onClick={() => setShowDetail(v => !v)}
+          style={{
+            fontSize: 11, color: 'var(--ui-text2)', background: 'transparent',
+            border: 'none', cursor: 'pointer', padding: '2px 6px',
+            textDecoration: 'underline', flexShrink: 0,
+          }}
+        >
+          {showDetail ? 'Hide' : 'Details'}
+        </button>
+      </div>
+      {showDetail && (
+        <div style={{ fontSize: 11, color: 'var(--ui-text2)', display: 'flex', flexDirection: 'column', gap: 3, fontFamily: "'Space Mono', monospace" }}>
+          <span>Pixels changed: {diff.changedPixels.toLocaleString()} / {diff.totalPixels.toLocaleString()} ({pct}%)</span>
+          <span>Maximum delta per channel: {diff.maxDelta}</span>
+          <span>Modification type: {isJpeg ? 'DCT coefficient (frequency domain)' : diff.lsbOnly ? 'LSB only (1-bit)' : `Up to ${diff.maxDelta}-bit`}</span>
+        </div>
+      )}
     </div>
   )
 }

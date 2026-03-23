@@ -1,3 +1,13 @@
+// Copyright (C) 2026 Daniel Iwugo — elementmerc
+// SPDX-License-Identifier: AGPL-3.0-or-later OR LicenseRef-Stegcore-Commercial
+//
+// This file is part of Stegcore. Stegcore is free software: you can
+// redistribute it and/or modify it under the terms of the GNU Affero
+// General Public License as published by the Free Software Foundation,
+// either version 3 of the License, or (at your option) any later version.
+//
+// Commercial licensing: daniel@themalwarefiles.com
+
 import { useState, useRef, useEffect } from 'react'
 import { RotateCcw } from 'lucide-react'
 import { THEME, easeOut, scoreColor } from './analysisTheme'
@@ -121,11 +131,11 @@ function ChartCard({ title, children, onReplay, badge }: {
           <RotateCcw size={12} />
         </button>
       </div>
-      <div style={{ flex: 1, minHeight: 0 }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {children}
       </div>
       {badge && (
-        <div style={{ marginTop: 8, flexShrink: 0, overflow: 'hidden' }}>
+        <div style={{ marginTop: 8, flexShrink: 0 }}>
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 5,
             padding: '4px 10px', borderRadius: 12,

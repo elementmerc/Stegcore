@@ -1,3 +1,13 @@
+// Copyright (C) 2026 Daniel Iwugo — elementmerc
+// SPDX-License-Identifier: AGPL-3.0-or-later OR LicenseRef-Stegcore-Commercial
+//
+// This file is part of Stegcore. Stegcore is free software: you can
+// redistribute it and/or modify it under the terms of the GNU Affero
+// General Public License as published by the Free Software Foundation,
+// either version 3 of the License, or (at your option) any later version.
+//
+// Commercial licensing: daniel@themalwarefiles.com
+
 // Stegcore CLI
 //
 // Entry point. Sets up the SIGINT handler, parses arguments with clap,
@@ -34,7 +44,8 @@ const fn clap_styles() -> clap::builder::Styles {
 #[command(
     name        = "stegcore",
     version     = env!("CARGO_PKG_VERSION"),
-    author      = "Daniel (elementmerc)",
+    long_version = env!("CARGO_PKG_VERSION"),
+    author      = "Daniel Iwugo (elementmerc)",
     about       = "Hide and retrieve encrypted messages inside image and audio files.",
     long_about  = None,
     arg_required_else_help = true,

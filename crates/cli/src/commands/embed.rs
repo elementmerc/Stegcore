@@ -1,3 +1,13 @@
+// Copyright (C) 2026 Daniel Iwugo — elementmerc
+// SPDX-License-Identifier: AGPL-3.0-or-later OR LicenseRef-Stegcore-Commercial
+//
+// This file is part of Stegcore. Stegcore is free software: you can
+// redistribute it and/or modify it under the terms of the GNU Affero
+// General Public License as published by the Free Software Foundation,
+// either version 3 of the License, or (at your option) any later version.
+//
+// Commercial licensing: daniel@themalwarefiles.com
+
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -257,6 +267,7 @@ pub fn run(
         steg::embed_adaptive
     };
 
+    let start = std::time::Instant::now();
     match embed_fn(
         &args.cover,
         &payload_bytes,
@@ -266,6 +277,7 @@ pub fn run(
         args.export_key,
     ) {
         Ok(kf_opt) => {
+            let elapsed = start.elapsed();
             let key_path = kf_opt.as_ref().and_then(|kf| {
                 let p = output.with_extension("json");
                 stegcore_core::keyfile::write_key_file(&p, kf).ok()?;
@@ -288,11 +300,13 @@ pub fn run(
                 } else {
                     "Adaptive"
                 };
+                let time_str = format!("{:.1}s", elapsed.as_secs_f64());
                 let mut rows: Vec<(&str, &str)> = vec![
                     ("Cover", &cover_name),
                     ("Output", &out_name),
                     ("Cipher", &args.cipher),
                     ("Mode", mode_str),
+                    ("Time", &time_str),
                 ];
                 let key_str = key_path.as_ref().map(|p| p.display().to_string());
                 if let Some(ref ks) = key_str {

@@ -1,3 +1,13 @@
+// Copyright (C) 2026 Daniel Iwugo — elementmerc
+// SPDX-License-Identifier: AGPL-3.0-or-later OR LicenseRef-Stegcore-Commercial
+//
+// This file is part of Stegcore. Stegcore is free software: you can
+// redistribute it and/or modify it under the terms of the GNU Affero
+// General Public License as published by the Free Software Foundation,
+// either version 3 of the License, or (at your option) any later version.
+//
+// Commercial licensing: daniel@themalwarefiles.com
+
 import { useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Unlock, Key, KeyRound, Eye, EyeOff, FileDown } from 'lucide-react'
@@ -9,7 +19,7 @@ import { useExtractStore } from '../lib/stores/extractStore'
 import { useFooter } from '../App'
 import { extract as ipcExtract, pickFiles } from '../lib/ipc'
 import { toast } from '../lib/toast'
-import { playSuccess } from '../lib/sound'
+// Sound is now handled by ProcessingScreen
 
 const EXTRACT_STEPS = ['Stego file', 'Key file', 'Extract']
 
@@ -21,15 +31,15 @@ function isLegacyKeyFile(meta: Record<string, unknown>): boolean {
 function StepShell({ title, subtitle, step, totalSteps, children }: {
   title: string
   subtitle?: string
-  step: number
-  totalSteps: number
+  step?: number
+  totalSteps?: number
   children: React.ReactNode
 }) {
   const pad = (n: number) => String(n).padStart(2, '0')
   return (
     <div style={{ padding: '48px 40px 32px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
       <div style={{ marginBottom: '1.5rem' }}>
-        <span style={{
+        {step != null && totalSteps != null && <span style={{
           display: 'block',
           fontSize: 11,
           fontFamily: "'Space Mono', monospace",
@@ -39,7 +49,7 @@ function StepShell({ title, subtitle, step, totalSteps, children }: {
           marginBottom: 8,
         }}>
           {pad(step)} / {pad(totalSteps)}
-        </span>
+        </span>}
         <h2 style={{ fontSize: 28, fontWeight: 600, color: 'var(--ui-text)', letterSpacing: '-0.02em', marginBottom: subtitle ? 6 : 0 }}>
           {title}
         </h2>
@@ -229,15 +239,26 @@ function Step3() {
   const { stegoFile, stegoPath, keyFile, keyFilePath, passphrase, result, resultText, error, extracting, setPassphrase, setResult, setError, setExtracting, setStep } = useExtractStore()
   const navigate = useNavigate()
   const [showPass, setShowPass] = useState(false)
+  const [showProcessing, setShowProcessing] = useState(false)
   const [processingStatus, setProcessingStatus] = useState<'processing' | 'success' | 'error'>('processing')
   const [pendingError, setPendingError] = useState<string | null>(null)
   const pendingResultRef = useRef<Uint8Array | null>(null)
+
+  const [doneReady, setDoneReady] = useState(false)
+  useEffect(() => {
+    if (result) {
+      const t = setTimeout(() => setDoneReady(true), 500)
+      return () => clearTimeout(t)
+    }
+    setDoneReady(false)
+  }, [result])
 
   useFooter({
     backLabel: 'Key file',
     backAction: extracting ? null : () => setStep(2),
     continueLabel: result ? 'Done' : undefined,
-    continueAction: result ? () => navigate('/') : null,
+    continueAction: result && doneReady ? () => navigate('/') : null,
+    continueDisabled: result ? !doneReady : undefined,
     steps: EXTRACT_STEPS,
     currentStep: 3,
   })
@@ -245,7 +266,8 @@ function Step3() {
   const [extractPhase, setExtractPhase] = useState('')
 
   const handleExtract = useCallback(async () => {
-    if (!stegoFile || extracting) return
+    if (!stegoFile || showProcessing) return
+    setShowProcessing(true)
     setExtracting(true)
     setProcessingStatus('processing')
     setExtractPhase('Preparing…')
@@ -286,23 +308,23 @@ function Step3() {
     const bytes = pendingResultRef.current
     if (bytes) {
       setResult(bytes)
-      toast.success('Extracted successfully')
-      playSuccess()
       pendingResultRef.current = null
     }
+    setShowProcessing(false)
     setExtracting(false)
     setProcessingStatus('processing')
   }, [setResult, setExtracting])
 
   const handleProcessingRetry = useCallback(() => {
+    setShowProcessing(false)
     setExtracting(false)
     setProcessingStatus('processing')
     setPendingError(null)
   }, [setExtracting])
 
   return (
-    <div style={{ position: 'relative', height: '100%' }}>
-      {extracting && (
+    <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {showProcessing && (
         <ProcessingScreen
           phase={extractPhase}
           status={processingStatus}
@@ -311,7 +333,7 @@ function Step3() {
           onRetry={handleProcessingRetry}
         />
       )}
-    <StepShell title="Extract" subtitle="Enter your passphrase to reveal the hidden message." step={3} totalSteps={3}>
+    <StepShell title="Extract" subtitle="Enter your passphrase to reveal the hidden message." step={result ? undefined : 3} totalSteps={result ? undefined : 3}>
 
       {!result && (
         <>
@@ -350,8 +372,6 @@ function Step3() {
               {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
-          <EntropyBar value={passphrase} />
-
           {/* Extract button */}
           <button
             onClick={handleExtract}
@@ -412,10 +432,7 @@ function Step3() {
       {/* Success */}
       {result && (
         <div style={{ padding: '1.25rem', borderRadius: 10, background: 'color-mix(in srgb, var(--ui-success) 10%, var(--ui-surface))', border: '1px solid color-mix(in srgb, var(--ui-success) 30%, transparent)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <SuccessCheck size={28} />
-            <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--ui-success)' }}>Extracted successfully</p>
-          </div>
+          <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--ui-success)', marginBottom: 10 }}>Extracted successfully</p>
           {resultText !== null ? (
             <pre style={{
               fontFamily: "'Space Mono', monospace",
