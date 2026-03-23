@@ -18,6 +18,10 @@ RUN mkdir -p libstegcore/src \
     && printf '[package]\nname = "stegcore-engine"\nversion = "0.1.0"\nedition = "2021"\n\n[lib]\nname = "stegcore_engine"\n' > libstegcore/Cargo.toml \
     && touch libstegcore/src/lib.rs
 
+# Stub src-tauri so workspace Cargo.toml resolves (not built in Docker)
+COPY src-tauri/Cargo.toml src-tauri/Cargo.toml
+RUN mkdir -p src-tauri/src && echo 'fn main() {}' > src-tauri/src/main.rs
+
 # Stub source files so cargo can fetch deps without full source
 RUN mkdir -p crates/core/src crates/cli/src \
     && echo 'pub fn placeholder() {}' > crates/core/src/lib.rs \

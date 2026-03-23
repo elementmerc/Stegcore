@@ -44,7 +44,7 @@ frontend/               — React + TypeScript + Vite + Tailwind
   src/routes/           — page components (Home, Embed, Extract, Analyse, Learn)
   src/lib/              — stores (Zustand), IPC wrappers, theme, sound, toast
 libstegcore/            — private engine (not in this repo)
-scripts/                — test scripts, integration harness
+scripts/                — private test scripts (not in public repo)
 dist/                   — packaging (Homebrew, winget, Kali, SourceForge)
 ```
 
@@ -97,9 +97,6 @@ cd frontend && npx tsc --noEmit
 
 # Format check
 cargo fmt --all --check
-
-# Integration test suite (123 tests, requires built binary)
-./scripts/test_integration.sh --binary ./target/release/stegcore
 
 # System health check
 cargo run -p stegcore-cli -- doctor

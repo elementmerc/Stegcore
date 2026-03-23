@@ -16,7 +16,15 @@ Complete rewrite. Rust + Tauri v2 replaces Python + PyInstaller.
 - File size limits with clear error messages
 - Fixed: `extract_with_keyfile` now auto-detects embedding mode
   (was hardcoded to sequential, breaking adaptive-mode key file extraction)
+- Fixed: Adaptive mode variance calculation now uses upper 7 bits (LSB-immune),
+  preventing embed/extract slot mismatch on large images
+- Fixed: WAV sample read errors now propagate instead of being silently dropped
+- Fixed: JPEG restart marker decode/encode (sequence counter + raw byte skip)
+- Fixed: Two-pass extraction reads only header + metadata + ciphertext (not full image)
+- Fixed: Passphrase seed XOR-fold preserves entropy beyond 32 bytes
+- Fixed: Chi-squared distribution formula corrected
 - Release profile: LTO + codegen-units=1
+- 87 engine unit tests, 81.7% line coverage
 
 ### GUI
 - Tauri v2 desktop app (~10 MB native binary)
@@ -66,6 +74,17 @@ Complete rewrite. Rust + Tauri v2 replaces Python + PyInstaller.
 - Config directory created with 0o700 permissions
 - TOCTOU fixes (direct file opens, no pre-checks)
 - Oracle-resistant error messages
+- CLI passphrase zeroization after use (Zeroizing<Vec<u8>>)
+- Key files written with 0o600 permissions (Unix)
+- Deniable metadata no longer reveals deniable mode (deniable field always false)
+- Deniable partition half randomised (adversary cannot infer which is real)
+- Deniable key files only written when --export-key is explicitly set
+- Empty decoy passphrase rejected with clear error
+- Unused tauri-plugin-fs removed (reduced attack surface)
+- Passphrase cleared from Zustand stores after successful embed/extract
+- KDF parameters removed from public documentation
+- Decompression bomb capped at 256 MB
+- JPEG extract allocation capped to coefficient capacity
 
 ### Polish
 - Backdrop blur on settings panel overlay
@@ -85,7 +104,7 @@ Complete rewrite. Rust + Tauri v2 replaces Python + PyInstaller.
 - Winget manifest
 - Kali Linux packaging
 - SourceForge release notes
-- Comprehensive integration test suite (123 tests across 16 categories)
+- Comprehensive integration test suite (357 tests across 35+ categories)
 
 ---
 

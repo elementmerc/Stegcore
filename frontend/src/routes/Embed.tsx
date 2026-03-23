@@ -619,8 +619,9 @@ function Step4() {
   const [embedPhase, setEmbedPhase] = useState('')
 
   const handleEmbed = useCallback(async () => {
-    if (!payloadFile || !coverFile) return
+    if (!payloadFile || !coverFile || embedding) return
     setEmbedding(true)
+    setProcessingStatus('processing')
     setEmbedPhase('Preparing…')
     setError(null)
 
@@ -692,7 +693,7 @@ function Step4() {
   }, [setEmbedding])
 
   return (
-    <>
+    <div style={{ position: 'relative', height: '100%' }}>
       {embedding && (
         <ProcessingScreen
           phase={embedPhase}
@@ -852,7 +853,7 @@ function Step4() {
         }
       `}</style>
     </StepShell>
-    </>
+    </div>
   )
 }
 

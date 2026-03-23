@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -13,6 +20,7 @@ jobs:
   coverage:
     name: Line coverage (≥90%)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4

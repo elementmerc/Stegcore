@@ -5,11 +5,19 @@ on:
     branches: [dev]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   tauri:
+    timeout-minutes: 45
     name: Build (${{ matrix.os-label }})
     strategy:
       fail-fast: false

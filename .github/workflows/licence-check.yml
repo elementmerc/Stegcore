@@ -2,11 +2,21 @@ name: Licence Header Check
 
 on:
   push:
+    branches: [main, dev]
   pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check-headers:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -26,8 +36,8 @@ jobs:
             -not -path "./libstegcore/*")
           if [ "$fail" -eq 1 ]; then
             echo ""
-            echo "All .py files must include the AGPL-3.0 header."
+            echo "All .rs/.ts/.tsx files must include the AGPL-3.0 header."
             echo "See CONTRIBUTING.md for the required header block."
             exit 1
           fi
-          echo "All .py files carry the AGPL-3.0 header."
+          echo "All source files carry the AGPL-3.0 header."
