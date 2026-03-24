@@ -296,9 +296,19 @@ async fn analyse_file_progressive(
         let result =
             tauri::async_runtime::spawn_blocking(move || analysis::analyse(Path::new(&bg_path)))
                 .await;
-        if let Ok(Ok(report)) = result {
-            let json = serde_json::to_string(&report).unwrap_or_default();
-            let _ = app.emit("analysis_complete", json);
+        match result {
+            Ok(Ok(report)) => {
+                let json = serde_json::to_string(&report).unwrap_or_default();
+                let _ = app.emit("analysis_complete", json);
+            }
+            Ok(Err(e)) => {
+                log::warn!("Full analysis failed: {e}");
+                // Emit error event so frontend knows analysis completed (with failure)
+                let _ = app.emit("analysis_complete_error", e.to_string());
+            }
+            Err(e) => {
+                log::warn!("Full analysis task panicked: {e}");
+            }
         }
     });
 
@@ -423,6 +433,42 @@ async fn pixel_diff(original: String, stego: String) -> Result<serde_json::Value
     .map_err(|e| StegError::Io(std::io::Error::other(e.to_string())))?
 }
 
+// ── Open folder (cross-platform) ─────────────────────────────────────────────
+
+#[tauri::command]
+async fn open_folder(path: String) -> Result<(), String> {
+    let dir = Path::new(&path);
+    // If it's a file, get its parent directory
+    let folder = if dir.is_file() {
+        dir.parent().unwrap_or(dir)
+    } else {
+        dir
+    };
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(folder)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(folder)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(folder)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 // ── File info ───────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -510,6 +556,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             get_supported_formats,
@@ -523,6 +570,7 @@ pub fn run() {
             export_csv_report,
             export_json_report,
             pixel_diff,
+            open_folder,
             file_size,
             get_verse,
             is_first_run,

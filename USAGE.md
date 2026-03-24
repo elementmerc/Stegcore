@@ -115,9 +115,10 @@ stegcore analyse <file>... [options]
 | `--json` | off | Output results as JSON |
 | `--verbose` | off | Show per-test details |
 
-Runs the full steganalysis suite: Chi-Squared, SPA, RS Analysis, LSB
-Entropy, and tool fingerprinting. Returns a verdict (Clean / Suspicious /
-Likely Stego) with an overall score 0–100.
+Runs the full steganalysis suite: Chi-Squared (block-based), Sample Pair
+Analysis (DWW quadratic), RS Analysis (per-channel), LSB Entropy
+(per-channel autocorrelation), and Tool Fingerprinting. Returns a verdict
+(Clean / Suspicious / Likely Stego) with an overall score 0–100.
 
 **Examples:**
 ```bash

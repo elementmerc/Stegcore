@@ -8,9 +8,9 @@
 
 [![CI](https://github.com/elementmerc/Stegcore/actions/workflows/ci.yml/badge.svg)](https://github.com/elementmerc/Stegcore/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/elementmerc/Stegcore)](https://github.com/elementmerc/Stegcore/releases/latest)
-[![License: AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-blue)](LICENSE)
+[![Licence: AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0--or--later-blue)](LICENSE)
 
-<img src="docs/demo.gif" alt="Stegcore GUI demo" width="720">
+<!-- <img src="docs/demo.gif" alt="Stegcore GUI demo" width="720"> -->
 
 </div>
 
@@ -119,7 +119,7 @@ extracting, or analysing files. Drag and drop works everywhere.
 |---|---|
 | Embed wizard | 4-step guided flow: message → cover → options → confirm |
 | Extract wizard | 3-step flow: stego file → passphrase → recovered payload |
-| Steganalysis dashboard | Animated charts: Chi-Squared, RS Analysis, SPA gauge, LSB heatmap |
+| Steganalysis dashboard | Animated charts: Chi-Squared (block-based), RS Analysis (per-channel), SPA gauge (DWW quadratic), LSB Entropy heatmap (per-channel autocorrelation) |
 | Audio analysis | Oscilloscope trace with suspicious region highlighting |
 | Pixel diff | Before/after comparison on embed success |
 | Export | Copy dashboard to clipboard, export as PDF/HTML/JSON/CSV |

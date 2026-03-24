@@ -38,10 +38,12 @@ Let me be real with you about relying on this software for anything high-stakes.
 
 Tools like StegExpose, zsteg, and ML-based detectors (SRM, SPAM, GFR) analyse the statistical properties of pixel distributions rather than looking for visible changes. Standard LSB steganography is reliably detected by these tools. Stegcore's adaptive mode significantly raises the detection threshold, but doesn't make detection impossible — particularly at high payload density on low-quality covers. If your adversary is running automated ML-based steganalysis across a large corpus of files, Stegcore provides meaningful but not absolute resistance.
 
-Stegcore includes a built-in steganalysis suite that runs five
-detectors against any file. You can test your own output before sharing
-it. The GUI shows interactive charts and heatmaps of the detection
-results.
+Stegcore includes a built-in steganalysis suite that runs five detectors
+against any file: Chi-Squared (block-based), Sample Pair Analysis (DWW
+quadratic), RS Analysis (per-channel), LSB Entropy (per-channel
+autocorrelation), and Tool Fingerprinting. You can test your own output
+before sharing it. The GUI shows animated charts and heatmaps of the
+detection results.
 
 **Traffic analysis and metadata**
 

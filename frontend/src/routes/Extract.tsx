@@ -288,15 +288,28 @@ function Step3() {
     }
   }, [stegoFile, stegoPath, passphrase, keyFile, keyFilePath, setExtracting, setError, setResult])
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!result) return
-    const blob = new Blob([new Uint8Array(result)])
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'extracted'
-    a.click()
-    URL.revokeObjectURL(url)
+    try {
+      const { save } = await import('@tauri-apps/plugin-dialog')
+      const { writeFile } = await import('@tauri-apps/plugin-fs')
+      const path = await save({
+        title: 'Save extracted file',
+        defaultPath: 'extracted',
+      })
+      if (path) {
+        await writeFile(path, new Uint8Array(result))
+      }
+    } catch {
+      // Fallback for dev/browser mode
+      const blob = new Blob([new Uint8Array(result)])
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'extracted'
+      a.click()
+      URL.revokeObjectURL(url)
+    }
   }, [result])
 
   const handleProcessingComplete = useCallback(() => {

@@ -30,11 +30,11 @@ Complete rewrite. Rust + Tauri v2 replaces the Python + PyInstaller codebase.
 - Tauri v2 desktop app (~10 MB native binary)
 - React + TypeScript frontend with step-by-step wizards
 - First-run setup wizard (AUP, licence, preferences)
-- Animated steganalysis dashboard with four chart types:
-  - Chi-Squared lateral slide (per-channel p-values)
-  - RS Analysis untangle (4-curve divergence)
-  - Sample Pair Analysis arc sweep gauge (with confidence)
-  - LSB Entropy corner ripple heatmap (10×10 grid)
+- Animated steganalysis dashboard with five chart types:
+  - Chi-Squared lateral slide (block-based, per-channel p-values)
+  - RS Analysis untangle (per-channel, 4-curve divergence)
+  - Sample Pair Analysis arc sweep gauge (DWW quadratic, with confidence)
+  - LSB Entropy corner ripple heatmap (per-channel autocorrelation, 10×10 grid)
   - Audio oscilloscope trace (WAV/FLAC waveform with LSB highlighting)
 - Progressive two-phase analysis (fast preliminary + background full)
 - Before/after pixel diff on embed success
@@ -83,7 +83,7 @@ Complete rewrite. Rust + Tauri v2 replaces the Python + PyInstaller codebase.
 - Deniable partition half randomised (adversary cannot infer which is real)
 - Deniable key files only written when --export-key is explicitly set
 - Empty decoy passphrase rejected with clear error
-- Unused tauri-plugin-fs removed (reduced attack surface)
+- tauri-plugin-fs scoped to minimal required permissions
 - Passphrase cleared from Zustand stores after successful embed/extract
 - Decompression bomb capped at 256 MB
 - JPEG extract allocation capped to coefficient capacity
