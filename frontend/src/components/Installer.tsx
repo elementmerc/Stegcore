@@ -89,7 +89,7 @@ function StepAUP({ accepted, onToggle }: { accepted: boolean; onToggle: () => vo
           Stegcore is a steganography and encryption toolkit designed for legitimate privacy use cases:
         </p>
         <p>
-          <strong>Intended users:</strong> journalists protecting sources, activists in oppressive regimes,
+          <strong>Intended users:</strong> Journalists protecting sources, activists in oppressive regimes,
           security researchers, CTF participants, and individuals exercising their right to personal privacy.
         </p>
         <p>
@@ -287,8 +287,8 @@ export function Installer({ onComplete }: InstallerProps) {
   const handleContinue = useCallback(() => {
     if (step === 3) {
       setStep(4)
-      import('@tauri-apps/api/core').then(({ invoke }) => {
-        invoke('complete_setup', { theme, defaultCipher: cipher }).catch(() => {})
+      import('../lib/ipc').then(({ completeSetup }) => {
+        completeSetup(theme, cipher).catch(() => {})
       }).catch(() => {})
     } else if (step < 4) {
       setStep(s => (s + 1) as 1 | 2 | 3 | 4 | 5)

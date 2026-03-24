@@ -100,7 +100,8 @@ export default function Analyze() {
 
   // Listen for full analysis completion from Tauri backend
   useEffect(() => {
-    let unlisten: (() => void) | undefined
+    let unlistenOk: (() => void) | undefined
+    let unlistenErr: (() => void) | undefined
     import('@tauri-apps/api/event').then(({ listen }) => {
       listen<string>('analysis_complete', (event) => {
         try {
@@ -108,20 +109,35 @@ export default function Analyze() {
           setFullReports(prev => {
             const next = new Map(prev)
             next.set(report.file, report)
-            // Only show toast ONCE when ALL full reports have arrived
-            if (next.size >= expectedCountRef.current && expectedCountRef.current > 0 && !toastFiredRef.current) {
-              toastFiredRef.current = true
-              toast.long('Full analysis ready. Hit R to reload', 'success', 30000)
-            }
             return next
           })
         } catch { /* ignore parse errors */ }
-      }).then(fn => { unlisten = fn })
-    }).catch(() => { /* browser dev mode */ })
-    return () => unlisten?.()
-  }, []) // no deps — refs don't cause re-registration
+      }).then(fn => { unlistenOk = fn })
 
-  // R key swaps preliminary reports with full reports
+      // Also listen for errors so the "Full analysis running" label clears
+      listen<string>('analysis_complete_error', () => {
+        // Mark as done even if failed — stops the "running" spinner
+        toastFiredRef.current = true
+      }).then(fn => { unlistenErr = fn })
+    }).catch(() => { /* browser dev mode */ })
+    return () => { unlistenOk?.(); unlistenErr?.() }
+  }, [])
+
+  // Auto-swap preliminary results with full results when they arrive
+  useEffect(() => {
+    if (fullReports.size === 0) return
+    if (fullReports.size >= expectedCountRef.current && expectedCountRef.current > 0) {
+      // All full reports arrived — auto-swap
+      setReports(prev => prev.map(r => fullReports.get(r.file) ?? r))
+      setPreliminary(false)
+      if (!toastFiredRef.current) {
+        toastFiredRef.current = true
+        toast.success('Full analysis loaded')
+      }
+    }
+  }, [fullReports])
+
+  // R key also swaps manually (for partial arrivals)
   useEffect(() => {
     if (fullReports.size === 0) return
     const handler = (e: KeyboardEvent) => {
@@ -211,7 +227,7 @@ export default function Analyze() {
   }, [])
 
   // Export from cached reports — no re-analysis needed
-  const handleExport = useCallback(() => {
+  const handleExport = useCallback(async () => {
     if (!reports.length) return
     const format = settings.defaultReportFormat
 
@@ -259,13 +275,28 @@ export default function Analyze() {
       return
     }
 
-    const blob = new Blob([content], { type: mimeType })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `stegcore-report.${ext}`
-    a.click()
-    URL.revokeObjectURL(url)
+    // Use Tauri native save dialog (blob downloads don't work in webview)
+    try {
+      const { save } = await import('@tauri-apps/plugin-dialog')
+      const { writeTextFile } = await import('@tauri-apps/plugin-fs')
+      const path = await save({
+        title: 'Save report',
+        defaultPath: `stegcore-report.${ext}`,
+        filters: [{ name: `${ext.toUpperCase()} files`, extensions: [ext] }],
+      })
+      if (path) {
+        await writeTextFile(path, content)
+      }
+    } catch {
+      // Fallback for dev/browser mode
+      const blob = new Blob([content], { type: mimeType })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `stegcore-report.${ext}`
+      a.click()
+      URL.revokeObjectURL(url)
+    }
   }, [reports, settings.defaultReportFormat])
 
   return (

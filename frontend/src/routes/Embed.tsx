@@ -808,7 +808,7 @@ function Step4() {
                   const { open } = await import('@tauri-apps/plugin-shell')
                   const dir = result.outputPath.replace(/[/\\][^/\\]*$/, '')
                   await open(dir)
-                } catch { /* WSL or dev — no file manager */ }
+                } catch { /* dev mode — no file manager */ }
               }}
               style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--ui-text)', background: 'var(--ui-surface)', border: '1px solid var(--ui-border)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}
             >

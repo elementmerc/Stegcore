@@ -237,6 +237,11 @@ export function setSettings(partial: Partial<Settings>): Promise<void> {
   return safeInvoke<void>('set_settings', { settings: partial }, undefined)
 }
 
+/** Mark first-run setup as complete. */
+export function completeSetup(theme: string, defaultCipher: string): Promise<void> {
+  return safeInvoke<void>('complete_setup', { theme, defaultCipher }, undefined)
+}
+
 // ── Aliases for sprint naming consistency ────────────────────────────────
 
 export interface VerseData {

@@ -146,6 +146,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
 
       {/* Panel */}
       <div
+        {...(!isOpen ? { inert: '' as unknown as string } : {})}
+        aria-hidden={!isOpen}
         style={{
           position: 'fixed',
           top: 0,
@@ -316,13 +318,13 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
               checked={settings.bibleVerses}
               onChange={(v) => update({ bibleVerses: v })}
               label="Bible verses"
-              description="Show a rotating NLT verse in the footer. Cycles every 10 minutes."
+              description="Show a rotating verse in the footer. Cycles every 10 minutes."
             />
           </Section>
 
           <Section title="About" icon={Info}>
             <div style={{ fontSize: 13, color: 'var(--ui-text2)', lineHeight: 1.7 }}>
-              <p><strong style={{ color: 'var(--ui-text)' }}>Stegcore</strong> v3.0.0-dev</p>
+              <p><strong style={{ color: 'var(--ui-text)' }}>Stegcore</strong> v4.0.0-dev</p>
               <p>Licence: AGPL-3.0</p>
               <p style={{ marginTop: 8, fontSize: 12 }}>
                 No telemetry. No network connections. Fully offline.

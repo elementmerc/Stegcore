@@ -107,11 +107,11 @@ User provides: one or more files to scan
 
 1. Detect format, load pixel/sample data
 2. Run detectors in parallel (rayon):
-   - Chi-Squared: tests LSB pair distribution uniformity
-   - Sample Pair Analysis: measures adjacent pixel correlation
-   - RS Analysis: Regular/Singular group asymmetry detection
-   - LSB Entropy: measures randomness of least significant bits
-   - Tool fingerprinting: checks for Steghide/OutGuess/OpenStego
+   - Chi-Squared (block-based): tests LSB pair distribution uniformity
+   - Sample Pair Analysis (DWW quadratic): measures adjacent pixel correlation
+   - RS Analysis (per-channel): Regular/Singular group asymmetry detection
+   - LSB Entropy (per-channel autocorrelation): measures randomness of least significant bits
+   - Tool Fingerprinting: checks for Steghide/OutGuess/OpenStego/generic LSB
 3. For images: compute 10×10 block entropy grid (heatmap data)
    For audio: downsample waveform + flag suspicious regions
 4. Ensemble scoring → overall verdict (Clean / Suspicious / Likely Stego)
@@ -206,10 +206,10 @@ The user-facing interface.
 - **Steganalysis dashboard**: Canvas-based animated charts (not SVG).
   Each chart manages its own `requestAnimationFrame` loop with a frame
   counter. Charts re-render on container resize via `ResizeObserver`.
-  - Chi-Squared: lateral slide (horizontal bars per RGB channel)
-  - RS Analysis: untangle (4 curves diverging from midline)
-  - Sample Pair: arc sweep gauge (circular dial with bounce)
-  - LSB Entropy: corner ripple heatmap (10×10 grid, wave reveal)
+  - Chi-Squared (block-based): lateral slide (horizontal bars per RGB channel)
+  - RS Analysis (per-channel): untangle (4 curves diverging from midline)
+  - Sample Pair (DWW quadratic): arc sweep gauge (circular dial with bounce)
+  - LSB Entropy (per-channel autocorrelation): corner ripple heatmap (10×10 grid, wave reveal)
   - Audio: oscilloscope trace (waveform bars with region highlighting)
 - **Design system**: CSS custom properties (`--sc-*` for brand,
   `--ui-*` for semantic). Dark/light themes via `data-theme` attribute.

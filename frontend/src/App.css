@@ -218,25 +218,39 @@ button {
               filter 0.15s ease-out,
               opacity 0.15s ease-out;
 }
-button:active:not(:disabled) { transform: scale(0.96); }
+button:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform 0.08s ease-out !important;
+}
+button:not(:active) {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+              filter 0.15s ease-out,
+              opacity 0.15s ease-out !important;
+}
 button:disabled { cursor: not-allowed; }
 
 /* ── Primary button hover ───────────────────────────────────────────────── */
 .sc-btn-primary:hover:not(:disabled) {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
+  filter: brightness(1.08);
+  transform: translateY(-1px) scale(1.01);
+}
+.sc-btn-primary:active:not(:disabled) {
+  transform: translateY(0px) scale(0.97) !important;
 }
 
 /* ── Typography utilities ─────────────────────────────────────────────── */
 .sc-path {
   font-family: 'Space Mono', monospace;
   font-size: 0.8em;
-  opacity: 0.65;
+  font-weight: 300;
+  opacity: 0.6;
   color: var(--ui-text2);
 }
-h2, .sc-heading {
-  letter-spacing: -0.02em;
+h1, h2, .sc-heading {
+  letter-spacing: -0.03em;
 }
+h1 { font-weight: 600; }
+h2 { font-weight: 500; }
 
 /* ── Page / step enter animation ────────────────────────────────────────── */
 @keyframes sc-screen-enter {

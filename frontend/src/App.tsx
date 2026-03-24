@@ -10,7 +10,7 @@
 
 import React, { useState, useCallback, useEffect, useRef, createContext, useContext } from 'react'
 import { BrowserRouter, Routes, Route, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Sun, Moon, Cog, ArrowLeft, ArrowRight } from 'lucide-react'
+import { Sun, Moon, Cog, ArrowLeft, ArrowRight, HelpCircle } from 'lucide-react'
 import SplashDark from './components/SplashDark'
 import SplashLight from './components/SplashLight'
 import { Settings as SettingsPanel } from './components/Settings'
@@ -279,9 +279,11 @@ function VerseBar() {
 function Layout({
   settingsOpen,
   setSettingsOpen,
+  setShortcutsOpen,
 }: {
   settingsOpen: boolean
   setSettingsOpen: (v: boolean) => void
+  setShortcutsOpen: (v: boolean) => void
 }) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -292,12 +294,20 @@ function Layout({
   const isBack = location.pathname === '/' || (prevPathRef.current !== '/' && location.pathname < prevPathRef.current)
   useEffect(() => { prevPathRef.current = location.pathname }, [location.pathname])
 
-  // Keep local theme state in sync with OS changes
+  // Keep local theme state in sync with OS changes AND settings panel changes
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const handler = () => setThemeState(effectiveTheme())
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
+    const mqHandler = () => setThemeState(effectiveTheme())
+    mq.addEventListener('change', mqHandler)
+
+    // Watch for data-theme attribute changes (triggered by settings panel)
+    const obs = new MutationObserver(() => setThemeState(effectiveTheme()))
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+
+    return () => {
+      mq.removeEventListener('change', mqHandler)
+      obs.disconnect()
+    }
   }, [])
 
   const handleThemeToggle = useCallback(() => {
@@ -347,6 +357,11 @@ function Layout({
 
           {/* Icon buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <IconButton
+              icon={HelpCircle}
+              label="Keyboard shortcuts"
+              onClick={() => setShortcutsOpen(true)}
+            />
             <IconButton
               icon={theme === 'dark' ? Sun : Moon}
               label="Toggle theme"
@@ -546,7 +561,7 @@ function App() {
 
       <BrowserRouter>
         <Routes>
-          <Route element={<Layout settingsOpen={settingsOpen} setSettingsOpen={setSettingsOpen} />}>
+          <Route element={<Layout settingsOpen={settingsOpen} setSettingsOpen={setSettingsOpen} setShortcutsOpen={setShortcutsOpen} />}>
             <Route index element={<Home />} />
             <Route path="embed"   element={<Embed />} />
             <Route path="extract" element={<Extract />} />

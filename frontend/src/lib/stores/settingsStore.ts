@@ -81,6 +81,18 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   update: (partial) => {
     const next = { ...get().settings, ...partial }
     set({ settings: next })
+
+    // Apply side-effects immediately when relevant settings change
+    if (partial.theme !== undefined) {
+      import('../theme').then(({ setTheme }) => setTheme(partial.theme!))
+    }
+    if (partial.reduceMotion !== undefined) {
+      import('../theme').then(({ setReduceMotion }) => setReduceMotion(partial.reduceMotion!))
+    }
+    if (partial.fontSize !== undefined) {
+      document.documentElement.setAttribute('data-font-size', partial.fontSize)
+    }
+
     // Fire-and-forget — errors are swallowed; UI shouldn't block on this
     import('../ipc').then(({ setSettings }) => setSettings(partial)).catch(() => undefined)
   },

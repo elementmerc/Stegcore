@@ -71,8 +71,9 @@ export const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
 export function scoreColor(score: number): string {
-  if (score <= 33) return THEME.green
-  if (score <= 66) return THEME.amber
+  // Aligned with verdict thresholds: Clean (<25), Suspicious (25–55), Likely Stego (>55)
+  if (score < 25) return THEME.green
+  if (score <= 55) return THEME.amber
   return THEME.red
 }
 

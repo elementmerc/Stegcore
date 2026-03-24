@@ -24,8 +24,6 @@ crates/core/lib/**/*.lib
 # Project reference
 CLAUDE.md
 
-# Private engine (submodule — source in separate private repo)
-
 # IDE
 .claude/
 .vscode/settings.json
@@ -38,3 +36,4 @@ Thumbs.db
 # Personal
 /scripts/
 /tests/
+/stegcore_env/
