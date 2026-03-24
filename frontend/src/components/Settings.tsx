@@ -146,7 +146,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
 
       {/* Panel */}
       <div
-        {...(!isOpen ? { inert: '' as unknown as string } : {})}
+        inert={!isOpen || undefined}
         aria-hidden={!isOpen}
         style={{
           position: 'fixed',
@@ -165,9 +165,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
         }}
         role="dialog"
         aria-modal={isOpen}
-        aria-hidden={!isOpen}
         aria-label="Settings"
-        {...(!isOpen ? { inert: '' as unknown as boolean } : {})}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.25rem', borderBottom: '1px solid var(--ui-border)', flexShrink: 0 }}>
