@@ -399,11 +399,15 @@ function Step3() {
   const [showPass, setShowPass] = useState(false)
   const [showDecoyPass, setShowDecoyPass] = useState(false)
 
-  // Apply settings defaults on mount
+  // Apply settings defaults once settings have loaded from disk
+  const { loaded: settingsLoaded } = useSettingsStore()
+  const appliedDefaults = useRef(false)
   useEffect(() => {
-    setOptions({ cipher: settings.defaultCipher, mode: settings.defaultMode })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (settingsLoaded && !appliedDefaults.current) {
+      appliedDefaults.current = true
+      setOptions({ cipher: settings.defaultCipher, mode: settings.defaultMode })
+    }
+  }, [settingsLoaded, settings.defaultCipher, settings.defaultMode, setOptions])
 
   useFooter({
     backLabel: 'Cover',
