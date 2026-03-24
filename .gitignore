@@ -24,8 +24,7 @@ crates/core/lib/**/*.lib
 # Project reference
 CLAUDE.md
 
-# Private engine
-/libstegcore/
+# Private engine (submodule — source in separate private repo)
 
 # IDE
 .claude/
