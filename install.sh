@@ -14,6 +14,62 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
+# ── Help / Uninstall flags ────────────────────────────────────────────────────
+
+show_help() {
+  cat <<'HELP'
+Stegcore Installer
+
+Usage:
+  curl -fsSL https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.sh | bash
+  bash install.sh [--uninstall] [--help]
+
+Options:
+  --help        Show this help message
+  --uninstall   Remove Stegcore and clean up PATH entries
+
+Environment variables:
+  STEGCORE_VERSION=latest        Pin a specific version (default: latest)
+  STEGCORE_DIR=~/.stegcore       Custom install directory
+  STEGCORE_NO_MODIFY_PATH=1      Don't modify shell profile
+HELP
+  exit 0
+}
+
+do_uninstall() {
+  local dir="${STEGCORE_DIR:-$HOME/.stegcore}"
+  if [ ! -d "$dir" ]; then
+    echo "Stegcore is not installed at $dir"
+    exit 0
+  fi
+  echo "Removing $dir..."
+  rm -rf "$dir"
+  # Clean PATH entries from shell profiles
+  for profile in "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.zshrc"; do
+    if [ -f "$profile" ]; then
+      # Remove lines containing stegcore PATH export
+      sed -i.bak '/# Stegcore/d;/\.stegcore\/bin/d' "$profile" 2>/dev/null || true
+      rm -f "${profile}.bak"
+    fi
+  done
+  # Fish
+  local fish_conf="$HOME/.config/fish/config.fish"
+  if [ -f "$fish_conf" ]; then
+    sed -i.bak '/stegcore/d' "$fish_conf" 2>/dev/null || true
+    rm -f "${fish_conf}.bak"
+  fi
+  echo "Stegcore has been uninstalled."
+  exit 0
+}
+
+# Parse flags (works even when piped)
+for arg in "$@"; do
+  case "$arg" in
+    --help|-h) show_help ;;
+    --uninstall) do_uninstall ;;
+  esac
+done
+
 # ── Colours (degrade gracefully if not a tty) ────────────────────────────────
 
 if [ -t 1 ] && command -v tput &>/dev/null && [ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]; then
@@ -196,14 +252,17 @@ verify_checksum() {
   fi
 
   if [ ! -f "$checksum_file" ] || [ ! -s "$checksum_file" ]; then
-    warn "Checksum file not found — skipping verification."
+    warn "Checksum file not available — cannot verify download integrity."
+    warn "This could mean the release is still being published, or the"
+    warn "checksums were not included. Proceeding without verification."
     return 0
   fi
 
   local expected
   expected="$(grep "$ASSET" "$checksum_file" | awk '{print $1}')"
   if [ -z "$expected" ]; then
-    warn "No checksum entry for ${ASSET} — skipping."
+    warn "No checksum entry found for ${ASSET}."
+    warn "Proceeding without verification."
     return 0
   fi
 
@@ -233,8 +292,22 @@ verify_checksum
 # ── Handle existing installation ─────────────────────────────────────────────
 
 if [ -d "$INSTALL_DIR/bin" ] && [ "$(ls -A "$INSTALL_DIR/bin" 2>/dev/null)" ]; then
+  # Check if same version is already installed
+  local_version=""
+  if [ -x "$INSTALL_DIR/bin/stegcore" ]; then
+    local_version="$("$INSTALL_DIR/bin/stegcore" --version 2>/dev/null | head -1 | awk '{print $NF}')" || true
+  fi
+  if [ -n "$local_version" ] && [ "$local_version" = "$VERSION" ]; then
+    success "Stegcore ${VERSION} is already installed."
+    dim "To reinstall, remove ${INSTALL_DIR} first."
+    exit 0
+  fi
   warn "Existing installation found at ${INSTALL_DIR}"
-  dim "Updating in place…"
+  if [ -n "$local_version" ]; then
+    dim "Upgrading ${local_version} → ${VERSION}"
+  else
+    dim "Updating in place…"
+  fi
 fi
 
 # ── Extract and install ──────────────────────────────────────────────────────
@@ -301,7 +374,7 @@ add_to_path() {
       ;;
     zsh)  profile="$HOME/.zshrc" ;;
     fish)
-      local fish_conf="$HOME/.config/fish/config.fish"
+      fish_conf="$HOME/.config/fish/config.fish"
       if [ -f "$fish_conf" ] && ! grep -q "stegcore" "$fish_conf" 2>/dev/null; then
         echo "fish_add_path ${BIN_DIR}" >> "$fish_conf"
         success "Added to ${fish_conf}"
@@ -354,6 +427,18 @@ install_completions() {
 }
 
 install_completions
+
+# ── Done ─────────────────────────────────────────────────────────────────────
+
+# ── Post-install verification ─────────────────────────────────────────────────
+
+info "Verifying installation…"
+if [ -x "$BIN_DIR/stegcore" ]; then
+  installed_ver="$("$BIN_DIR/stegcore" --version 2>/dev/null | head -1)" || installed_ver="unknown"
+  success "Binary works: ${installed_ver}"
+else
+  warn "Binary installed but not executable. Check permissions."
+fi
 
 # ── Done ─────────────────────────────────────────────────────────────────────
 

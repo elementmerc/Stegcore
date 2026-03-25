@@ -1,5 +1,5 @@
 # ── Stage 1: Build ──────────────────────────────────────────────────────────
-FROM rust:1.82-slim AS builder
+FROM rust:1.86-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
@@ -15,7 +15,7 @@ COPY crates/cli/Cargo.toml  crates/cli/Cargo.toml
 
 # Engine stub (libstegcore is private — public builds use stub)
 RUN mkdir -p libstegcore/src \
-    && printf '[package]\nname = "stegcore-engine"\nversion = "0.1.0"\nedition = "2021"\n\n[lib]\nname = "stegcore_engine"\n' > libstegcore/Cargo.toml \
+    && printf '[package]\nname = "stegcore-engine"\nversion = "4.0.0-beta.1"\nedition = "2021"\n\n[lib]\nname = "stegcore_engine"\n' > libstegcore/Cargo.toml \
     && touch libstegcore/src/lib.rs
 
 # Stub src-tauri so workspace Cargo.toml resolves (not built in Docker)
