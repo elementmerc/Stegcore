@@ -66,11 +66,11 @@ All three ciphers provide authenticated encryption with additional data (AEAD). 
 
 Stegcore includes a built-in steganalysis suite with the following detectors:
 
-- **Chi-Squared** — tests LSB pair distribution uniformity
-- **Sample Pair Analysis (SPA)** — measures adjacent pixel correlation
-- **RS Analysis** — Regular/Singular group asymmetry detection
-- **LSB Entropy** — measures randomness of least significant bits
-- **Tool Fingerprinting** — identifies likely embedder (Steghide, OutGuess, OpenStego, generic LSB)
+- **Chi-Squared** (block-based) — tests LSB pair distribution uniformity across image blocks
+- **Sample Pair Analysis** (DWW quadratic estimator) — estimates embedding rate from trace multiset asymmetry
+- **RS Analysis** (per-channel) — Regular/Singular group asymmetry detection with correct F₋₁ mask
+- **LSB Entropy** (per-channel autocorrelation) — measures spatial correlation of least significant bits
+- **Tool Fingerprinting** — identifies likely embedder (Steghide, OpenStego, generic sequential LSB)
 
 Results are combined into an ensemble verdict: Clean (<0.25), Suspicious (0.25–0.55), or Likely Stego (>0.55).
 

@@ -16,7 +16,9 @@
 
 ---
 
-Stegcore encrypts your payload and hides it inside an image or audio file. The result looks and sounds completely normal. Only the correct passphrase recovers what's inside. Three authenticated ciphers (Ascon-128, ChaCha20-Poly1305, AES-256-GCM), adaptive LSB steganography, deniable dual-payload mode, and a full steganalysis detection suite. Desktop GUI and CLI. Completely offline — no network connections, no telemetry, no account.
+Stegcore encrypts your payload and hides it inside an image or audio file. The result looks and sounds completely normal. Only the correct passphrase recovers what's inside. Three authenticated ciphers (Ascon-128, ChaCha20-Poly1305, AES-256-GCM), adaptive LSB steganography, deniable dual-payload mode, and a full steganalysis detection suite. Desktop GUI and CLI. Completely offline. No network connections, no telemetry, no account.
+
+> 🎉 **Stegcore's adaptive mode evades all four of [Aletheia's](https://github.com/daniellerch/aletheia) classical steganalysis detectors** (SPA, RS, Weighted Stego, and Triples) on real-world images. No other open-source steganography tool achieves this. [Details →](docs/vs-alternatives.md#detection-resistance)
 
 ---
 
@@ -34,7 +36,7 @@ curl -fsSL https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.s
 | **macOS (Intel + Apple Silicon)** | Universal binary | `.dmg` |
 | **Windows x86_64** | `.zip` | `.msi` |
 
-### Package managers
+### Package managers (Not yet available)
 
 ```bash
 # Homebrew (macOS / Linux)
@@ -49,9 +51,6 @@ winget install elementmerc.Stegcore
 Building from source is **not supported** for public users. Stegcore relies
 on a private engine that is not included in this repository. Use the
 install script or pre-built releases above.
-
-The public repository compiles cleanly without the engine — steganographic
-operations return a message directing you to download a release build.
 
 ---
 

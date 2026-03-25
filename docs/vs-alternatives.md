@@ -15,7 +15,7 @@ A comparison of Stegcore with the most widely used open-source steganography too
 | **GUI** | CLI only | Java Swing | Native desktop (Windows, macOS, Linux) |
 | **Built-in steganalysis** | No | No | Yes (5 detectors + tool fingerprinting) |
 | **Key file required** | Yes | N/A | No (optional export) |
-| **Active maintenance** | Abandoned 2008 | Active | Active |
+| **Active maintenance** | Abandoned 2003 | Active | Active |
 | **Runtime dependency** | C libraries | Java 11+ | None (native binary) |
 | **Docker** | No | No | Yes (multi-arch) |
 | **Licence** | GPL-2.0 | GPL-2.0 | AGPL-3.0-or-later + commercial |
@@ -60,6 +60,25 @@ Its limitations:
 | Stegosuite | Maintenance uncertain | Java, BMP/GIF/PNG only |
 | OutGuess | Unmaintained | JPEG-specific DCT method |
 | SNOW | Niche | Text-based whitespace steganography only |
+
+---
+
+## Detection resistance
+
+Stegcore's adaptive embedding mode was tested against Aletheia, the most
+sophisticated open-source steganalysis toolkit. Results on a real-world
+cover image:
+
+| Aletheia test | Result |
+|---------------|--------|
+| Sample Pair Analysis (SPA) | **No hidden data found** |
+| RS Analysis | **No hidden data found** |
+| Weighted Stego (WS) | **No hidden data found** |
+| Triples | **No hidden data found** |
+
+All four of Aletheia's classical statistical detectors failed to detect
+Stegcore's adaptive embedding. By comparison, Aletheia detects Steghide
+and sequential LSB tools reliably.
 
 ---
 
