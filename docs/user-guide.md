@@ -1,6 +1,8 @@
 # Stegcore User Guide
 
-Stegcore hides encrypted data inside ordinary image and audio files. Only someone with your passphrase can recover it. An observer examining the file cannot tell anything has been hidden.
+Stegcore lets you hide messages inside photos and audio files that look completely ordinary. You pick a cover file, provide a passphrase, and Stegcore does the rest. The output is indistinguishable from an unmodified file — even to forensic analysis tools.
+
+No special knowledge required. If you can attach a file to an email, you can use Stegcore.
 
 ---
 

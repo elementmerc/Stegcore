@@ -213,4 +213,5 @@ jobs:
         run: |
           gh release upload ${{ github.ref_name }} \
             ./assets/stegcore-${{ github.ref_name }}-checksums.sha256 \
-            --repo ${{ github.repository }}
+            --repo ${{ github.repository }} \
+            --clobber

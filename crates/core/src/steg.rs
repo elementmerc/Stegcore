@@ -236,18 +236,12 @@ pub fn read_meta(_path: &Path, _passphrase: &[u8]) -> Result<serde_json::Value, 
     Err(StegError::EngineAbsent)
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(engine)))]
 mod tests {
-    // These tests run in both engine and stub mode.
-    // In stub mode (CI), all calls must return EngineAbsent.
-    // In engine mode (local), they return real results.
-
-    #[cfg(not(engine))]
-    mod stub_tests {
-        use crate::errors::StegError;
-        use crate::keyfile::KeyFile;
-        use crate::steg::*;
-        use std::path::Path;
+    use crate::errors::StegError;
+    use crate::keyfile::KeyFile;
+    use super::*;
+    use std::path::Path;
 
         #[test]
         fn assess_returns_engine_absent() {
@@ -314,5 +308,4 @@ mod tests {
             let r = read_meta(Path::new("/tmp/s.png"), b"pass");
             assert!(matches!(r, Err(StegError::EngineAbsent)));
         }
-    }
 }

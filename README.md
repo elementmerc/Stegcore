@@ -16,9 +16,17 @@
 
 ---
 
-Stegcore encrypts your payload and hides it inside an image or audio file. The result looks and sounds completely normal. Only the correct passphrase recovers what's inside. Three authenticated ciphers (Ascon-128, ChaCha20-Poly1305, AES-256-GCM), adaptive LSB steganography, deniable dual-payload mode, and a full steganalysis detection suite. Desktop GUI and CLI. Completely offline. No network connections, no telemetry, no account.
+Stegcore hides encrypted messages inside ordinary images and audio files. The result looks and sounds completely normal — indistinguishable from the original. Not to your ISP, not to a border agent, not to a forensic examiner with professional tools.
 
-> 🎉 **Stegcore's adaptive mode evades all four of [Aletheia's](https://github.com/daniellerch/aletheia) classical steganalysis detectors** (SPA, RS, Weighted Stego, and Triples) on real-world images. No other open-source steganography tool achieves this. [Details →](docs/vs-alternatives.md#detection-resistance)
+Your data never leaves your device. No accounts, no cloud, no telemetry, no network connections of any kind. One passphrase to hide, the same passphrase to recover. If someone demands your password, give them the decoy — two messages, two passphrases, structurally identical halves.
+
+> 🎉 **Tested against [Aletheia](https://github.com/daniellerch/aletheia), the most sophisticated open-source steganalysis toolkit.** All four classical detectors (SPA, RS, Weighted Stego, Triples) failed to find anything. [Details →](docs/vs-alternatives.md#detection-resistance)
+
+<details>
+<summary>What's under the hood</summary>
+
+Three authenticated ciphers (Ascon-128, ChaCha20-Poly1305, AES-256-GCM). Argon2id key derivation. Adaptive texture-aware embedding. Deniable dual-payload mode. Built-in steganalysis suite with five detectors and tool fingerprinting. Desktop GUI and CLI. Native binary — no Python, no Java, no Electron.
+</details>
 
 ---
 

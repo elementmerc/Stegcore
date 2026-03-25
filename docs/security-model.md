@@ -1,32 +1,38 @@
 # Security Model
 
-This document describes what Stegcore protects against and what it does not.
+Privacy is a right, not a feature. This document describes who Stegcore is built for, what it protects against, and — just as importantly — what it does not.
+
+---
+
+## Who is this for?
+
+A journalist carrying interview recordings across a border checkpoint. An activist coordinating in a country where WhatsApp is monitored. A domestic abuse survivor who needs to keep evidence on a shared device. A whistleblower exfiltrating documents from an organisation that inspects outgoing files.
+
+These people don't need another encryption tutorial. They need a tool that works, that doesn't require a security background, and that holds up when someone is looking.
 
 ---
 
 ## Threat model
 
-Stegcore is designed to protect against three classes of adversary:
+### 1. Someone who can see your files
 
-### 1. Passive observer
+A cloud storage provider, an email gateway, a family member, a border agent scrolling through your gallery.
 
-Someone who can see your files but is not specifically looking for hidden data — for example, a cloud storage provider, an email gateway, or someone who briefly has access to your device.
+**How Stegcore helps:** The output file looks and sounds completely ordinary. A photo of a sunset is still a photo of a sunset. There is no visual or audible difference. No metadata changes, no suspicious file extensions, no extra files to explain.
 
-**Protection:** The output file looks identical to an ordinary image or audio file. There is no visible difference.
+### 2. Someone who suspects you're hiding data
 
-### 2. Active forensic examiner
+A forensic examiner who runs your files through statistical analysis tools — chi-squared tests, sample pair analysis, RS analysis.
 
-Someone who actively suspects you are hiding data and applies statistical analysis tools to your files.
+**How Stegcore helps:** Adaptive embedding mode concentrates modifications in areas of natural texture where statistical tests can't distinguish them from normal image noise. In testing against Aletheia (the most sophisticated open-source steganalysis toolkit), all four classical detectors failed to detect Stegcore's adaptive embedding.
 
-**Protection:** Adaptive embedding mode is designed to resist the statistical tests used by common steganalysis tools. Files embedded in adaptive mode score low on the built-in analysis suite.
+No tool can promise absolute invisibility against unlimited analysis. What Stegcore does is raise the cost of detection to the point where it exceeds the cost of targeted, warrant-based investigation — which is how privacy *should* work.
 
-No steganographic tool can guarantee invisibility against a determined examiner with unlimited time. The goal is to make your files indistinguishable from unmodified ones at a practical cost. For strong operational security, choose cover files with rich, natural texture; avoid low-detail or synthetic images.
+### 3. Someone who demands your passphrase
 
-### 3. Coerced disclosure
+A government agent, an abusive partner, or anyone with the leverage to force you to reveal what's hidden.
 
-Someone who has your files and demands your passphrase under threat.
-
-**Protection:** Deniable mode lets you embed two separate messages — one real, one innocuous — each accessible with a different passphrase. The two halves of the file are structurally identical. There is no way to determine which passphrase is "real" by examining the file alone.
+**How Stegcore helps:** Deniable mode embeds two separate messages with two separate passphrases. Give them one passphrase — they get a plausible decoy message. The real message stays hidden behind the other passphrase. The two halves of the file are structurally identical. There is no way to prove the second message exists.
 
 ---
 

@@ -1,6 +1,8 @@
 # Stegcore vs. Alternatives
 
-A comparison of Stegcore with the most widely used open-source steganography tools.
+The steganography tools most people find first — Steghide, OpenStego — were groundbreaking when they were written. But they were written for a different era. Steghide hasn't been updated since 2003. OpenStego requires Java. Neither offers deniable mode, built-in detection, or encryption that would survive a modern audit.
+
+Stegcore exists because the people who need steganography most — journalists, activists, researchers — deserve a tool that's been built with today's threats in mind, not yesterday's.
 
 ---
 
@@ -84,17 +86,17 @@ and sequential LSB tools reliably.
 
 ## What Stegcore adds
 
-Beyond matching the best features of each tool, Stegcore introduces capabilities not found in any open-source steganography tool:
+Every design decision in Stegcore starts with the same question: *what does someone in a dangerous situation actually need?*
 
-**Dual-payload deniable mode.** No other open-source tool offers this. Two separate messages in one file, two passphrases, structurally indistinguishable halves.
+**They need deniability.** If you can be forced to hand over your passphrase, encryption alone isn't enough. Deniable mode gives you two passphrases and two messages. One is real. One is a decoy. They're structurally identical — there's no way to prove the second exists. No other open-source tool offers this.
 
-**Built-in steganalysis.** The same tool that embeds can also detect. Stegcore's analysis suite runs Chi-squared, Sample Pair Analysis, RS Analysis, LSB Entropy, and audio-specific variants, plus a tool fingerprinting module that identifies the likely embedder. No other open-source steganography tool includes this.
+**They need to know if they've been caught.** The same tool that hides your data can also detect hidden data in other files. Stegcore's analysis suite runs five independent detectors and identifies which tool was used. If you receive a file and want to know whether it's been tampered with, you can check — without a separate tool.
 
-**Modern, auditable cryptography.** All primitives are from the RustCrypto project, with published security proofs and active maintenance. Argon2id key derivation is memory-hard by design.
+**They need encryption that actually works.** Steghide uses DES. That was deprecated before most of its current users were born. Stegcore uses three modern authenticated ciphers backed by the RustCrypto project, with Argon2id key derivation. Every primitive has a published security proof and is actively maintained.
 
-**No key file required.** Metadata is embedded in the stego file. You only need your passphrase to extract — there is no separate file to manage, lose, or disclose.
+**They need simplicity.** One file in, one file out, one passphrase. No key files to manage, lose, or accidentally disclose. The metadata is embedded in the output. You only need your passphrase to recover your data.
 
-**Native binary.** No Python, no Java, no Electron. A single executable that runs on Windows, macOS, and Linux without any runtime dependencies.
+**They need it to just work.** One binary, no dependencies. No Python version conflicts, no Java runtime, no Electron eating your RAM. Runs on Windows, macOS, and Linux. Desktop GUI for beginners, CLI for power users.
 
 ---
 

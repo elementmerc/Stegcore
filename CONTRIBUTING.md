@@ -1,5 +1,13 @@
 # Contributing to Stegcore
 
+Stegcore is built for journalists, activists, and anyone who needs privacy
+that works without a security degree. If you're contributing, keep that
+person in mind. Every feature should be understandable by a first-time
+user. Every error message should tell them what to do next. Every default
+should be the safe choice.
+
+---
+
 ## Dev environment
 
 **Prerequisites:** Rust 1.77+, Node.js 20+ (24 recommended), npm.
