@@ -238,15 +238,16 @@ pub fn read_meta(_path: &Path, _passphrase: &[u8]) -> Result<serde_json::Value, 
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     // These tests run in both engine and stub mode.
     // In stub mode (CI), all calls must return EngineAbsent.
     // In engine mode (local), they return real results.
 
     #[cfg(not(engine))]
     mod stub_tests {
-        use super::*;
+        use crate::errors::StegError;
+        use crate::keyfile::KeyFile;
+        use crate::steg::*;
+        use std::path::Path;
 
         #[test]
         fn assess_returns_engine_absent() {
