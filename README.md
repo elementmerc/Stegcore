@@ -24,26 +24,9 @@ Stegcore encrypts your payload and hides it inside an image or audio file. The r
 
 ## Install
 
-**Any platform (same URL, auto-detects):**
-```
-curl -fsSL https://raw.githubusercontent.com/elementmerc/Stegcore/main/install | sh
-```
+### Download a binary (recommended)
 
-<details>
-<summary>Platform-specific scripts</summary>
-
-**Linux / macOS:**
-```bash
-curl -fsSL https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.sh | bash
-```
-
-**Windows (PowerShell):**
-```powershell
-irm https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.ps1 | iex
-```
-</details>
-
-### Platform grid
+Grab the latest release for your platform from the [**Releases page**](https://github.com/elementmerc/Stegcore/releases).
 
 | Platform | CLI | GUI |
 |---|---|---|
@@ -51,7 +34,44 @@ irm https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.ps1 | ie
 | **macOS (Intel + Apple Silicon)** | Universal binary | `.dmg` |
 | **Windows x86_64** | `.zip` | `.msi` |
 
-### Package managers (Not yet available)
+### One-line installer
+
+Same URL works on both Unix and Windows — auto-detects your platform:
+
+**Linux / macOS:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/elementmerc/Stegcore/main/install | sh
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/elementmerc/Stegcore/main/install | iex
+```
+
+<details>
+<summary>Installer options</summary>
+
+```bash
+# Pin a version
+STEGCORE_VERSION=v4.0.0-beta.1 curl -fsSL .../install.sh | bash
+
+# Custom install directory
+STEGCORE_DIR=/opt/stegcore curl -fsSL .../install.sh | bash
+
+# Uninstall
+bash install.sh --uninstall
+```
+
+```powershell
+# Windows options
+.\install.ps1 -Component both          # CLI + GUI
+.\install.ps1 -Version v4.0.0-beta.1   # Pin version
+.\install.ps1 -Uninstall               # Remove
+.\install.ps1 -DryRun                  # Preview only
+```
+</details>
+
+### Package managers (coming soon)
 
 ```bash
 # Homebrew (macOS / Linux)
@@ -65,7 +85,7 @@ winget install elementmerc.Stegcore
 
 Building from source is **not supported** for public users. Stegcore relies
 on a private engine that is not included in this repository. Use the
-install script or pre-built releases above.
+pre-built binaries or install scripts above.
 
 ---
 

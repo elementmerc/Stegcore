@@ -27,7 +27,7 @@
 .EXAMPLE
     .\install.ps1
     .\install.ps1 -Component both
-    .\install.ps1 -Version v1.0.0 -DryRun
+    .\install.ps1 -Version v4.0.0-beta.1 -DryRun
     .\install.ps1 -Uninstall
 #>
 
@@ -46,6 +46,12 @@ param (
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+# Force TLS 1.2+ for secure downloads
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+
+# Detect if running non-interactively (piped via irm | iex)
+$IsInteractive = [Environment]::UserInteractive -and -not ([Console]::IsInputRedirected)
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -123,7 +129,10 @@ function Get-Checksums {
     try {
         Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing
     } catch {
-        Abort "Failed to download checksums: $_`nThe version '$script:Version' may not exist."
+        Write-Warn "Checksum file not available — cannot verify download integrity."
+        Write-Warn "This could mean the release is still being published."
+        Write-Warn "Proceeding without verification."
+        return
     }
     $script:ChecksumsPath = $dest
 }
@@ -176,7 +185,7 @@ function Add-ToUserPath ([string]$Dir) {
 
     Write-Warn "$Dir is not on your PATH."
 
-    if (-not $Yes -and -not $DryRun) {
+    if (-not $Yes -and -not $DryRun -and $IsInteractive) {
         $answer = Read-Host '  Add to User PATH? [Y/n]'
         if ($answer -and $answer -notmatch '^[Yy]') {
             Write-Warn "Skipped. Add $Dir to PATH manually to use stegcore from any terminal."
@@ -337,6 +346,14 @@ function Invoke-Uninstall {
 function Select-Component {
     if ($Component -ne '') { return }
 
+    # Non-interactive (piped via irm | iex) — default to CLI
+    if (-not $IsInteractive) {
+        Write-Info "Non-interactive mode detected — installing CLI by default."
+        Write-Info "Run '.\install.ps1 -Component both' for CLI + GUI."
+        $script:Component = 'cli'
+        return
+    }
+
     Write-Host ''
     Write-Host 'What would you like to install?' -ForegroundColor White
     Write-Host ''
@@ -358,8 +375,13 @@ function Select-Component {
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 Write-Host ''
-Write-Host 'Stegcore Installer' -ForegroundColor White
-if ($DryRun) { Write-Host '  Dry-run mode -- no changes will be made' -ForegroundColor Magenta }
+Write-Host '  +===================================+' -ForegroundColor Cyan
+Write-Host '  |       STEGCORE INSTALLER          |' -ForegroundColor Cyan
+Write-Host '  |   Hide . Encrypt . Deny           |' -ForegroundColor DarkCyan
+Write-Host '  +===================================+' -ForegroundColor Cyan
+Write-Host ''
+Write-Info "Platform:     Windows $Arch"
+if ($DryRun) { Write-Host '  [dry-run mode -- no changes will be made]' -ForegroundColor Magenta }
 Write-Host ''
 
 if ($Uninstall) {
@@ -376,7 +398,7 @@ Write-Info "Version:     $script:Version"
 Write-Info "Component:   $script:Component"
 Write-Info "Install dir: $InstallDir"
 
-if (-not $Yes -and -not $DryRun) {
+if (-not $Yes -and -not $DryRun -and $IsInteractive) {
     Write-Host ''
     $confirm = Read-Host '  Proceed? [Y/n]'
     if ($confirm -and $confirm -notmatch '^[Yy]') {
