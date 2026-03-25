@@ -20,11 +20,15 @@ RUN mkdir -p libstegcore/src \
 
 # Stub src-tauri so workspace Cargo.toml resolves (not built in Docker)
 COPY src-tauri/Cargo.toml src-tauri/Cargo.toml
-RUN mkdir -p src-tauri/src && echo 'fn main() {}' > src-tauri/src/main.rs
+RUN mkdir -p src-tauri/src \
+    && echo 'fn main() {}' > src-tauri/src/main.rs \
+    && echo '' > src-tauri/src/lib.rs \
+    && echo 'fn main() {}' > src-tauri/build.rs
 
 # Stub source files so cargo can fetch deps without full source
 RUN mkdir -p crates/core/src crates/cli/src \
     && echo 'pub fn placeholder() {}' > crates/core/src/lib.rs \
+    && echo 'fn main() {}' > crates/core/build.rs \
     && echo 'fn main() {}' > crates/cli/src/main.rs
 
 # Fetch and cache all dependencies

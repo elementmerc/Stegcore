@@ -57,3 +57,34 @@ pub fn current_verse() -> &'static Verse {
     let idx = ((secs / 600) as usize) % VERSES.len(); // 600s = 10 minutes
     &VERSES[idx]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verses_not_empty() {
+        assert!(!VERSES.is_empty());
+    }
+
+    #[test]
+    fn all_verses_have_text_and_reference() {
+        for v in VERSES {
+            assert!(!v.text.is_empty(), "Verse text is empty");
+            assert!(!v.reference.is_empty(), "Verse reference is empty");
+        }
+    }
+
+    #[test]
+    fn current_verse_returns_valid_verse() {
+        let v = current_verse();
+        assert!(!v.text.is_empty());
+        assert!(!v.reference.is_empty());
+    }
+
+    #[test]
+    fn verse_count() {
+        // We have 30 verses
+        assert!(VERSES.len() >= 25);
+    }
+}

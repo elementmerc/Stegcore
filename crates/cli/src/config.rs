@@ -45,3 +45,65 @@ impl Config {
 fn config_path() -> Option<PathBuf> {
     dirs::config_dir().map(|d| d.join("stegcore").join("config.toml"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_config_all_none() {
+        let cfg = Config::default();
+        assert!(cfg.default_cipher.is_none());
+        assert!(cfg.default_mode.is_none());
+        assert!(cfg.default_output_folder.is_none());
+        assert!(cfg.export_key.is_none());
+        assert!(cfg.verbose.is_none());
+        assert!(cfg.verses.is_none());
+    }
+
+    #[test]
+    fn parse_full_config() {
+        let toml = r#"
+            default_cipher = "aes-256-gcm"
+            default_mode = "sequential"
+            export_key = true
+            verbose = false
+            verses = true
+        "#;
+        let cfg: Config = toml::from_str(toml).unwrap();
+        assert_eq!(cfg.default_cipher.as_deref(), Some("aes-256-gcm"));
+        assert_eq!(cfg.default_mode.as_deref(), Some("sequential"));
+        assert_eq!(cfg.export_key, Some(true));
+        assert_eq!(cfg.verbose, Some(false));
+        assert_eq!(cfg.verses, Some(true));
+    }
+
+    #[test]
+    fn parse_partial_config() {
+        let toml = "default_cipher = \"ascon-128\"\n";
+        let cfg: Config = toml::from_str(toml).unwrap();
+        assert_eq!(cfg.default_cipher.as_deref(), Some("ascon-128"));
+        assert!(cfg.default_mode.is_none());
+    }
+
+    #[test]
+    fn parse_empty_config() {
+        let cfg: Config = toml::from_str("").unwrap();
+        assert!(cfg.default_cipher.is_none());
+    }
+
+    #[test]
+    fn parse_unknown_keys_ignored() {
+        let toml = "unknown_key = \"value\"\ndefault_cipher = \"chacha20-poly1305\"\n";
+        let cfg: Config = toml::from_str(toml).unwrap();
+        assert_eq!(cfg.default_cipher.as_deref(), Some("chacha20-poly1305"));
+    }
+
+    #[test]
+    fn load_returns_defaults_when_no_file() {
+        // Config::load() should not panic even if the file doesn't exist
+        let cfg = Config::load();
+        // Just verify it returns something — the file may or may not exist on the test machine
+        let _ = cfg.default_cipher;
+    }
+}

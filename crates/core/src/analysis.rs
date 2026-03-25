@@ -366,3 +366,203 @@ fn csv_escape(s: &str) -> String {
 pub fn generate_json_report(reports: &[AnalysisReport]) -> String {
     serde_json::to_string_pretty(reports).unwrap_or_else(|_| "[]".into())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(not(engine))]
+    #[test]
+    fn analyse_returns_engine_absent() {
+        let r = analyse(Path::new("/tmp/any.png"));
+        assert!(matches!(r, Err(StegError::EngineAbsent)));
+    }
+
+    #[cfg(not(engine))]
+    #[test]
+    fn analyse_fast_returns_engine_absent() {
+        let r = analyse_fast(Path::new("/tmp/any.png"));
+        assert!(matches!(r, Err(StegError::EngineAbsent)));
+    }
+
+    #[cfg(not(engine))]
+    #[test]
+    fn analyse_batch_returns_engine_absent_for_each() {
+        let paths: Vec<&Path> = vec![Path::new("/tmp/a.png"), Path::new("/tmp/b.png")];
+        let results = analyse_batch(&paths);
+        assert_eq!(results.len(), 2);
+        for r in results {
+            assert!(matches!(r, Err(StegError::EngineAbsent)));
+        }
+    }
+
+    #[test]
+    fn verdict_serialises_snake_case() {
+        assert_eq!(serde_json::to_string(&Verdict::Clean).unwrap(), "\"clean\"");
+        assert_eq!(serde_json::to_string(&Verdict::Suspicious).unwrap(), "\"suspicious\"");
+        assert_eq!(serde_json::to_string(&Verdict::LikelyStego).unwrap(), "\"likely_stego\"");
+    }
+
+    #[test]
+    fn confidence_serialises_snake_case() {
+        assert_eq!(serde_json::to_string(&Confidence::Low).unwrap(), "\"low\"");
+        assert_eq!(serde_json::to_string(&Confidence::Medium).unwrap(), "\"medium\"");
+        assert_eq!(serde_json::to_string(&Confidence::High).unwrap(), "\"high\"");
+    }
+
+    #[test]
+    fn analysis_report_round_trip() {
+        let report = AnalysisReport {
+            file: PathBuf::from("/tmp/test.png"),
+            format: "png".into(),
+            tests: vec![TestResult {
+                name: "Chi-Squared".into(),
+                score: 0.42,
+                confidence: Confidence::Medium,
+                detail: "Moderate anomaly".into(),
+                distribution: None,
+            }],
+            verdict: Verdict::Suspicious,
+            overall_score: 0.42,
+            tool_fingerprint: None,
+            block_entropy: None,
+        };
+        let json = serde_json::to_string(&report).unwrap();
+        let parsed: AnalysisReport = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.format, "png");
+        assert_eq!(parsed.verdict, Verdict::Suspicious);
+        assert_eq!(parsed.tests.len(), 1);
+    }
+
+    #[test]
+    fn html_report_contains_file_and_verdict() {
+        let report = AnalysisReport {
+            file: PathBuf::from("test.png"),
+            format: "png".into(),
+            tests: vec![TestResult {
+                name: "Chi-Squared".into(),
+                score: 0.1,
+                confidence: Confidence::Low,
+                detail: "Natural".into(),
+                distribution: None,
+            }],
+            verdict: Verdict::Clean,
+            overall_score: 0.1,
+            tool_fingerprint: None,
+            block_entropy: None,
+        };
+        let html = generate_html_report(&[report]);
+        assert!(html.contains("test.png"));
+        assert!(html.contains("Clean"));
+        assert!(html.contains("Chi-Squared"));
+    }
+
+    #[test]
+    fn html_report_escapes_xss() {
+        let report = AnalysisReport {
+            file: PathBuf::from("<script>alert(1)</script>.png"),
+            format: "png".into(),
+            tests: vec![],
+            verdict: Verdict::Clean,
+            overall_score: 0.0,
+            tool_fingerprint: Some("<img src=x>".into()),
+            block_entropy: None,
+        };
+        let html = generate_html_report(&[report]);
+        assert!(!html.contains("<script>"));
+        assert!(html.contains("&lt;script&gt;"));
+        assert!(!html.contains("<img src=x>"));
+    }
+
+    #[test]
+    fn csv_report_has_header_and_data() {
+        let report = AnalysisReport {
+            file: PathBuf::from("test.png"),
+            format: "png".into(),
+            tests: vec![TestResult {
+                name: "RS Analysis".into(),
+                score: 0.5,
+                confidence: Confidence::High,
+                detail: "Asymmetric".into(),
+                distribution: None,
+            }],
+            verdict: Verdict::Suspicious,
+            overall_score: 0.5,
+            tool_fingerprint: None,
+            block_entropy: None,
+        };
+        let csv = generate_csv_report(&[report]);
+        assert!(csv.starts_with("File,Format,Verdict"));
+        assert!(csv.contains("RS Analysis"));
+        assert!(csv.contains("0.5000"));
+    }
+
+    #[test]
+    fn csv_escapes_quotes_in_filename() {
+        let report = AnalysisReport {
+            file: PathBuf::from("test\"file.png"),
+            format: "png".into(),
+            tests: vec![TestResult {
+                name: "Test".into(),
+                score: 0.1,
+                confidence: Confidence::Low,
+                detail: "ok".into(),
+                distribution: None,
+            }],
+            verdict: Verdict::Clean,
+            overall_score: 0.0,
+            tool_fingerprint: None,
+            block_entropy: None,
+        };
+        let csv = generate_csv_report(&[report]);
+        assert!(csv.contains("test\"\"file.png"));
+    }
+
+    #[test]
+    fn json_report_is_valid_json() {
+        let report = AnalysisReport {
+            file: PathBuf::from("test.png"),
+            format: "png".into(),
+            tests: vec![],
+            verdict: Verdict::Clean,
+            overall_score: 0.1,
+            tool_fingerprint: None,
+            block_entropy: None,
+        };
+        let json = generate_json_report(&[report]);
+        let parsed: Vec<AnalysisReport> = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.len(), 1);
+    }
+
+    #[test]
+    fn score_colour_green_for_low() {
+        assert_eq!(score_colour(0.1), "#22c55e");
+    }
+
+    #[test]
+    fn score_colour_amber_for_mid() {
+        assert_eq!(score_colour(0.4), "#f59e0b");
+    }
+
+    #[test]
+    fn score_colour_red_for_high() {
+        assert_eq!(score_colour(0.8), "#ef4444");
+    }
+
+    #[test]
+    fn html_escape_handles_all_chars() {
+        assert_eq!(html_escape("<>&\""), "&lt;&gt;&amp;&quot;");
+    }
+
+    #[test]
+    fn csv_escape_doubles_quotes() {
+        assert_eq!(csv_escape("hello\"world"), "hello\"\"world");
+    }
+
+    #[test]
+    fn block_entropy_serialises() {
+        let be = BlockEntropy { cols: 4, rows: 3, values: vec![0.5; 12] };
+        let json = serde_json::to_string(&be).unwrap();
+        assert!(json.contains("\"cols\":4"));
+    }
+}
