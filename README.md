@@ -20,7 +20,7 @@ Stegcore hides encrypted messages inside ordinary images and audio files. The re
 
 Your data never leaves your device. No accounts, no cloud, no telemetry, no network connections of any kind. One passphrase to hide, the same passphrase to recover. If someone demands your password, give them the decoy — two messages, two passphrases, structurally identical halves.
 
-> 🎉 **Tested against [Aletheia](https://github.com/daniellerch/aletheia), the most sophisticated open-source steganalysis toolkit.** All four classical detectors (SPA, RS, Weighted Stego, Triples) failed to find anything. [Details →](docs/vs-alternatives.md#detection-resistance)
+> 🎉 **Tested against [Aletheia](https://github.com/daniellerch/aletheia), the leading open-source steganalysis toolkit.** Adaptive mode passed all four classical detectors (SPA, RS, Weighted Stego, Triples) on real-world images. [Details →](docs/vs-alternatives.md#detection-resistance)
 
 <details>
 <summary>What's under the hood</summary>

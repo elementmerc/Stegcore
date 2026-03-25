@@ -1,8 +1,8 @@
-# Stegcore vs. Alternatives
+# Stegcore and the Steganography Landscape
 
-The steganography tools most people find first — Steghide, OpenStego — were groundbreaking when they were written. But they were written for a different era. Steghide hasn't been updated since 2003. OpenStego requires Java. Neither offers deniable mode, built-in detection, or encryption that would survive a modern audit.
+Steganography has a rich history of open-source tools. Steghide and OpenStego introduced thousands of people to the field and laid the conceptual foundation that everything after them — including Stegcore — builds on.
 
-Stegcore exists because the people who need steganography most — journalists, activists, researchers — deserve a tool that's been built with today's threats in mind, not yesterday's.
+Stegcore picks up where they left off. Cryptographic standards, threat models, and user expectations have all evolved since these tools were first written. Stegcore brings those updates to the same mission: making steganography accessible to the people who need it.
 
 ---
 
@@ -26,30 +26,27 @@ Stegcore exists because the people who need steganography most — journalists, 
 
 ## Steghide
 
-Steghide is the most widely referenced steganography tool in security documentation and CTF write-ups. It introduced many people to the concept.
+Steghide is the most widely referenced steganography tool in security documentation and CTF write-ups. It introduced many people to the field and its graph-theoretic embedding approach was innovative for its time.
 
-However, it has not been updated since 2008 and carries a known vulnerability: **CVE-2021-27211**. The root cause is that Steghide uses a 32-bit PRNG seed derived from the passphrase. An attacker can enumerate all ~4 billion possible seeds in a few hours on consumer hardware, regardless of passphrase length. A passphrase that takes decades to brute-force directly can be bypassed in the time it takes to watch a film.
+Steghide was last updated in 2003. Since then, the cryptographic landscape has changed significantly. Its DES and RC4 ciphers are now deprecated, and CVE-2021-27211 revealed that its 32-bit PRNG seed can be enumerated on consumer hardware. These aren't design flaws — they reflect the standards of the era it was built in.
 
-Steghide also predates modern authenticated encryption. It uses DES (deprecated) and RC4 (broken). It does not verify data integrity, so a corrupted stego file may silently produce garbled output.
-
-For historical research, CTF challenges where the challenge is intentionally solvable, or understanding the field: Steghide is fine. For any genuine operational use: do not use Steghide.
-
-Stegcore exists in part as a tribute to Steghide's legacy and as an answer to the question of what a secure replacement looks like.
+Steghide remains valuable for learning, CTF challenges, and understanding the history of the field. For operational use where modern cryptographic guarantees matter, Stegcore carries the mission forward with updated primitives and new capabilities like deniable mode and built-in detection.
 
 ---
 
 ## OpenStego
 
-OpenStego is actively maintained and takes a more considered approach than Steghide. It supports PNG and BMP, offers basic watermarking functionality, and its GUI, while dated, works.
+OpenStego is actively maintained and brought a GUI to steganography at a time when most tools were CLI-only. It supports PNG and BMP, offers watermarking, and has a straightforward interface.
 
-Its limitations:
+Where Stegcore extends the concept:
 
-- Requires Java 11 or later, adding a significant runtime dependency
-- Supports only BMP and PNG (no audio, no JPEG, no WebP)
-- No deniable mode
-- No built-in steganalysis
-- Key derivation function internals are not published, making independent security review difficult
-- The GUI does not feel native on any platform — Java Swing has not aged well
+- **Broader format support** — PNG, BMP, JPEG, WebP, WAV (vs PNG/BMP)
+- **No runtime dependency** — native binary vs Java 11+ requirement
+- **Deniable mode** — dual-payload embedding
+- **Built-in steganalysis** — detection suite alongside embedding
+- **Published cryptography** — auditable Argon2id + AEAD ciphers
+
+OpenStego remains a solid choice if you need a quick, Java-based solution for PNG/BMP steganography.
 
 ---
 
@@ -78,9 +75,12 @@ cover image:
 | Weighted Stego (WS) | **No hidden data found** |
 | Triples | **No hidden data found** |
 
-All four of Aletheia's classical statistical detectors failed to detect
-Stegcore's adaptive embedding. By comparison, Aletheia detects Steghide
-and sequential LSB tools reliably.
+All four of Aletheia's classical statistical detectors returned "No hidden
+data found" for Stegcore's adaptive embedding on real-world images.
+
+Note: this applies to adaptive mode only. Sequential mode prioritises
+capacity over stealth and is detectable by design — use it when detection
+resistance is not your primary concern.
 
 ---
 
