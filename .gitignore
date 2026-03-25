@@ -1,5 +1,6 @@
 # Python legacy (kept for final PyPI release only)
 *__pycache__*
+.pytest_cache/
 *_qa.py*
 *Zone.Identifier*
 *image_tests.py*
