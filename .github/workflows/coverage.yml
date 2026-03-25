@@ -87,4 +87,6 @@ jobs:
         run: cargo install cargo-llvm-cov --locked
 
       - name: Run tests with coverage (core crate, 90% threshold)
-        run: cargo llvm-cov -p stegcore-core ${{ steps.engine.outputs.cargo_flags }} --fail-under-lines 90
+        # Always run in stub mode for consistent coverage measurement.
+        # Engine functions are thin wrappers tested by integration tests.
+        run: cargo llvm-cov -p stegcore-core --no-default-features --fail-under-lines 90
