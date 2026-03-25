@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+title: Stegcore
+message: >-
+  If you use this software in your research, please cite it
+  using the metadata below.
+type: software
+authors:
+  - given-names: Daniel Ifeanyi
+    family-names: Iwugo
+    email: daniel@themalwarefiles.com
+    alias: elementmerc
+repository-code: https://github.com/elementmerc/Stegcore
+url: https://github.com/elementmerc/Stegcore
+abstract: >-
+  A cross-platform crypto-steganography toolkit combining
+  adaptive LSB steganography with authenticated encryption,
+  deniable dual-payload mode, and a built-in steganalysis
+  detection suite. Desktop GUI and CLI. Fully offline.
+keywords:
+  - steganography
+  - steganalysis
+  - encryption
+  - information-hiding
+  - digital-forensics
+  - privacy
+license: AGPL-3.0-or-later
+version: 4.0.0-beta.1
+date-released: "2026-03-25"
