@@ -60,7 +60,14 @@ $ApiBase  = "https://api.github.com/repos/$Repo"
 $DlBase   = "https://github.com/$Repo/releases/download"
 
 # CLI installs to a user-writable directory — no elevation needed
-$InstallDir = Join-Path $env:LOCALAPPDATA 'Stegcore\bin'
+if ($env:LOCALAPPDATA) {
+    $InstallDir = Join-Path $env:LOCALAPPDATA 'Stegcore\bin'
+} elseif ($env:HOME) {
+    # Non-Windows (Linux/macOS PowerShell) — use ~/.stegcore/bin
+    $InstallDir = Join-Path $env:HOME '.stegcore/bin'
+} else {
+    Abort 'Cannot determine install directory. Set LOCALAPPDATA or HOME.'
+}
 
 # Arch — Stegcore ships x64 only on Windows for now
 if (-not [Environment]::Is64BitOperatingSystem) {
