@@ -65,3 +65,109 @@ pub fn read_key_file(path: &Path) -> Result<KeyFile, StegError> {
     let kf: KeyFile = serde_json::from_slice(&raw)?;
     Ok(kf)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_keyfile() -> KeyFile {
+        KeyFile {
+            engine: "rust-v1".into(),
+            cipher: "chacha20-poly1305".into(),
+            nonce: "dGVzdG5vbmNl".into(),
+            salt: "dGVzdHNhbHQ=".into(),
+            deniable: false,
+            partition_seed: None,
+            partition_half: None,
+        }
+    }
+
+    #[test]
+    fn round_trip_write_read() {
+        let kf = sample_keyfile();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.json");
+        write_key_file(&path, &kf).unwrap();
+        let loaded = read_key_file(&path).unwrap();
+        assert_eq!(loaded.engine, "rust-v1");
+        assert_eq!(loaded.cipher, "chacha20-poly1305");
+        assert_eq!(loaded.nonce, kf.nonce);
+        assert_eq!(loaded.salt, kf.salt);
+        assert!(!loaded.deniable);
+        assert!(loaded.partition_seed.is_none());
+    }
+
+    #[test]
+    fn deniable_keyfile_round_trip() {
+        let kf = KeyFile {
+            engine: "rust-v1".into(),
+            cipher: "aes-256-gcm".into(),
+            nonce: "bm9uY2U=".into(),
+            salt: "c2FsdA==".into(),
+            deniable: true,
+            partition_seed: Some("c2VlZA==".into()),
+            partition_half: Some(0),
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("deny.json");
+        write_key_file(&path, &kf).unwrap();
+        let loaded = read_key_file(&path).unwrap();
+        assert!(loaded.deniable);
+        assert_eq!(loaded.partition_half, Some(0));
+        assert!(loaded.partition_seed.is_some());
+    }
+
+    #[test]
+    fn read_nonexistent_returns_file_not_found() {
+        let r = read_key_file(Path::new("/tmp/does_not_exist_xyz.json"));
+        assert!(matches!(r, Err(StegError::FileNotFound(_))));
+    }
+
+    #[test]
+    fn read_legacy_python_keyfile() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("legacy.json");
+        // Python key file lacks "engine" field
+        std::fs::write(&path, r#"{"cipher":"aes","nonce":"abc","salt":"def"}"#).unwrap();
+        let r = read_key_file(&path);
+        assert!(matches!(r, Err(StegError::LegacyKeyFile)));
+    }
+
+    #[test]
+    fn read_wrong_engine_prefix() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("old.json");
+        std::fs::write(&path, r#"{"engine":"python-v2","cipher":"aes","nonce":"abc","salt":"def","deniable":false}"#).unwrap();
+        let r = read_key_file(&path);
+        assert!(matches!(r, Err(StegError::LegacyKeyFile)));
+    }
+
+    #[test]
+    fn read_invalid_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("bad.json");
+        std::fs::write(&path, "not json at all {{{").unwrap();
+        let r = read_key_file(&path);
+        assert!(matches!(r, Err(StegError::CorruptedFile)));
+    }
+
+    #[test]
+    fn serialise_omits_none_fields() {
+        let kf = sample_keyfile();
+        let json = serde_json::to_string(&kf).unwrap();
+        assert!(!json.contains("partition_seed"));
+        assert!(!json.contains("partition_half"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn keyfile_has_restricted_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let kf = sample_keyfile();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("perms.json");
+        write_key_file(&path, &kf).unwrap();
+        let perms = std::fs::metadata(&path).unwrap().permissions();
+        assert_eq!(perms.mode() & 0o777, 0o600);
+    }
+}

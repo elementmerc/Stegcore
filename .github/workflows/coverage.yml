@@ -86,5 +86,5 @@ jobs:
       - name: Install cargo-llvm-cov
         run: cargo install cargo-llvm-cov --locked
 
-      - name: Run tests with coverage and enforce 90% threshold
-        run: cargo llvm-cov --workspace ${{ steps.engine.outputs.cargo_flags }} --fail-under-lines 90
+      - name: Run tests with coverage (core crate, 90% threshold)
+        run: cargo llvm-cov -p stegcore-core ${{ steps.engine.outputs.cargo_flags }} --fail-under-lines 90

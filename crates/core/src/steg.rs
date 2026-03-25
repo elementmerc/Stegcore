@@ -235,3 +235,83 @@ pub fn read_meta(path: &Path, passphrase: &[u8]) -> Result<serde_json::Value, St
 pub fn read_meta(_path: &Path, _passphrase: &[u8]) -> Result<serde_json::Value, StegError> {
     Err(StegError::EngineAbsent)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // These tests run in both engine and stub mode.
+    // In stub mode (CI), all calls must return EngineAbsent.
+    // In engine mode (local), they return real results.
+
+    #[cfg(not(engine))]
+    mod stub_tests {
+        use super::*;
+
+        #[test]
+        fn assess_returns_engine_absent() {
+            let r = assess(Path::new("/tmp/any.png"));
+            assert!(matches!(r, Err(StegError::EngineAbsent)));
+        }
+
+        #[test]
+        fn embed_adaptive_returns_engine_absent() {
+            let r = embed_adaptive(
+                Path::new("/tmp/c.png"), b"data", b"pass", "chacha20-poly1305",
+                Path::new("/tmp/o.png"), false,
+            );
+            assert!(matches!(r, Err(StegError::EngineAbsent)));
+        }
+
+        #[test]
+        fn embed_sequential_returns_engine_absent() {
+            let r = embed_sequential(
+                Path::new("/tmp/c.png"), b"data", b"pass", "aes-256-gcm",
+                Path::new("/tmp/o.png"), false,
+            );
+            assert!(matches!(r, Err(StegError::EngineAbsent)));
+        }
+
+        #[test]
+        fn embed_wav_returns_engine_absent() {
+            let r = embed_wav(
+                Path::new("/tmp/c.wav"), b"data", b"pass", "ascon-128",
+                Path::new("/tmp/o.wav"), false,
+            );
+            assert!(matches!(r, Err(StegError::EngineAbsent)));
+        }
+
+        #[test]
+        fn embed_deniable_returns_engine_absent() {
+            let r = embed_deniable(
+                Path::new("/tmp/c.png"), b"real", b"decoy",
+                b"rpass", b"dpass", "chacha20-poly1305",
+                Path::new("/tmp/o.png"),
+            );
+            assert!(matches!(r, Err(StegError::EngineAbsent)));
+        }
+
+        #[test]
+        fn extract_returns_engine_absent() {
+            let r = extract(Path::new("/tmp/s.png"), b"pass");
+            assert!(matches!(r, Err(StegError::EngineAbsent)));
+        }
+
+        #[test]
+        fn extract_with_keyfile_returns_engine_absent() {
+            let kf = KeyFile {
+                engine: "rust-v1".into(), cipher: "chacha20-poly1305".into(),
+                nonce: "dA==".into(), salt: "dA==".into(),
+                deniable: false, partition_seed: None, partition_half: None,
+            };
+            let r = extract_with_keyfile(Path::new("/tmp/s.png"), &kf, b"pass");
+            assert!(matches!(r, Err(StegError::EngineAbsent)));
+        }
+
+        #[test]
+        fn read_meta_returns_engine_absent() {
+            let r = read_meta(Path::new("/tmp/s.png"), b"pass");
+            assert!(matches!(r, Err(StegError::EngineAbsent)));
+        }
+    }
+}

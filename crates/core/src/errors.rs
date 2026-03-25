@@ -136,3 +136,114 @@ impl Serialize for StegError {
         s.serialize_str(&self.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn display_messages_are_oracle_resistant() {
+        // DecryptionFailed and NoPayloadFound must have identical messages
+        let df = StegError::DecryptionFailed;
+        let np = StegError::NoPayloadFound;
+        assert_eq!(df.to_string(), np.to_string());
+    }
+
+    #[test]
+    fn display_insufficient_capacity() {
+        let e = StegError::InsufficientCapacity { required: 1000, available: 500 };
+        let msg = e.to_string();
+        assert!(msg.contains("1000"));
+        assert!(msg.contains("500"));
+    }
+
+    #[test]
+    fn display_unsupported_format() {
+        let e = StegError::UnsupportedFormat("tiff".into());
+        assert!(e.to_string().contains("tiff"));
+    }
+
+    #[test]
+    fn display_file_not_found() {
+        let e = StegError::FileNotFound("/tmp/nope.png".into());
+        assert!(e.to_string().contains("/tmp/nope.png"));
+    }
+
+    #[test]
+    fn display_file_too_large() {
+        let e = StegError::FileTooLarge { size_mb: 3000, max_mb: 2000 };
+        let msg = e.to_string();
+        assert!(msg.contains("3000"));
+        assert!(msg.contains("2000"));
+    }
+
+    #[test]
+    fn display_engine_absent() {
+        let e = StegError::EngineAbsent;
+        assert!(e.to_string().contains("engine"));
+    }
+
+    #[test]
+    fn suggestion_for_insufficient_capacity() {
+        let e = StegError::InsufficientCapacity { required: 100, available: 50 };
+        assert!(e.suggestion().unwrap().contains("sequential"));
+    }
+
+    #[test]
+    fn suggestion_for_decryption_failed() {
+        assert!(StegError::DecryptionFailed.suggestion().unwrap().contains("passphrase"));
+    }
+
+    #[test]
+    fn suggestion_for_no_payload_also_mentions_passphrase() {
+        assert!(StegError::NoPayloadFound.suggestion().unwrap().contains("passphrase"));
+    }
+
+    #[test]
+    fn suggestion_for_poor_cover() {
+        let e = StegError::PoorCoverQuality { score: 0.05 };
+        assert!(e.suggestion().unwrap().contains("high-resolution"));
+    }
+
+    #[test]
+    fn suggestion_for_empty_payload() {
+        assert!(StegError::EmptyPayload.suggestion().unwrap().contains("empty"));
+    }
+
+    #[test]
+    fn suggestion_for_unsupported_format() {
+        let e = StegError::UnsupportedFormat("gif".into());
+        assert!(e.suggestion().unwrap().contains("PNG"));
+    }
+
+    #[test]
+    fn suggestion_for_file_too_large() {
+        let e = StegError::FileTooLarge { size_mb: 5000, max_mb: 2000 };
+        assert!(e.suggestion().unwrap().contains("2 GB"));
+    }
+
+    #[test]
+    fn suggestion_for_engine_absent() {
+        assert!(StegError::EngineAbsent.suggestion().unwrap().contains("prebuilt"));
+    }
+
+    #[test]
+    fn suggestion_for_io_returns_none() {
+        let e = StegError::Io(std::io::Error::new(std::io::ErrorKind::Other, "test"));
+        assert!(e.suggestion().is_none());
+    }
+
+    #[test]
+    fn serialize_to_string() {
+        let e = StegError::EmptyPayload;
+        let json = serde_json::to_string(&e).unwrap();
+        assert_eq!(json, "\"Payload file is empty\"");
+    }
+
+    #[test]
+    fn io_error_converts() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "gone");
+        let e: StegError = io_err.into();
+        assert!(e.to_string().contains("gone"));
+    }
+}
