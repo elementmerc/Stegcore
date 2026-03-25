@@ -9,7 +9,7 @@ Stegcore hides encrypted data inside ordinary image and audio files. Only someon
 ### Linux / macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.sh | bash
 ```
 
 Or download the script and inspect it first:
@@ -20,10 +20,18 @@ less install.sh
 bash install.sh
 ```
 
-### Windows
+### Windows (PowerShell)
 
 ```powershell
-irm https://github.com/elementmerc/Stegcore/releases/latest/download/install.ps1 | iex
+irm https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.ps1 | iex
+```
+
+Or download and inspect first:
+
+```powershell
+Invoke-WebRequest https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.ps1 -OutFile install.ps1
+Get-Content install.ps1
+.\install.ps1
 ```
 
 ### Docker

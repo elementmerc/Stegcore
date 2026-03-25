@@ -24,9 +24,24 @@ Stegcore encrypts your payload and hides it inside an image or audio file. The r
 
 ## Install
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.sh | sh
+**Any platform (same URL, auto-detects):**
 ```
+curl -fsSL https://raw.githubusercontent.com/elementmerc/Stegcore/main/install | sh
+```
+
+<details>
+<summary>Platform-specific scripts</summary>
+
+**Linux / macOS:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.ps1 | iex
+```
+</details>
 
 ### Platform grid
 

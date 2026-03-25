@@ -1,0 +1,24 @@
+#!/bin/sh
+# <#
+# ── Stegcore Universal Installer ───────────────────────────────────────────
+# Works in bash, zsh, sh (Unix) and PowerShell (Windows).
+# One URL, both platforms:
+#   Unix:       curl -fsSL https://raw.githubusercontent.com/elementmerc/Stegcore/main/install | sh
+#   PowerShell: irm https://raw.githubusercontent.com/elementmerc/Stegcore/main/install | iex
+# ───────────────────────────────────────────────────────────────────────────
+curl -fsSL https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.sh | bash
+exit $?
+: <<'PS_END'
+# #>
+$ErrorActionPreference = 'Stop'
+try {
+    $script = Invoke-RestMethod 'https://raw.githubusercontent.com/elementmerc/Stegcore/main/install.ps1'
+    Invoke-Expression $script
+} catch {
+    Write-Host "Installation failed: $_" -ForegroundColor Red
+    Write-Host "Try downloading manually: https://github.com/elementmerc/Stegcore/releases" -ForegroundColor Yellow
+    exit 1
+}
+<#
+PS_END
+#>
