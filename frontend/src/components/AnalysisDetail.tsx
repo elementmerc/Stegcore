@@ -76,9 +76,9 @@ function toStegResult(r: AnalysisReport): SteganalysisResult {
     risk_score: Math.round(r.overall_score * 100),
     risk_label: RISK_MAP[r.verdict] ?? 'uncertain',
     chi_squared: {
-      r: chi ? 1 - chi.score : 0.8 + rng() * 0.15,
-      g: chi ? 1 - chi.score + rng() * 0.1 : 0.7 + rng() * 0.2,
-      b: chi ? 1 - chi.score - rng() * 0.05 : 0.75 + rng() * 0.15,
+      r: Math.max(0, Math.min(1, chi ? 1 - chi.score : 0.8 + rng() * 0.15)),
+      g: Math.max(0, Math.min(1, chi ? 1 - chi.score + rng() * 0.1 : 0.7 + rng() * 0.2)),
+      b: Math.max(0, Math.min(1, chi ? 1 - chi.score - rng() * 0.05 : 0.75 + rng() * 0.15)),
       threshold: 0.05,
     },
     rs_analysis: {
