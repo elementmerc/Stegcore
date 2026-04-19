@@ -4,6 +4,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Changed
+- Consolidated the `libstegcore` engine into the Stegcore monorepo as
+  `crates/engine/`. Single AGPL-3.0-or-later licence across the workspace.
+- Copyright attribution updated to The Malware Files.
+- Contact email: `ops@themalwarefiles.com`.
+
+### Removed
+- C FFI export layer (engine is now consumed as a pure Rust path dependency).
+- Dual-licence scheme and commercial licence variant.
+
+---
+
 ## [4.0.0-beta.1] — 2026-03-23
 
 Complete rewrite. Rust + Tauri v2 replaces the Python + PyInstaller codebase.
