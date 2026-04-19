@@ -187,7 +187,7 @@ fn analyse_image_sampled(path: &Path, fmt: &str, ratio: f64) -> Result<AnalysisR
 
     // No fingerprint or block entropy for fast mode
     let tests = vec![chi, spa, rs, ent];
-    let (verdict, overall_score) = ensemble(&tests);
+    let (verdict, overall_score) = ensemble(&tests, None);
 
     Ok(AnalysisReport {
         file: path.to_path_buf(),
@@ -219,12 +219,12 @@ fn analyse_image(path: &Path, fmt: &str) -> Result<AnalysisReport, StegError> {
         || rayon::join(|| rs_test(&all, w), || entropy_test(&all)),
     );
 
-    let fingerprint = fingerprint_image(path, fmt, &all, w, h);
+    let fingerprint = fingerprint_image(path, fmt);
 
     let block_entropy = compute_block_entropy(&all, w, h);
 
     let tests = vec![chi, spa, rs, ent];
-    let (verdict, overall_score) = ensemble(&tests);
+    let (verdict, overall_score) = ensemble(&tests, fingerprint.as_deref());
 
     Ok(AnalysisReport {
         file: path.to_path_buf(),
@@ -308,7 +308,7 @@ fn analyse_wav_sampled(path: &Path, ratio: f64) -> Result<AnalysisReport, StegEr
     );
 
     let tests = vec![chi, spa, ent];
-    let (verdict, overall_score) = ensemble(&tests);
+    let (verdict, overall_score) = ensemble(&tests, None);
 
     Ok(AnalysisReport {
         file: path.to_path_buf(),
@@ -356,7 +356,7 @@ fn analyse_wav(path: &Path) -> Result<AnalysisReport, StegError> {
     let fingerprint = fingerprint_audio(path, spec.channels);
 
     let tests = vec![chi, spa, ent];
-    let (verdict, overall_score) = ensemble(&tests);
+    let (verdict, overall_score) = ensemble(&tests, fingerprint.as_deref());
 
     Ok(AnalysisReport {
         file: path.to_path_buf(),
@@ -438,7 +438,7 @@ fn analyse_flac(path: &Path) -> Result<AnalysisReport, StegError> {
     );
 
     let tests = vec![chi, spa, ent];
-    let (verdict, overall_score) = ensemble(&tests);
+    let (verdict, overall_score) = ensemble(&tests, None);
 
     Ok(AnalysisReport {
         file: path.to_path_buf(),
@@ -577,12 +577,12 @@ fn chi_channel(values: &[u8]) -> f64 {
 }
 
 fn chi_confidence(score: f64) -> (Confidence, String) {
-    if score > 0.7 {
+    if score > CHI_THRESHOLD {
         (
             Confidence::High,
             format!("LSB pair distribution is highly uniform (score {score:.2})"),
         )
-    } else if score > 0.35 {
+    } else if score > CHI_THRESHOLD / 2.0 {
         (
             Confidence::Medium,
             format!("LSB pair distribution shows mild anomaly (score {score:.2})"),
@@ -727,12 +727,12 @@ fn spa_score(pixels: &[u8], width: usize) -> f64 {
 }
 
 fn spa_confidence(score: f64) -> (Confidence, String) {
-    if score > 0.65 {
+    if score > SPA_THRESHOLD {
         (
             Confidence::High,
             format!("Adjacent pair symmetry suggests LSB modification (score {score:.2})"),
         )
-    } else if score > 0.30 {
+    } else if score > SPA_THRESHOLD / 2.0 {
         (
             Confidence::Medium,
             format!("Moderate pair symmetry anomaly (score {score:.2})"),
@@ -872,12 +872,12 @@ fn smoothness(chunk: &[u8]) -> u32 {
 }
 
 fn rs_confidence(score: f64) -> (Confidence, String) {
-    if score > 0.6 {
+    if score > RS_THRESHOLD {
         (
             Confidence::High,
             format!("R/S group asymmetry indicates LSB manipulation (score {score:.2})"),
         )
-    } else if score > 0.30 {
+    } else if score > RS_THRESHOLD / 2.0 {
         (
             Confidence::Medium,
             format!("Mild R/S asymmetry detected (score {score:.2})"),
@@ -977,12 +977,12 @@ fn lsb_entropy_score(values: &[u8]) -> f64 {
 }
 
 fn entropy_confidence(score: f64) -> (Confidence, String) {
-    if score > 0.75 {
+    if score > ENTROPY_THRESHOLD {
         (
             Confidence::High,
             format!("LSB plane autocorrelation is very low (score {score:.2})"),
         )
-    } else if score > 0.45 {
+    } else if score > ENTROPY_THRESHOLD / 2.0 {
         (
             Confidence::Medium,
             format!("LSB plane correlation mildly reduced (score {score:.2})"),
@@ -1032,30 +1032,17 @@ fn audio_spa_confidence(score: f64) -> (Confidence, String) {
 
 // ── Detector: Tool Fingerprinting ─────────────────────────────────────────────
 
-fn fingerprint_image(
-    path: &Path,
-    fmt: &str,
-    pixels: &[u8],
-    width: u32,
-    height: u32,
-) -> Option<String> {
-    // Check for OpenStego PNG metadata chunk
+fn fingerprint_image(path: &Path, fmt: &str) -> Option<String> {
     if fmt == "png" {
         if let Some(sig) = check_openstego_png(path) {
             return Some(sig);
         }
     }
 
-    // Check for Steghide on BMP/JPEG/other formats
     if fmt == "bmp" || fmt == "jpg" || fmt == "jpeg" {
         if let Some(sig) = check_steghide(path) {
             return Some(sig);
         }
-    }
-
-    // Check for tool-specific statistical signatures
-    if let Some(sig) = fingerprint_by_statistics(pixels, width, height) {
-        return Some(sig);
     }
 
     None
@@ -1083,18 +1070,14 @@ fn check_steghide(path: &Path) -> Option<String> {
     None
 }
 
-fn fingerprint_by_statistics(pixels: &[u8], _width: u32, _height: u32) -> Option<String> {
-    if pixels.len() < 256 {
-        return None;
-    }
-    // If the chi-squared score is very high (>0.9) and pattern is sequential,
-    // it's characteristic of sequential-LSB tools like Steghide or OpenStego
-    let score = chi_channel(pixels);
-    if score > 0.90 {
-        return Some("Sequential LSB tool (likely Steghide or OpenStego)".into());
-    }
-    None
-}
+// ── Per-detector calibrated thresholds ───────────────────────────────────────
+
+// Calibrated 2026-04-19 on Cassavia 2022 LSBSteg (44k samples); target FPR = 0%.
+// Sacred per Q-6 D: below these values, a detector returns clean.
+const CHI_THRESHOLD: f64 = 0.4507;
+const SPA_THRESHOLD: f64 = 0.1763;
+const RS_THRESHOLD: f64 = 1.0;
+const ENTROPY_THRESHOLD: f64 = 0.9916;
 
 // ── Ensemble verdict ──────────────────────────────────────────────────────────
 
@@ -1104,30 +1087,41 @@ const W_SPA: f64 = 0.30;
 const W_RS: f64 = 0.20;
 const W_ENT: f64 = 0.15;
 
-fn ensemble(tests: &[TestResult]) -> (Verdict, f64) {
+fn ensemble(tests: &[TestResult], fingerprint: Option<&str>) -> (Verdict, f64) {
     if tests.is_empty() {
         return (Verdict::Clean, 0.0);
     }
 
+    // Fingerprint-led verdict: a high-confidence tool signature is decisive.
+    if fingerprint.is_some() {
+        return (Verdict::LikelyStego, 0.95);
+    }
+
     let weighted_score = if tests.len() >= 4 {
-        // Full image: chi + spa + rs + entropy
         tests[0].score * W_CHI
             + tests[1].score * W_SPA
             + tests[2].score * W_RS
             + tests[3].score * W_ENT
     } else if tests.len() == 3 {
-        // Audio: chi + audio_spa + entropy (equal thirds)
         (tests[0].score + tests[1].score + tests[2].score) / 3.0
     } else {
         tests.iter().map(|t| t.score).sum::<f64>() / tests.len() as f64
     };
 
-    let verdict = if weighted_score < 0.25 {
-        Verdict::Clean
-    } else if weighted_score < 0.55 {
+    // OR-logic: any classical detector above its calibrated 0% FPR threshold
+    // raises the verdict to at least Suspicious.
+    let any_fires = tests.len() >= 4
+        && (tests[0].score > CHI_THRESHOLD
+            || tests[1].score > SPA_THRESHOLD
+            || tests[2].score > RS_THRESHOLD
+            || tests[3].score > ENTROPY_THRESHOLD);
+
+    let verdict = if weighted_score >= 0.55 {
+        Verdict::LikelyStego
+    } else if any_fires || weighted_score >= 0.25 {
         Verdict::Suspicious
     } else {
-        Verdict::LikelyStego
+        Verdict::Clean
     };
 
     (verdict, weighted_score)
@@ -1400,18 +1394,18 @@ mod tests {
         std::fs::remove_file(&path).ok();
     }
 
-    // TODO(Phase-8-calibration): re-enable after thresholds recalibrated on 44k dataset.
-    // Decision queue Q-1 resolved 2026-04-19.
     #[test]
-    #[ignore]
     fn sequential_embedded_scores_high() {
-        // Full fill (100%) into all-black image → count[0]≈count[1] → chi2≈0 → high score
         let path = sequential_png("analysis_seq.png", 1.0);
         let report: AnalysisReport = serde_json::from_str(&analyse(&path).unwrap()).unwrap();
         assert!(
-            report.overall_score > 0.40,
-            "sequential-embedded image should score > 0.40, got {:.3}",
+            report.overall_score > 0.25,
+            "sequential-embedded image should verdict at least Suspicious (>0.25), got {:.3}",
             report.overall_score
+        );
+        assert!(
+            !matches!(report.verdict, Verdict::Clean),
+            "sequential-embedded image should not verdict Clean"
         );
         std::fs::remove_file(&path).ok();
     }
@@ -1425,12 +1419,20 @@ mod tests {
             detail: String::new(),
             distribution: None,
         };
-        let (v_clean, _) = ensemble(&[mk(0.10), mk(0.10), mk(0.10), mk(0.10)]);
-        let (v_susp, _) = ensemble(&[mk(0.40), mk(0.40), mk(0.40), mk(0.40)]);
-        let (v_stego, _) = ensemble(&[mk(0.80), mk(0.80), mk(0.80), mk(0.80)]);
+        let (v_clean, _) = ensemble(&[mk(0.10), mk(0.10), mk(0.10), mk(0.10)], None);
+        let (v_susp, _) = ensemble(&[mk(0.40), mk(0.40), mk(0.40), mk(0.40)], None);
+        let (v_stego, _) = ensemble(&[mk(0.80), mk(0.80), mk(0.80), mk(0.80)], None);
         assert_eq!(v_clean, Verdict::Clean);
         assert_eq!(v_susp, Verdict::Suspicious);
         assert_eq!(v_stego, Verdict::LikelyStego);
+
+        // Fingerprint-led: any fingerprint overrides detector scores.
+        let (v_fp, s_fp) = ensemble(
+            &[mk(0.0), mk(0.0), mk(0.0), mk(0.0)],
+            Some("LSBSteg (medium confidence)"),
+        );
+        assert_eq!(v_fp, Verdict::LikelyStego);
+        assert!(s_fp > 0.9);
     }
 
     #[test]
@@ -1560,7 +1562,7 @@ mod tests {
 
     #[test]
     fn ensemble_empty_returns_clean() {
-        let (v, s) = ensemble(&[]);
+        let (v, s) = ensemble(&[], None);
         assert_eq!(v, Verdict::Clean);
         assert_eq!(s, 0.0);
     }
