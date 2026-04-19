@@ -9,8 +9,9 @@
 # Rust / Cargo
 /target/
 
-# Private docs / test scripts
+# Private docs / test scripts / internal tools
 /private/
+/tools/
 
 # Frontend
 /frontend/node_modules/
